@@ -1,0 +1,29 @@
+# LLM 代码安全审计工具 - 依赖
+
+# 核心依赖
+pyyaml>=6.0
+httpx>=0.25.0
+pydantic>=2.0.0
+
+# 向量数据库
+qdrant-client>=1.7.0
+
+# CLI 和 UI
+typer>=0.9.0
+rich>=13.0.0
+
+# Web API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+
+# 可选：代码解析增强
+# tree-sitter>=0.20.0
+# tree-sitter-python>=0.20.0
+# tree-sitter-javascript>=0.20.0
+
+# 开发依赖
+# pytest>=7.0.0
+# pytest-asyncio>=0.21.0
+# black>=23.0.0
+# ruff>=0.1.0

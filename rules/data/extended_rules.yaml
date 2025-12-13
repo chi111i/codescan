@@ -1,0 +1,310 @@
+# 扩展安全规则配置
+# 这是一个示例配置文件，展示如何添加自定义规则
+
+rules:
+  # ============ Python 扩展规则 ============
+
+  # 文件操作相关
+  - id: py-path-traversal
+    name: 路径遍历风险
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "open"
+      - "os.path.join"
+      - "pathlib.Path"
+      - "shutil.copy"
+      - "shutil.move"
+    description: |
+      使用用户输入构造文件路径可能导致路径遍历攻击，
+      攻击者可能读取或写入任意文件。
+    fix_suggestion: |
+      1. 验证路径不包含 .. 或绝对路径
+      2. 使用 os.path.realpath() 规范化路径
+      3. 检查最终路径是否在允许的目录内
+    cwe_ids: ["CWE-22"]
+    owasp_ids: ["A01:2021"]
+    tags: ["file", "path"]
+
+  - id: py-template-injection
+    name: 模板注入风险
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "Template"
+      - "render_template_string"
+      - "Jinja2"
+      - "prefix:render"
+      - "format_map"
+    frameworks: [flask, django, jinja2]
+    description: |
+      在模板中使用用户输入可能导致服务端模板注入(SSTI)，
+      攻击者可能执行任意代码。
+    fix_suggestion: |
+      1. 不要将用户输入直接作为模板内容
+      2. 使用沙箱环境渲染用户模板
+      3. 对用户输入进行严格过滤
+    cwe_ids: ["CWE-94"]
+    tags: ["template", "ssti"]
+
+  - id: py-ldap-injection
+    name: LDAP 注入风险
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "ldap.search"
+      - "ldap.search_s"
+      - "ldap.search_ext"
+      - "ldap3.search"
+    description: 在 LDAP 查询中使用用户输入可能导致 LDAP 注入
+    fix_suggestion: 使用 LDAP 转义函数处理用户输入
+    cwe_ids: ["CWE-90"]
+    tags: ["ldap", "injection"]
+
+  - id: py-xml-external-entity
+    name: XXE 漏洞风险
+    rule_type: sink
+    category: xxe
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "xml.etree.ElementTree.parse"
+      - "xml.etree.ElementTree.fromstring"
+      - "lxml.etree.parse"
+      - "xml.dom.minidom.parse"
+      - "xml.sax.parse"
+    description: |
+      解析不可信的 XML 数据可能导致 XXE 攻击，
+      攻击者可能读取本地文件或发起 SSRF。
+    fix_suggestion: |
+      1. 使用 defusedxml 库替代标准库
+      2. 禁用外部实体解析
+      3. 使用 JSON 替代 XML
+    cwe_ids: ["CWE-611"]
+    owasp_ids: ["A05:2021"]
+    tags: ["xml", "xxe"]
+
+  - id: py-weak-crypto
+    name: 弱加密算法
+    rule_type: sink
+    category: crypto
+    risk_level: medium
+    languages: [python]
+    patterns:
+      - "hashlib.md5"
+      - "hashlib.sha1"
+      - "DES"
+      - "RC4"
+      - "random.random"
+      - "random.randint"
+    description: |
+      使用弱加密算法或不安全的随机数生成器
+      可能导致数据被破解或预测。
+    fix_suggestion: |
+      1. 密码哈希使用 bcrypt/argon2/scrypt
+      2. 一般哈希使用 SHA-256 或更强
+      3. 安全随机数使用 secrets 模块
+    cwe_ids: ["CWE-327", "CWE-328"]
+    tags: ["crypto", "hash"]
+
+  # ============ JavaScript 扩展规则 ============
+
+  - id: js-nosql-injection
+    name: NoSQL 注入风险
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [javascript, typescript]
+    patterns:
+      - "find"
+      - "findOne"
+      - "findOneAndUpdate"
+      - "aggregate"
+      - "$where"
+    frameworks: [mongodb, mongoose]
+    description: |
+      在 MongoDB 查询中使用用户输入可能导致 NoSQL 注入，
+      攻击者可能绕过认证或访问未授权数据。
+    fix_suggestion: |
+      1. 验证输入类型（确保不是对象）
+      2. 不使用 $where 操作符
+      3. 使用 mongoose 的 sanitize 功能
+    cwe_ids: ["CWE-943"]
+    tags: ["nosql", "mongodb"]
+
+  - id: js-regex-dos
+    name: 正则表达式拒绝服务
+    rule_type: sink
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - "new RegExp"
+      - "regex:test"
+      - "regex:match"
+      - "regex:replace"
+    description: |
+      使用用户输入构造正则表达式可能导致 ReDoS 攻击，
+      恶意构造的输入可能导致 CPU 耗尽。
+    fix_suggestion: |
+      1. 不要使用用户输入构造正则表达式
+      2. 使用 safe-regex 库检测危险模式
+      3. 设置正则表达式超时
+    cwe_ids: ["CWE-1333"]
+    tags: ["regex", "dos"]
+
+  - id: js-open-redirect
+    name: 开放重定向风险
+    rule_type: sink
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - "res.redirect"
+      - "location.href"
+      - "location.replace"
+      - "window.open"
+    description: |
+      使用用户输入作为重定向目标可能被利用进行钓鱼攻击。
+    fix_suggestion: |
+      1. 使用白名单验证重定向目标
+      2. 只允许相对路径重定向
+      3. 验证目标域名
+    cwe_ids: ["CWE-601"]
+    owasp_ids: ["A01:2021"]
+    tags: ["redirect", "phishing"]
+
+  - id: js-jwt-weak
+    name: JWT 安全问题
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - "jwt.verify"
+      - "jwt.sign"
+      - "jsonwebtoken"
+      - "contains:algorithm"
+    description: |
+      JWT 配置不当可能导致认证绕过，
+      如允许 none 算法或使用弱密钥。
+    fix_suggestion: |
+      1. 明确指定允许的算法
+      2. 使用足够长度的密钥
+      3. 验证所有必要的 claims
+    cwe_ids: ["CWE-287", "CWE-345"]
+    tags: ["jwt", "auth"]
+
+  # ============ 业务逻辑扩展规则 ============
+
+  - id: business-rate-limit-missing
+    name: 缺少速率限制
+    rule_type: pattern
+    category: business-logic
+    risk_level: medium
+    languages: [python, javascript, typescript]
+    patterns:
+      - "contains:rate_limit"
+      - "contains:throttle"
+      - "contains:rateLimit"
+    description: |
+      敏感操作缺少速率限制可能被滥用，
+      如暴力破解、资源耗尽等。
+    fix_suggestion: |
+      1. 对登录接口实施速率限制
+      2. 对发送验证码等操作限制频率
+      3. 使用 Redis 或类似方案实现分布式限流
+    cwe_ids: ["CWE-799"]
+    tags: ["rate-limit", "abuse"]
+
+  - id: business-mass-assignment
+    name: 批量赋值漏洞
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [python, javascript, typescript]
+    patterns:
+      - "update"
+      - "create"
+      - "contains:setattr"
+      - "Object.assign"
+      - "spread operator"
+    description: |
+      直接使用用户输入更新模型可能导致批量赋值漏洞，
+      攻击者可能修改不应该修改的字段（如 is_admin）。
+    fix_suggestion: |
+      1. 使用白名单限制可更新的字段
+      2. 在模型层定义 fillable/guarded 属性
+      3. 不要直接使用 request.body 更新数据
+    cwe_ids: ["CWE-915"]
+    tags: ["mass-assignment", "idor"]
+
+  - id: business-race-condition
+    name: 竞态条件风险
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript]
+    patterns:
+      - "contains:balance"
+      - "contains:stock"
+      - "contains:inventory"
+      - "contains:quantity"
+      - "contains:count"
+    description: |
+      涉及余额、库存等操作可能存在竞态条件，
+      攻击者可能通过并发请求绕过检查。
+    fix_suggestion: |
+      1. 使用数据库事务和锁
+      2. 使用乐观锁或悲观锁
+      3. 在数据库层面使用原子操作
+    cwe_ids: ["CWE-362"]
+    tags: ["race-condition", "toctou"]
+
+  - id: business-insecure-random
+    name: 不安全的随机数
+    rule_type: sink
+    category: crypto
+    risk_level: medium
+    languages: [python, javascript, typescript]
+    patterns:
+      - "Math.random"
+      - "random.random"
+      - "random.randint"
+      - "contains:uuid"
+    description: |
+      用于安全目的（如生成令牌、验证码）的随机数
+      应使用加密安全的随机数生成器。
+    fix_suggestion: |
+      Python: 使用 secrets 模块
+      JavaScript: 使用 crypto.randomBytes 或 uuid
+    cwe_ids: ["CWE-330"]
+    tags: ["random", "token"]
+
+  - id: business-sensitive-logging
+    name: 敏感信息日志记录
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript]
+    patterns:
+      - "contains:password"
+      - "contains:token"
+      - "contains:secret"
+      - "contains:credit_card"
+      - "contains:ssn"
+    description: |
+      日志中可能记录了敏感信息，
+      这些信息可能被未授权的人员访问。
+    fix_suggestion: |
+      1. 对敏感字段进行脱敏处理
+      2. 不记录密码、令牌等敏感数据
+      3. 使用结构化日志并过滤敏感字段
+    cwe_ids: ["CWE-532"]
+    tags: ["logging", "sensitive-data"]

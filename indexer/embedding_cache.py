@@ -1,0 +1,444 @@
+"""
+嵌入缓存模块 - 基于内容哈希避免重复计算
+
+功能:
+- 基于文件/代码内容的 SHA256 哈希作为缓存键
+- 支持本地文件缓存和 SQLite 缓存
+- 自动过期清理
+- 相似代码去重 (可选)
+"""
+
+import hashlib
+import json
+import logging
+import os
+import sqlite3
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CacheEntry:
+    """缓存条目"""
+    content_hash: str
+    embedding: List[float]
+    created_at: float
+    metadata: Dict[str, Any]
+
+
+class EmbeddingCache:
+    """嵌入缓存 - 基于内容哈希
+
+    特点:
+    - 内容不变则不重算 embedding
+    - 支持批量查询和存储
+    - 自动过期清理
+    """
+
+    def __init__(
+        self,
+        cache_dir: str = ".audit_cache",
+        ttl_days: int = 30,
+        use_sqlite: bool = True
+    ):
+        """初始化缓存
+
+        Args:
+            cache_dir: 缓存目录
+            ttl_days: 缓存过期天数
+            use_sqlite: 使用 SQLite (推荐) 还是 JSON 文件
+        """
+        self.cache_dir = Path(cache_dir)
+        self.ttl_days = ttl_days
+        self.use_sqlite = use_sqlite
+        self._db_conn = None
+
+        # 确保缓存目录存在
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        if use_sqlite:
+            self._init_sqlite()
+
+    def _init_sqlite(self) -> None:
+        """初始化 SQLite 数据库"""
+        db_path = self.cache_dir / "embeddings.db"
+        self._db_conn = sqlite3.connect(str(db_path), check_same_thread=False)
+
+        self._db_conn.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                content_hash TEXT PRIMARY KEY,
+                embedding BLOB,
+                created_at REAL,
+                metadata TEXT
+            )
+        """)
+
+        # 创建索引
+        self._db_conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_created_at ON embeddings(created_at)
+        """)
+
+        self._db_conn.commit()
+        logger.info(f"Initialized embedding cache: {db_path}")
+
+    @staticmethod
+    def compute_hash(content: str) -> str:
+        """计算内容哈希"""
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    def get(self, content_hash: str) -> Optional[List[float]]:
+        """获取缓存的嵌入
+
+        Args:
+            content_hash: 内容哈希
+
+        Returns:
+            嵌入向量，如果缓存未命中则返回 None
+        """
+        if self.use_sqlite:
+            return self._get_sqlite(content_hash)
+        else:
+            return self._get_file(content_hash)
+
+    def _get_sqlite(self, content_hash: str) -> Optional[List[float]]:
+        """从 SQLite 获取"""
+        cursor = self._db_conn.execute(
+            "SELECT embedding, created_at FROM embeddings WHERE content_hash = ?",
+            (content_hash,)
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        embedding_bytes, created_at = row
+
+        # 检查是否过期
+        if self._is_expired(created_at):
+            self._delete_sqlite(content_hash)
+            return None
+
+        return json.loads(embedding_bytes)
+
+    def _get_file(self, content_hash: str) -> Optional[List[float]]:
+        """从文件获取"""
+        cache_file = self.cache_dir / f"{content_hash[:2]}" / f"{content_hash}.json"
+
+        if not cache_file.exists():
+            return None
+
+        try:
+            with open(cache_file, "r") as f:
+                data = json.load(f)
+
+            if self._is_expired(data.get("created_at", 0)):
+                cache_file.unlink()
+                return None
+
+            return data.get("embedding")
+        except Exception as e:
+            logger.warning(f"Failed to read cache file: {e}")
+            return None
+
+    def set(
+        self,
+        content_hash: str,
+        embedding: List[float],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """存储嵌入到缓存
+
+        Args:
+            content_hash: 内容哈希
+            embedding: 嵌入向量
+            metadata: 额外元数据
+        """
+        if self.use_sqlite:
+            self._set_sqlite(content_hash, embedding, metadata)
+        else:
+            self._set_file(content_hash, embedding, metadata)
+
+    def _set_sqlite(
+        self,
+        content_hash: str,
+        embedding: List[float],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """存储到 SQLite"""
+        self._db_conn.execute(
+            """
+            INSERT OR REPLACE INTO embeddings (content_hash, embedding, created_at, metadata)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                content_hash,
+                json.dumps(embedding),
+                time.time(),
+                json.dumps(metadata or {})
+            )
+        )
+        self._db_conn.commit()
+
+    def _set_file(
+        self,
+        content_hash: str,
+        embedding: List[float],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """存储到文件"""
+        # 使用哈希前两位作为子目录
+        subdir = self.cache_dir / content_hash[:2]
+        subdir.mkdir(exist_ok=True)
+
+        cache_file = subdir / f"{content_hash}.json"
+        data = {
+            "embedding": embedding,
+            "created_at": time.time(),
+            "metadata": metadata or {}
+        }
+
+        with open(cache_file, "w") as f:
+            json.dump(data, f)
+
+    def get_batch(self, content_hashes: List[str]) -> Dict[str, Optional[List[float]]]:
+        """批量获取缓存
+
+        Args:
+            content_hashes: 内容哈希列表
+
+        Returns:
+            哈希到嵌入的映射
+        """
+        results = {}
+        for h in content_hashes:
+            results[h] = self.get(h)
+        return results
+
+    def set_batch(
+        self,
+        items: List[Tuple[str, List[float], Optional[Dict[str, Any]]]]
+    ) -> None:
+        """批量存储缓存
+
+        Args:
+            items: [(content_hash, embedding, metadata), ...]
+        """
+        if self.use_sqlite:
+            for content_hash, embedding, metadata in items:
+                self._db_conn.execute(
+                    """
+                    INSERT OR REPLACE INTO embeddings (content_hash, embedding, created_at, metadata)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        content_hash,
+                        json.dumps(embedding),
+                        time.time(),
+                        json.dumps(metadata or {})
+                    )
+                )
+            self._db_conn.commit()
+        else:
+            for content_hash, embedding, metadata in items:
+                self._set_file(content_hash, embedding, metadata)
+
+    def _is_expired(self, created_at: float) -> bool:
+        """检查是否过期"""
+        expiry_time = created_at + (self.ttl_days * 24 * 60 * 60)
+        return time.time() > expiry_time
+
+    def _delete_sqlite(self, content_hash: str) -> None:
+        """从 SQLite 删除"""
+        self._db_conn.execute(
+            "DELETE FROM embeddings WHERE content_hash = ?",
+            (content_hash,)
+        )
+        self._db_conn.commit()
+
+    def cleanup_expired(self) -> int:
+        """清理过期缓存
+
+        Returns:
+            清理的条目数
+        """
+        expiry_threshold = time.time() - (self.ttl_days * 24 * 60 * 60)
+
+        if self.use_sqlite:
+            cursor = self._db_conn.execute(
+                "DELETE FROM embeddings WHERE created_at < ?",
+                (expiry_threshold,)
+            )
+            self._db_conn.commit()
+            count = cursor.rowcount
+        else:
+            count = 0
+            for subdir in self.cache_dir.iterdir():
+                if subdir.is_dir() and len(subdir.name) == 2:
+                    for cache_file in subdir.glob("*.json"):
+                        try:
+                            with open(cache_file, "r") as f:
+                                data = json.load(f)
+                            if self._is_expired(data.get("created_at", 0)):
+                                cache_file.unlink()
+                                count += 1
+                        except Exception:
+                            pass
+
+        logger.info(f"Cleaned up {count} expired cache entries")
+        return count
+
+    def get_stats(self) -> Dict[str, Any]:
+        """获取缓存统计信息"""
+        if self.use_sqlite:
+            cursor = self._db_conn.execute("SELECT COUNT(*) FROM embeddings")
+            total = cursor.fetchone()[0]
+
+            expiry_threshold = time.time() - (self.ttl_days * 24 * 60 * 60)
+            cursor = self._db_conn.execute(
+                "SELECT COUNT(*) FROM embeddings WHERE created_at < ?",
+                (expiry_threshold,)
+            )
+            expired = cursor.fetchone()[0]
+
+            # 计算缓存大小
+            db_path = self.cache_dir / "embeddings.db"
+            size_mb = db_path.stat().st_size / (1024 * 1024) if db_path.exists() else 0
+
+            return {
+                "total_entries": total,
+                "expired_entries": expired,
+                "cache_size_mb": round(size_mb, 2),
+                "ttl_days": self.ttl_days
+            }
+        else:
+            total = 0
+            for subdir in self.cache_dir.iterdir():
+                if subdir.is_dir() and len(subdir.name) == 2:
+                    total += len(list(subdir.glob("*.json")))
+
+            return {
+                "total_entries": total,
+                "ttl_days": self.ttl_days
+            }
+
+    def clear(self) -> None:
+        """清空所有缓存"""
+        if self.use_sqlite:
+            self._db_conn.execute("DELETE FROM embeddings")
+            self._db_conn.commit()
+        else:
+            import shutil
+            for subdir in self.cache_dir.iterdir():
+                if subdir.is_dir() and len(subdir.name) == 2:
+                    shutil.rmtree(subdir)
+
+        logger.info("Embedding cache cleared")
+
+    def close(self) -> None:
+        """关闭缓存连接"""
+        if self._db_conn:
+            self._db_conn.close()
+            self._db_conn = None
+
+
+class CachedEmbeddingGenerator:
+    """带缓存的嵌入生成器
+
+    用于包装 LLM 客户端的 embed 方法，自动处理缓存
+    """
+
+    def __init__(
+        self,
+        llm_client,
+        cache: Optional[EmbeddingCache] = None,
+        cache_dir: str = ".audit_cache",
+        ttl_days: int = 30
+    ):
+        """初始化
+
+        Args:
+            llm_client: LLM 客户端 (需要有 embed 方法)
+            cache: 可选的缓存实例
+            cache_dir: 缓存目录 (如果 cache 为 None)
+            ttl_days: 缓存过期天数 (如果 cache 为 None)
+        """
+        self.llm_client = llm_client
+        self.cache = cache or EmbeddingCache(cache_dir=cache_dir, ttl_days=ttl_days)
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def generate_embeddings(
+        self,
+        texts: List[str],
+        batch_size: int = 50
+    ) -> List[List[float]]:
+        """生成嵌入 (带缓存)
+
+        Args:
+            texts: 文本列表
+            batch_size: 批处理大小
+
+        Returns:
+            嵌入向量列表
+        """
+        # 计算所有文本的哈希
+        hashes = [EmbeddingCache.compute_hash(t) for t in texts]
+
+        # 批量查询缓存
+        cached = self.cache.get_batch(hashes)
+
+        # 找出需要计算的文本
+        embeddings = [None] * len(texts)
+        texts_to_compute = []
+        indices_to_compute = []
+
+        for i, (text, h) in enumerate(zip(texts, hashes)):
+            if cached[h] is not None:
+                embeddings[i] = cached[h]
+                self._cache_hits += 1
+            else:
+                texts_to_compute.append(text)
+                indices_to_compute.append(i)
+                self._cache_misses += 1
+
+        logger.debug(f"Cache hits: {self._cache_hits}, misses: {self._cache_misses}")
+
+        # 批量计算新的嵌入
+        if texts_to_compute:
+            new_embeddings = []
+            for i in range(0, len(texts_to_compute), batch_size):
+                batch_texts = texts_to_compute[i:i + batch_size]
+                response = self.llm_client.embed(batch_texts)
+                new_embeddings.extend(response.embeddings)
+
+            # 填充结果并缓存
+            cache_items = []
+            for idx, emb, text in zip(indices_to_compute, new_embeddings, texts_to_compute):
+                embeddings[idx] = emb
+                h = hashes[idx]
+                cache_items.append((h, emb, {"text_length": len(text)}))
+
+            self.cache.set_batch(cache_items)
+
+        return embeddings
+
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息"""
+        cache_stats = self.cache.get_stats()
+        hit_rate = self._cache_hits / max(1, self._cache_hits + self._cache_misses)
+
+        return {
+            **cache_stats,
+            "session_hits": self._cache_hits,
+            "session_misses": self._cache_misses,
+            "session_hit_rate": round(hit_rate, 3)
+        }
+
+    def reset_stats(self) -> None:
+        """重置会话统计"""
+        self._cache_hits = 0
+        self._cache_misses = 0

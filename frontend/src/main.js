@@ -1,0 +1,64 @@
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import { createRouter, createWebHistory } from 'vue-router'
+import App from './App.vue'
+import './style.css'
+
+// 路由配置
+const routes = [
+  {
+    path: '/',
+    name: 'Dashboard',
+    component: () => import('./views/Dashboard.vue'),
+  },
+  {
+    path: '/scan',
+    name: 'Scan',
+    component: () => import('./views/Scan.vue'),
+  },
+  {
+    path: '/results/:scanId?',
+    name: 'Results',
+    component: () => import('./views/Results.vue'),
+  },
+  {
+    path: '/callgraph',
+    name: 'CallGraph',
+    component: () => import('./views/CallGraph.vue'),
+  },
+  {
+    path: '/code-graph',
+    name: 'CodeGraph',
+    component: () => import('./views/CodeGraph.vue'),
+  },
+  {
+    path: '/variant-analysis',
+    name: 'VariantAnalysis',
+    component: () => import('./views/VariantAnalysis.vue'),
+  },
+  {
+    path: '/rules',
+    name: 'Rules',
+    component: () => import('./views/Rules.vue'),
+  },
+  {
+    path: '/search',
+    name: 'Search',
+    component: () => import('./views/Search.vue'),
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('./views/Settings.vue'),
+  },
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+const app = createApp(App)
+app.use(createPinia())
+app.use(router)
+app.mount('#app')

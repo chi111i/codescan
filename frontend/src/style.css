@@ -1,0 +1,960 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   Apple 风格磨砂玻璃 UI 系统
+   ======================================== */
+
+:root {
+  /* Apple 系统颜色 */
+  --apple-blue: #007AFF;
+  --apple-green: #34C759;
+  --apple-red: #FF3B30;
+  --apple-orange: #FF9500;
+  --apple-yellow: #FFCC00;
+  --apple-purple: #AF52DE;
+  --apple-pink: #FF2D55;
+  --apple-teal: #5AC8FA;
+  --apple-indigo: #5856D6;
+
+  /* 磨砂玻璃变量 */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-light: rgba(255, 255, 255, 0.85);
+  --glass-bg-dark: rgba(28, 28, 30, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-border-dark: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --glass-shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.12);
+
+  /* 动画时间 */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.25s;
+  --transition-slow: 0.4s;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+               'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+  background:
+    radial-gradient(ellipse at top left, rgba(102, 126, 234, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at top right, rgba(240, 147, 251, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom left, rgba(118, 75, 162, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(91, 134, 229, 0.2) 0%, transparent 50%),
+    linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: #1C1C1E;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* 动态背景动画 */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                    rgba(120, 119, 198, 0.15), transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ========================================
+   磨砂玻璃效果系统
+   ======================================== */
+
+/* 基础磨砂玻璃 - Apple 风格 */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* 深色磨砂玻璃 - 侧边栏用 */
+.glass-dark {
+  background: var(--glass-bg-dark);
+  backdrop-filter: blur(50px) saturate(200%);
+  -webkit-backdrop-filter: blur(50px) saturate(200%);
+  border: 1px solid var(--glass-border-dark);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 卡片磨砂玻璃 - 带悬浮效果 */
+.glass-card {
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    var(--glass-shadow-elevated),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateY(-4px) scale(1.01);
+}
+
+/* 轻量磨砂 - 输入框背景用 */
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+}
+
+/* 强调磨砂 - 弹窗、浮层用 */
+.glass-elevated {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(60px) saturate(200%);
+  -webkit-backdrop-filter: blur(60px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* 彩色磨砂变体 */
+.glass-blue {
+  background: linear-gradient(135deg,
+    rgba(0, 122, 255, 0.15) 0%,
+    rgba(88, 86, 214, 0.1) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.glass-green {
+  background: linear-gradient(135deg,
+    rgba(52, 199, 89, 0.15) 0%,
+    rgba(48, 209, 88, 0.1) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(52, 199, 89, 0.2);
+}
+
+.glass-orange {
+  background: linear-gradient(135deg,
+    rgba(255, 149, 0, 0.15) 0%,
+    rgba(255, 159, 10, 0.1) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 149, 0, 0.2);
+}
+
+.glass-red {
+  background: linear-gradient(135deg,
+    rgba(255, 59, 48, 0.15) 0%,
+    rgba(255, 69, 58, 0.1) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+/* ========================================
+   按钮系统 - Apple 风格
+   ======================================== */
+
+/* 主要按钮 - 渐变蓝色 */
+.btn-primary {
+  @apply px-6 py-3 rounded-2xl font-semibold text-white;
+  background: linear-gradient(180deg, #007AFF 0%, #0056CC 100%);
+  box-shadow:
+    0 4px 16px rgba(0, 122, 255, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #339DFF 0%, #007AFF 100%);
+  box-shadow:
+    0 8px 24px rgba(0, 122, 255, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.btn-primary:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    0 2px 8px rgba(0, 122, 255, 0.3),
+    inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 次要按钮 - 磨砂玻璃 */
+.btn-secondary {
+  @apply px-6 py-3 rounded-2xl font-medium;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  color: #1C1C1E;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* 危险按钮 */
+.btn-danger {
+  @apply px-6 py-3 rounded-2xl font-semibold text-white;
+  background: linear-gradient(180deg, #FF3B30 0%, #D62828 100%);
+  box-shadow:
+    0 4px 16px rgba(255, 59, 48, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-danger:hover {
+  box-shadow:
+    0 8px 24px rgba(255, 59, 48, 0.45);
+  transform: translateY(-2px);
+}
+
+/* 成功按钮 */
+.btn-success {
+  @apply px-6 py-3 rounded-2xl font-semibold text-white;
+  background: linear-gradient(180deg, #34C759 0%, #248A3D 100%);
+  box-shadow:
+    0 4px 16px rgba(52, 199, 89, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-success:hover {
+  box-shadow:
+    0 8px 24px rgba(52, 199, 89, 0.45);
+  transform: translateY(-2px);
+}
+
+/* 幽灵按钮 */
+.btn-ghost {
+  @apply px-6 py-3 rounded-2xl font-medium;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* 图标按钮 */
+.btn-icon {
+  @apply p-3 rounded-xl;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-normal);
+  color: white;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+/* ========================================
+   输入框系统 - Apple 风格
+   ======================================== */
+
+.input-glass {
+  @apply w-full px-4 py-3 rounded-xl outline-none text-gray-800;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-glass:focus {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--apple-blue);
+  box-shadow:
+    0 0 0 4px rgba(0, 122, 255, 0.15),
+    inset 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.input-glass::placeholder {
+  color: rgba(60, 60, 67, 0.5);
+}
+
+/* 深色输入框变体 */
+.input-dark {
+  @apply w-full px-4 py-3 rounded-xl outline-none;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all var(--transition-normal);
+}
+
+.input-dark:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--apple-blue);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.input-dark::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* 搜索框 */
+.search-input {
+  @apply w-full pl-10 pr-4 py-3 rounded-2xl outline-none;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: all var(--transition-normal);
+}
+
+.search-input:focus {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--apple-blue);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+/* 选择框 */
+.select-glass {
+  @apply w-full px-4 py-3 rounded-xl outline-none appearance-none cursor-pointer;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 20px;
+  padding-right: 40px;
+  transition: all var(--transition-normal);
+}
+
+.select-glass:focus {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-color: var(--apple-blue);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+}
+
+/* 开关组件 */
+.toggle-switch {
+  @apply relative inline-block w-12 h-7 cursor-pointer;
+}
+
+.toggle-switch input {
+  @apply opacity-0 w-0 h-0;
+}
+
+.toggle-slider {
+  @apply absolute inset-0 rounded-full transition-all duration-300;
+  background: rgba(120, 120, 128, 0.32);
+}
+
+.toggle-slider::before {
+  @apply absolute w-5 h-5 rounded-full transition-all duration-300;
+  content: '';
+  left: 4px;
+  bottom: 4px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--apple-green);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+/* ========================================
+   滚动条 - 精致风格
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* 深色滚动条 */
+.dark-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ========================================
+   严重性标签系统 - Apple 颜色
+   ======================================== */
+
+.severity-badge {
+  @apply px-3 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1;
+  backdrop-filter: blur(10px);
+}
+
+.severity-critical {
+  background: rgba(255, 59, 48, 0.15);
+  color: #FF3B30;
+  border: 1px solid rgba(255, 59, 48, 0.3);
+}
+
+.severity-high {
+  background: rgba(255, 149, 0, 0.15);
+  color: #FF9500;
+  border: 1px solid rgba(255, 149, 0, 0.3);
+}
+
+.severity-medium {
+  background: rgba(255, 204, 0, 0.15);
+  color: #CC8800;
+  border: 1px solid rgba(255, 204, 0, 0.3);
+}
+
+.severity-low {
+  background: rgba(0, 122, 255, 0.15);
+  color: #007AFF;
+  border: 1px solid rgba(0, 122, 255, 0.3);
+}
+
+.severity-info {
+  background: rgba(142, 142, 147, 0.15);
+  color: #8E8E93;
+  border: 1px solid rgba(142, 142, 147, 0.3);
+}
+
+/* 状态标签 */
+.status-badge {
+  @apply px-3 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5;
+}
+
+.status-success {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34C759;
+}
+
+.status-warning {
+  background: rgba(255, 149, 0, 0.15);
+  color: #FF9500;
+}
+
+.status-error {
+  background: rgba(255, 59, 48, 0.15);
+  color: #FF3B30;
+}
+
+.status-pending {
+  background: rgba(88, 86, 214, 0.15);
+  color: #5856D6;
+}
+
+/* ========================================
+   动画效果系统
+   ======================================== */
+
+/* 淡入淡出 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--transition-normal) ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 滑入滑出 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* 缩放动画 */
+.scale-enter-active,
+.scale-leave-active {
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scale-enter-from {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(1.05);
+}
+
+/* 弹性动画 */
+.bounce-enter-active {
+  animation: bounce-in var(--transition-slow) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.bounce-leave-active {
+  animation: bounce-out var(--transition-normal) ease-out;
+}
+
+@keyframes bounce-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounce-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* 脉冲动画 - 状态指示用 */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.pulse-dot {
+  position: relative;
+}
+
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 闪烁动画 */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* 旋转加载动画 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* 浮动动画 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ========================================
+   代码高亮容器 - 增强版
+   ======================================== */
+
+.code-block {
+  @apply rounded-2xl p-5 overflow-x-auto;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 32px rgba(0, 0, 0, 0.3);
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #f8f8f2;
+}
+
+.code-block::-webkit-scrollbar {
+  height: 6px;
+}
+
+.code-block::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* 行号 */
+.code-line-number {
+  @apply select-none pr-4 text-right;
+  color: rgba(255, 255, 255, 0.3);
+  min-width: 3em;
+}
+
+/* 高亮行 */
+.code-line-highlight {
+  background: rgba(255, 204, 0, 0.15);
+  margin: 0 -20px;
+  padding: 0 20px;
+  border-left: 3px solid #FFCC00;
+}
+
+/* ========================================
+   进度条系统
+   ======================================== */
+
+.progress-bar {
+  @apply h-2 rounded-full overflow-hidden;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full;
+  background: linear-gradient(90deg, var(--apple-blue), var(--apple-teal));
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+  background-size: 200% 100%;
+}
+
+/* 圆形进度 */
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 6;
+}
+
+.progress-ring-fill {
+  fill: none;
+  stroke: var(--apple-blue);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   卡片变体
+   ======================================== */
+
+/* 统计卡片 */
+.stat-card {
+  @apply p-6 rounded-2xl;
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* 列表项卡片 */
+.list-item {
+  @apply p-4 rounded-xl;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: all var(--transition-normal);
+}
+
+.list-item:hover {
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateX(4px);
+}
+
+/* 可选择卡片 */
+.selectable-card {
+  @apply p-4 rounded-xl cursor-pointer;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(20px);
+  border: 2px solid transparent;
+  transition: all var(--transition-normal);
+}
+
+.selectable-card:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(0, 122, 255, 0.3);
+}
+
+.selectable-card.selected {
+  background: rgba(0, 122, 255, 0.1);
+  border-color: var(--apple-blue);
+}
+
+/* ========================================
+   模态框 / 弹窗
+   ======================================== */
+
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-content {
+  @apply w-full max-w-lg;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(60px) saturate(200%);
+  -webkit-backdrop-filter: blur(60px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  animation: modal-appear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ========================================
+   标签页 / Tab
+   ======================================== */
+
+.tab-list {
+  @apply flex gap-1 p-1 rounded-xl;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.tab-item {
+  @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.tab-item:hover {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.tab-item.active {
+  background: white;
+  color: var(--apple-blue);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ========================================
+   工具提示
+   ======================================== */
+
+.tooltip {
+  @apply px-3 py-2 rounded-lg text-sm;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  color: white;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   通用工具类
+   ======================================== */
+
+/* 文字渐变 */
+.text-gradient {
+  background: linear-gradient(135deg, var(--apple-blue) 0%, var(--apple-purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 悬浮阴影增强 */
+.hover-lift {
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* 点击反馈 */
+.press-effect {
+  transition: transform 0.1s ease;
+}
+
+.press-effect:active {
+  transform: scale(0.98);
+}
+
+/* 禁用状态 */
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

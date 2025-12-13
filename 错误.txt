@@ -1,0 +1,50 @@
+npm run dev
+
+> codescan-frontend@1.0.0 dev
+> vite
+
+
+  VITE v5.4.21  ready in 501 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+21:54:47 [vite] Pre-transform error: [postcss] E:/1ceshi/codescan/frontend/src/views/Results.vue?vue&type=style&index=0&scoped=710a8086&lang.css:3:3: The `glass-card` class does not exist. If `glass-card` is a custom class, make sure it is defined within a `@layer` directive.
+21:54:47 [vite] Internal server error: [postcss] E:/1ceshi/codescan/frontend/src/views/Results.vue?vue&type=style&index=0&scoped=710a8086&lang.css:3:3: The `glass-card` class does not exist. If `glass-card` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: E:/1ceshi/codescan/frontend/src/views/Results.vue?vue&type=style&index=0&scoped=710a8086&lang.css:783:2
+  1  |
+  2  |  .stat-card {
+  3  |    @apply glass-card rounded-xl p-4 flex items-center gap-4 cursor-pointer transition-all;
+     |    ^
+  4  |  }
+  5  |
+      at Input.error (E:\1ceshi\codescan\frontend\node_modules\postcss\lib\input.js:135:16)
+      at AtRule.error (E:\1ceshi\codescan\frontend\node_modules\postcss\lib\node.js:146:32)
+      at processApply (E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:380:29)
+      at E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:551:9
+      at E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\processTailwindFeatures.js:55:50
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async plugins (E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\plugin.js:38:17)
+      at async LazyResult.runAsync (E:\1ceshi\codescan\frontend\node_modules\postcss\lib\lazy-result.js:293:11)
+      at async compileCSS (file:///E:/1ceshi/codescan/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36898:21)
+      at async TransformPluginContext.transform (file:///E:/1ceshi/codescan/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36171:11)
+21:58:31 [vite] Internal server error: [postcss] E:/1ceshi/codescan/frontend/src/views/Results.vue?vue&type=style&index=0&scoped=710a8086&lang.css:3:3: The `glass-card` class does not exist. If `glass-card` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: E:/1ceshi/codescan/frontend/src/views/Results.vue?vue&type=style&index=0&scoped=710a8086&lang.css:783:2
+  1  |
+  2  |  .stat-card {
+  3  |    @apply glass-card rounded-xl p-4 flex items-center gap-4 cursor-pointer transition-all;
+     |    ^
+  4  |  }
+  5  |
+      at Input.error (E:\1ceshi\codescan\frontend\node_modules\postcss\lib\input.js:135:16)
+      at AtRule.error (E:\1ceshi\codescan\frontend\node_modules\postcss\lib\node.js:146:32)
+      at processApply (E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:380:29)
+      at E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:551:9
+      at E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\processTailwindFeatures.js:55:50
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async plugins (E:\1ceshi\codescan\frontend\node_modules\tailwindcss\lib\plugin.js:38:17)
+      at async LazyResult.runAsync (E:\1ceshi\codescan\frontend\node_modules\postcss\lib\lazy-result.js:293:11)
+      at async compileCSS (file:///E:/1ceshi/codescan/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36898:21)
+      at async TransformPluginContext.transform (file:///E:/1ceshi/codescan/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36171:11) (x2)
