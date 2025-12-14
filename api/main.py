@@ -2,6 +2,7 @@
 
 import sys
 import uuid
+import asyncio
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -17,7 +18,7 @@ from fastapi.responses import FileResponse
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import load_config, AuditConfig
+from config import load_config, AuditConfig, save_user_config
 from llm_client import create_llm_client, BaseLLMClient
 from indexer import CodeIndexer, create_vector_store, BaseVectorStore
 from rules import create_rule_manager, RuleManager
@@ -36,6 +37,7 @@ from .schemas import (
     ScanStatus, SeverityLevel, VulnTypeEnum,
     APIResponse, ErrorResponse,
 )
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,11 @@ class AppState:
         """初始化组件"""
         self.config = load_config(config_path=config_path)
         self.llm_client = create_llm_client(self.config.llm)
-        self.vector_store = create_vector_store(self.config.vector_store)
+        # 传递嵌入向量维度，确保与嵌入模型输出一致
+        self.vector_store = create_vector_store(
+            self.config.vector_store,
+            embedding_dim=self.config.llm.embedding_dim
+        )
         self.indexer = CodeIndexer(self.config, self.llm_client, self.vector_store)
         self.rule_manager = create_rule_manager(self.config.rules)
         logger.info("API 组件初始化完成")
@@ -216,6 +222,101 @@ async def get_index_stats():
     )
 
 
+@app.delete("/api/index", response_model=APIResponse)
+async def clear_index():
+    """清空索引（删除并重建向量集合）"""
+    if not app_state.indexer:
+        raise HTTPException(status_code=500, detail="索引器未初始化")
+
+    try:
+        app_state.indexer.clear_index()
+        logger.info("索引已清空并重建")
+        return APIResponse(
+            success=True,
+            message="索引已清空，向量集合已用新维度重建",
+            data={"embedding_dim": app_state.config.llm.embedding_dim},
+        )
+    except Exception as e:
+        logger.error(f"清空索引失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ 缓存接口 ============
+
+@app.get("/api/cache/stats", response_model=APIResponse)
+async def get_cache_stats():
+    """获取嵌入缓存统计信息"""
+    if not app_state.indexer:
+        raise HTTPException(status_code=500, detail="索引器未初始化")
+
+    try:
+        if app_state.indexer.cached_generator:
+            stats = app_state.indexer.cached_generator.get_stats()
+            return APIResponse(
+                success=True,
+                message="获取缓存统计成功",
+                data=stats,
+            )
+        else:
+            return APIResponse(
+                success=True,
+                message="缓存未启用",
+                data={
+                    "total_entries": 0,
+                    "cache_size_mb": 0,
+                    "cache_enabled": False,
+                },
+            )
+    except Exception as e:
+        logger.error(f"获取缓存统计失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/cache", response_model=APIResponse)
+async def clear_cache():
+    """清空嵌入缓存"""
+    if not app_state.indexer:
+        raise HTTPException(status_code=500, detail="索引器未初始化")
+
+    try:
+        if app_state.indexer.embedding_cache:
+            app_state.indexer.embedding_cache.clear()
+            logger.info("嵌入缓存已清空")
+            return APIResponse(
+                success=True,
+                message="嵌入缓存已清空",
+                data={"cleared": True},
+            )
+        else:
+            return APIResponse(
+                success=True,
+                message="缓存未启用",
+                data={"cleared": False},
+            )
+    except Exception as e:
+        logger.error(f"清空缓存失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/cache/cleanup", response_model=APIResponse)
+async def cleanup_expired_cache():
+    """清理过期的嵌入缓存"""
+    if not app_state.indexer:
+        raise HTTPException(status_code=500, detail="索引器未初始化")
+
+    try:
+        cleaned_count = app_state.indexer.cleanup_cache()
+        logger.info(f"清理了 {cleaned_count} 个过期缓存条目")
+        return APIResponse(
+            success=True,
+            message=f"清理了 {cleaned_count} 个过期缓存条目",
+            data={"cleaned_count": cleaned_count},
+        )
+    except Exception as e:
+        logger.error(f"清理过期缓存失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============ 搜索接口 ============
 
 @app.post("/api/search", response_model=APIResponse)
@@ -274,40 +375,77 @@ async def search_code(request: SearchRequest):
 # ============ 扫描接口 ============
 
 async def run_scan_task(scan_id: str, request: ScanRequest):
-    """执行扫描任务（后台）"""
+    """执行扫描任务（后台）
+
+    注意：耗时的同步操作使用 asyncio.to_thread() 放到线程池执行，
+    避免阻塞事件循环影响其他请求。
+    """
     task = app_state.scan_tasks[scan_id]
 
     try:
         target_path = Path(request.target_path)
+        logger.info(f"开始扫描任务 {scan_id}, 目标路径: {target_path}")
+
+        # 检查 LLM 配置
+        if not app_state.config.llm.api_key:
+            logger.error("扫描任务失败: LLM API Key 未配置")
+            task.status = ScanStatus.FAILED
+            task.error_message = "LLM API Key 未配置，请先在设置中配置 API Key"
+            task.current_step = "错误: API Key 未配置"
+            await broadcast_scan_progress(scan_id, task)
+            return
+
+        logger.info(f"LLM 配置: model={app_state.config.llm.model}, base_url={app_state.config.llm.base_url}")
 
         # 更新状态：索引中
         task.status = ScanStatus.INDEXING
-        task.current_step = "正在索引代码..."
         task.progress = 0.1
         await broadcast_scan_progress(scan_id, task)
 
-        # 检查是否需要重新索引
-        stats = app_state.indexer.get_stats()
-        if stats["total_units"] == 0 or request.reindex:
-            app_state.indexer.index_directory(str(target_path))
+        # 根据 skip_index 选项决定是否使用向量索引
+        if request.skip_index:
+            # 小项目模式：直接解析文件，跳过向量索引
+            task.current_step = "正在解析代码（跳过索引）..."
+            logger.info(f"扫描任务 {scan_id}: 使用直接解析模式（跳过向量索引）")
 
-        stats = app_state.indexer.get_stats()
-        task.total_units = stats["total_units"]
+            # 使用线程池执行同步的解析操作
+            code_units = await asyncio.to_thread(
+                app_state.indexer.parse_directory_without_index,
+                str(target_path),
+                request.languages
+            )
+            task.total_units = len(code_units)
+        else:
+            # 正常模式：使用向量索引
+            task.current_step = "正在索引代码..."
+            logger.info(f"扫描任务 {scan_id}: 开始索引代码")
+
+            # 检查是否需要重新索引
+            stats = await asyncio.to_thread(app_state.indexer.get_stats)
+            if stats["total_units"] == 0 or request.reindex:
+                logger.info(f"扫描任务 {scan_id}: 索引目录 {target_path}")
+                # 使用线程池执行同步的索引操作
+                await asyncio.to_thread(app_state.indexer.index_directory, str(target_path))
+
+            stats = await asyncio.to_thread(app_state.indexer.get_stats)
+            task.total_units = stats["total_units"]
+
+            # 获取代码单元
+            code_units = await asyncio.to_thread(app_state.indexer.get_all_units)
+
+            # 按语言过滤
+            if request.languages:
+                code_units = [u for u in code_units if u.language in request.languages]
+
         task.progress = 0.2
         await broadcast_scan_progress(scan_id, task)
+        logger.info(f"扫描任务 {scan_id}: 代码解析完成，共 {len(code_units)} 个代码单元")
 
         # 更新状态：分析中
         task.status = ScanStatus.ANALYZING
         task.current_step = "正在分析代码..."
         task.progress = 0.3
         await broadcast_scan_progress(scan_id, task)
-
-        # 获取代码单元
-        code_units = app_state.indexer.get_all_units()
-
-        # 按语言过滤
-        if request.languages:
-            code_units = [u for u in code_units if u.language in request.languages]
 
         all_findings = []
         all_vuln_findings = []
@@ -316,6 +454,7 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         task.current_step = "执行安全规则扫描..."
         task.progress = 0.4
         await broadcast_scan_progress(scan_id, task)
+        logger.info(f"扫描任务 {scan_id}: 开始安全规则扫描，代码单元数: {len(code_units)}")
 
         analyzer = SecurityAnalyzer(
             app_state.config,
@@ -324,10 +463,27 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             app_state.rule_manager,
         )
 
-        findings = analyzer.analyze(
-            language=request.languages[0] if request.languages else None,
-            max_candidates=request.max_issues,
-        )
+        logger.info(f"扫描任务 {scan_id}: 调用 SecurityAnalyzer.analyze()")
+        # 使用线程池执行同步的分析操作（可能调用 LLM）
+        # 如果是 skip_index 模式，传递 code_units 参数
+        if request.skip_index:
+            findings = await asyncio.to_thread(
+                analyzer.analyze,
+                request.languages[0] if request.languages else None,  # language
+                None,  # file_pattern
+                request.max_issues,  # max_candidates
+                2,  # max_workers
+                None,  # use_agent
+                code_units,  # code_units - 直接传递解析的代码单元
+            )
+        else:
+            findings = await asyncio.to_thread(
+                analyzer.analyze,
+                request.languages[0] if request.languages else None,  # language
+                None,  # file_pattern
+                request.max_issues,  # max_candidates
+            )
+        logger.info(f"扫描任务 {scan_id}: 安全规则扫描完成，发现 {len(findings)} 个问题")
 
         for f in findings:
             # 从证据中提取代码片段
@@ -395,10 +551,12 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                 }
                 vuln_types = [type_map.get(t) for t in request.vuln_types if t in type_map]
 
-            vuln_findings = vuln_detector.detect_vulnerabilities(
+            # 使用线程池执行同步的漏洞检测操作
+            vuln_findings = await asyncio.to_thread(
+                vuln_detector.detect_vulnerabilities,
                 code_units,
-                vuln_types=vuln_types,
-                use_llm=request.use_llm,
+                vuln_types,
+                request.use_llm,
             )
 
             for vf in vuln_findings:
@@ -431,7 +589,11 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             await broadcast_scan_progress(scan_id, task)
 
             vuln_detector = HighRiskVulnDetector(app_state.llm_client, app_state.rule_manager)
-            logic_findings = vuln_detector.detect_logic_vulnerabilities(code_units)
+            # 使用线程池执行同步的逻辑漏洞检测
+            logic_findings = await asyncio.to_thread(
+                vuln_detector.detect_logic_vulnerabilities,
+                code_units
+            )
 
             for vf in logic_findings:
                 all_vuln_findings.append(VulnFindingSchema(
@@ -459,8 +621,16 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         # 调用链分析
         task.current_step = "执行调用链分析..."
         chain_analyzer = CallChainAnalyzer(app_state.rule_manager)
-        call_graph = chain_analyzer.build_call_graph(code_units)
-        taint_paths = chain_analyzer.find_taint_paths(max_depth=10, max_paths=50)
+        # 使用线程池执行同步的调用链分析
+        call_graph = await asyncio.to_thread(
+            chain_analyzer.build_call_graph,
+            code_units
+        )
+        taint_paths = await asyncio.to_thread(
+            chain_analyzer.find_taint_paths,
+            10,  # max_depth
+            50   # max_paths
+        )
 
         # 构建统计
         task.call_graph_stats = CallGraphStatsSchema(
@@ -614,12 +784,15 @@ async def analyze_callgraph(request: CallGraphRequest):
         raise HTTPException(status_code=500, detail="索引器未初始化")
 
     try:
-        # 获取代码单元
-        code_units = app_state.indexer.get_all_units()
+        # 获取代码单元（使用线程池）
+        code_units = await asyncio.to_thread(app_state.indexer.get_all_units)
 
-        # 构建调用图
+        # 构建调用图（使用线程池）
         chain_analyzer = CallChainAnalyzer(app_state.rule_manager)
-        call_graph = chain_analyzer.build_call_graph(code_units)
+        call_graph = await asyncio.to_thread(
+            chain_analyzer.build_call_graph,
+            code_units
+        )
 
         result = {
             "stats": CallGraphStatsSchema(
@@ -634,11 +807,12 @@ async def analyze_callgraph(request: CallGraphRequest):
             "dangerous_chains": [],
         }
 
-        # 查找污点路径
+        # 查找污点路径（使用线程池）
         if request.find_taint:
-            taint_paths = chain_analyzer.find_taint_paths(
-                max_depth=request.max_depth,
-                max_paths=100,
+            taint_paths = await asyncio.to_thread(
+                chain_analyzer.find_taint_paths,
+                request.max_depth,
+                100,  # max_paths
             )
 
             for tp in taint_paths[:50]:
@@ -653,8 +827,10 @@ async def analyze_callgraph(request: CallGraphRequest):
                     description=tp.description,
                 ).model_dump())
 
-        # 查找危险调用链
-        dangerous_chains = chain_analyzer.find_dangerous_chains()
+        # 查找危险调用链（使用线程池）
+        dangerous_chains = await asyncio.to_thread(
+            chain_analyzer.find_dangerous_chains
+        )
         result["dangerous_chains"] = dangerous_chains[:50]
 
         return APIResponse(
@@ -732,6 +908,317 @@ async def get_rule(rule_id: str):
             fix_suggestion=rule.fix_suggestion,
         ).model_dump(),
     )
+
+
+# ============ 配置接口 ============
+
+class LLMSettingsRequest(BaseModel):
+    """LLM 配置请求"""
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    embedding_model: Optional[str] = None
+    embedding_base_url: Optional[str] = None
+    embedding_api_key: Optional[str] = None
+    embedding_dim: Optional[int] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+
+
+class SettingsRequest(BaseModel):
+    """配置更新请求"""
+    llm: Optional[LLMSettingsRequest] = None
+    scan_mode: Optional[str] = None
+    target_path: Optional[str] = None
+
+
+@app.get("/api/settings", response_model=APIResponse)
+async def get_settings():
+    """获取当前配置"""
+    if not app_state.config:
+        raise HTTPException(status_code=500, detail="配置未初始化")
+
+    # 返回配置（遮蔽敏感信息）
+    config = app_state.config
+
+    # 安全地获取 API Key 前缀
+    def mask_key(key: str) -> str:
+        if not key:
+            return ""
+        if len(key) <= 8:
+            return "****"
+        return key[:4] + "****" + key[-4:]
+
+    return APIResponse(
+        success=True,
+        message="获取配置成功",
+        data={
+            "llm": {
+                "base_url": config.llm.base_url,
+                "api_key_masked": mask_key(config.llm.api_key),
+                "api_key_configured": bool(config.llm.api_key),
+                "model": config.llm.model,
+                "embedding_model": config.llm.embedding_model,
+                "embedding_base_url": config.llm.embedding_base_url,
+                "embedding_api_key_configured": bool(config.llm.embedding_api_key),
+                "embedding_dim": config.llm.embedding_dim,
+                "temperature": config.llm.temperature,
+                "max_tokens": config.llm.max_tokens,
+            },
+            "scan": {
+                "mode": config.scan.mode,
+                "target_path": config.scan.target_path,
+                "languages": config.scan.languages,
+            },
+            "vector_store": {
+                "provider": config.vector_store.provider,
+                "host": config.vector_store.host,
+                "port": config.vector_store.port,
+            },
+        },
+    )
+
+
+@app.post("/api/settings", response_model=APIResponse)
+async def update_settings(request: SettingsRequest):
+    """更新配置并重新初始化 LLM 客户端"""
+    if not app_state.config:
+        raise HTTPException(status_code=500, detail="配置未初始化")
+
+    logger.info(f"收到配置更新请求")
+
+    updated_fields = []
+
+    # 更新 LLM 配置
+    if request.llm:
+        llm_config = app_state.config.llm
+
+        if request.llm.base_url is not None:
+            llm_config.base_url = request.llm.base_url
+            updated_fields.append("llm.base_url")
+            logger.info(f"更新 LLM base_url: {request.llm.base_url}")
+
+        if request.llm.api_key is not None:
+            llm_config.api_key = request.llm.api_key
+            updated_fields.append("llm.api_key")
+            logger.info(f"更新 LLM api_key: {'已配置' if request.llm.api_key else '未配置'}")
+
+        if request.llm.model is not None:
+            llm_config.model = request.llm.model
+            updated_fields.append("llm.model")
+            logger.info(f"更新 LLM model: {request.llm.model}")
+
+        if request.llm.embedding_model is not None:
+            llm_config.embedding_model = request.llm.embedding_model
+            updated_fields.append("llm.embedding_model")
+
+        if request.llm.embedding_base_url is not None:
+            llm_config.embedding_base_url = request.llm.embedding_base_url
+            updated_fields.append("llm.embedding_base_url")
+
+        if request.llm.embedding_api_key is not None:
+            llm_config.embedding_api_key = request.llm.embedding_api_key
+            updated_fields.append("llm.embedding_api_key")
+
+        if request.llm.embedding_dim is not None:
+            old_dim = llm_config.embedding_dim
+            llm_config.embedding_dim = request.llm.embedding_dim
+            updated_fields.append("llm.embedding_dim")
+
+            # 如果维度变化，需要重新创建 vector_store 和 indexer
+            if old_dim != request.llm.embedding_dim:
+                logger.info(f"嵌入维度变化: {old_dim} -> {request.llm.embedding_dim}，重建向量存储...")
+                try:
+                    # 重新创建 vector_store（会使用新维度）
+                    app_state.vector_store = create_vector_store(
+                        app_state.config.vector_store,
+                        embedding_dim=request.llm.embedding_dim
+                    )
+                    # 清空旧集合并用新维度重建
+                    app_state.vector_store.clear()
+                    # 重新创建 indexer
+                    app_state.indexer = CodeIndexer(
+                        app_state.config,
+                        app_state.llm_client,
+                        app_state.vector_store
+                    )
+                    logger.info("向量存储和索引器已用新维度重建")
+                except Exception as e:
+                    logger.error(f"重建向量存储失败: {e}")
+                    raise HTTPException(status_code=500, detail=f"重建向量存储失败: {e}")
+
+        if request.llm.temperature is not None:
+            llm_config.temperature = request.llm.temperature
+            updated_fields.append("llm.temperature")
+
+        if request.llm.max_tokens is not None:
+            llm_config.max_tokens = request.llm.max_tokens
+            updated_fields.append("llm.max_tokens")
+
+        # 重新创建 LLM 客户端
+        try:
+            logger.info("重新初始化 LLM 客户端...")
+            app_state.llm_client = create_llm_client(llm_config)
+            logger.info("LLM 客户端重新初始化成功")
+        except Exception as e:
+            logger.error(f"重新初始化 LLM 客户端失败: {e}")
+            raise HTTPException(status_code=500, detail=f"LLM 客户端初始化失败: {e}")
+
+    # 更新扫描配置
+    if request.scan_mode is not None:
+        app_state.config.scan.mode = request.scan_mode
+        updated_fields.append("scan.mode")
+
+    if request.target_path is not None:
+        app_state.config.scan.target_path = request.target_path
+        updated_fields.append("scan.target_path")
+
+    # 持久化配置到本地文件
+    if updated_fields:
+        config_to_save = {}
+        if request.llm:
+            config_to_save["llm"] = {}
+            if request.llm.base_url is not None:
+                config_to_save["llm"]["base_url"] = request.llm.base_url
+            if request.llm.api_key is not None:
+                config_to_save["llm"]["api_key"] = request.llm.api_key
+            if request.llm.model is not None:
+                config_to_save["llm"]["model"] = request.llm.model
+            if request.llm.embedding_model is not None:
+                config_to_save["llm"]["embedding_model"] = request.llm.embedding_model
+            if request.llm.embedding_base_url is not None:
+                config_to_save["llm"]["embedding_base_url"] = request.llm.embedding_base_url
+            if request.llm.embedding_api_key is not None:
+                config_to_save["llm"]["embedding_api_key"] = request.llm.embedding_api_key
+            if request.llm.embedding_dim is not None:
+                config_to_save["llm"]["embedding_dim"] = request.llm.embedding_dim
+            if request.llm.temperature is not None:
+                config_to_save["llm"]["temperature"] = request.llm.temperature
+            if request.llm.max_tokens is not None:
+                config_to_save["llm"]["max_tokens"] = request.llm.max_tokens
+
+        if request.scan_mode is not None:
+            if "scan" not in config_to_save:
+                config_to_save["scan"] = {}
+            config_to_save["scan"]["mode"] = request.scan_mode
+
+        if request.target_path is not None:
+            if "scan" not in config_to_save:
+                config_to_save["scan"] = {}
+            config_to_save["scan"]["target_path"] = request.target_path
+
+        # 保存到文件
+        if save_user_config(config_to_save):
+            logger.info(f"配置已持久化到本地文件")
+        else:
+            logger.warning("配置持久化失败，但内存配置已更新")
+
+    return APIResponse(
+        success=True,
+        message=f"配置已更新并保存: {', '.join(updated_fields)}" if updated_fields else "无配置变更",
+        data={"updated_fields": updated_fields},
+    )
+
+
+@app.post("/api/settings/test-connection", response_model=APIResponse)
+async def test_llm_connection():
+    """测试 LLM 连接"""
+    if not app_state.llm_client:
+        raise HTTPException(status_code=500, detail="LLM 客户端未初始化")
+
+    if not app_state.config.llm.api_key:
+        return APIResponse(
+            success=False,
+            message="API Key 未配置",
+            data={"error": "API Key 未配置，请先在设置中配置 API Key"},
+        )
+
+    try:
+        from llm_client import ChatMessage
+
+        logger.info("测试 LLM 连接...")
+
+        # 发送简单测试请求
+        response = app_state.llm_client.chat_completion(
+            messages=[
+                ChatMessage(role="user", content="Say 'Connection test successful' in one sentence.")
+            ],
+            max_tokens=50,
+            temperature=0,
+        )
+
+        logger.info(f"LLM 连接测试成功: {response.content[:100] if response.content else 'No content'}")
+
+        return APIResponse(
+            success=True,
+            message="LLM 连接测试成功",
+            data={
+                "model": response.model,
+                "response": response.content[:200] if response.content else "",
+                "usage": response.usage,
+            },
+        )
+    except Exception as e:
+        logger.error(f"LLM 连接测试失败: {e}")
+        return APIResponse(
+            success=False,
+            message=f"LLM 连接测试失败: {str(e)}",
+            data={"error": str(e)},
+        )
+
+
+@app.post("/api/settings/test-embedding", response_model=APIResponse)
+async def test_embedding_connection():
+    """测试嵌入模型连接"""
+    if not app_state.llm_client:
+        raise HTTPException(status_code=500, detail="LLM 客户端未初始化")
+
+    # 检查嵌入模型配置
+    llm_config = app_state.config.llm
+    embedding_api_key = llm_config.embedding_api_key or llm_config.api_key
+
+    if not embedding_api_key:
+        return APIResponse(
+            success=False,
+            message="嵌入模型 API Key 未配置",
+            data={"error": "嵌入模型 API Key 未配置，请先配置"},
+        )
+
+    try:
+        logger.info("测试嵌入模型连接...")
+
+        # 发送简单测试请求
+        test_text = ["This is a test for embedding model connection."]
+        response = app_state.llm_client.embed(test_text)
+
+        if response.embeddings and len(response.embeddings) > 0:
+            embedding_dim = len(response.embeddings[0])
+            logger.info(f"嵌入模型连接测试成功: 维度={embedding_dim}")
+
+            return APIResponse(
+                success=True,
+                message="嵌入模型连接测试成功",
+                data={
+                    "model": llm_config.embedding_model,
+                    "embedding_dim": embedding_dim,
+                    "configured_dim": llm_config.embedding_dim,
+                    "dim_match": embedding_dim == llm_config.embedding_dim,
+                },
+            )
+        else:
+            return APIResponse(
+                success=False,
+                message="嵌入模型返回空结果",
+                data={"error": "嵌入模型返回空结果"},
+            )
+
+    except Exception as e:
+        logger.error(f"嵌入模型连接测试失败: {e}")
+        return APIResponse(
+            success=False,
+            message=f"嵌入模型连接测试失败: {str(e)}",
+            data={"error": str(e)},
+        )
 
 
 # ============ WebSocket ============

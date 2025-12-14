@@ -62,12 +62,18 @@ class SecurityAnalyzer:
         """
         candidates = []
 
-        # 获取危险函数规则
+        # 获取所有规则（包括 sink 和 pattern 类型）
         sinks = self.rule_manager.get_sinks(language)
+        patterns = self.rule_manager.get_rules_by_type(RuleType.PATTERN)
+        if language:
+            patterns = [r for r in patterns if language in r.languages]
+
+        all_rules = sinks + patterns
+        logger.info(f"Searching for {len(all_rules)} rules (sinks: {len(sinks)}, patterns: {len(patterns)})...")
 
         # 从向量库搜索包含危险函数调用的代码
-        for sink_rule in sinks:
-            for pattern in sink_rule.patterns[:3]:  # 每个规则最多搜索3个模式
+        for rule in all_rules:
+            for pattern in rule.patterns[:3]:  # 每个规则最多搜索3个模式
                 # 构建搜索查询
                 if pattern.startswith(("regex:", "prefix:", "suffix:", "contains:")):
                     search_term = pattern.split(":", 1)[1]
@@ -84,9 +90,9 @@ class SecurityAnalyzer:
 
                 for unit in results:
                     # 检查代码中是否真的包含该调用
-                    if self._contains_pattern(unit.code, sink_rule.patterns):
+                    if self._contains_pattern(unit.code, rule.patterns):
                         # 计算优先级
-                        priority = self._calculate_priority(unit, sink_rule)
+                        priority = self._calculate_priority(unit, rule)
 
                         candidates.append(Candidate(
                             code_unit_id=unit.id,
@@ -95,7 +101,7 @@ class SecurityAnalyzer:
                             line_start=unit.span.start_line,
                             line_end=unit.span.end_line,
                             code=unit.code,
-                            triggered_rules=[sink_rule.id],
+                            triggered_rules=[rule.id],
                             priority=priority,
                         ))
 
@@ -112,6 +118,57 @@ class SecurityAnalyzer:
 
         logger.info(f"Discovered {len(unique_candidates)} candidates")
         return unique_candidates[:max_candidates]
+
+    def discover_candidates_from_units(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+        max_candidates: int = 100,
+    ) -> List[Candidate]:
+        """从给定的代码单元列表中发现候选分析点（不使用向量搜索）
+
+        适用于 skip_index 模式，直接遍历代码单元进行模式匹配
+        """
+        candidates = []
+
+        # 获取所有规则（包括 sink 和 pattern 类型）
+        sinks = self.rule_manager.get_sinks(language)
+        patterns = self.rule_manager.get_rules_by_type(RuleType.PATTERN)
+        if language:
+            patterns = [r for r in patterns if language in r.languages]
+
+        all_rules = sinks + patterns
+        logger.info(f"Scanning {len(code_units)} code units for {len(all_rules)} rules (sinks: {len(sinks)}, patterns: {len(patterns)})...")
+
+        # 遍历所有代码单元
+        for unit in code_units:
+            # 如果指定了语言，跳过不匹配的
+            if language and unit.language != language:
+                continue
+
+            # 检查每个规则
+            for rule in all_rules:
+                if self._contains_pattern(unit.code, rule.patterns):
+                    # 计算优先级
+                    priority = self._calculate_priority(unit, rule)
+
+                    candidates.append(Candidate(
+                        code_unit_id=unit.id,
+                        file_path=unit.file_path,
+                        symbol=unit.symbol,
+                        line_start=unit.span.start_line,
+                        line_end=unit.span.end_line,
+                        code=unit.code,
+                        triggered_rules=[rule.id],
+                        priority=priority,
+                    ))
+                    break  # 每个代码单元只记录一次
+
+        # 按优先级排序
+        candidates.sort(key=lambda x: x.priority, reverse=True)
+
+        logger.info(f"Discovered {len(candidates)} candidates from direct scan")
+        return candidates[:max_candidates]
 
     def _contains_pattern(self, code: str, patterns: List[str]) -> bool:
         """检查代码是否包含指定模式"""
@@ -382,6 +439,7 @@ class SecurityAnalyzer:
         max_candidates: int = 50,
         max_workers: int = 2,
         use_agent: Optional[bool] = None,
+        code_units: Optional[List[CodeUnit]] = None,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -391,11 +449,22 @@ class SecurityAnalyzer:
             max_candidates: 最大候选点数量
             max_workers: 并行分析数量
             use_agent: 是否使用 Agent 模式（None 则使用默认配置）
+            code_units: 直接提供的代码单元列表（用于 skip_index 模式）
 
         Returns:
             Finding 列表
         """
         use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
+
+        # 如果提供了 code_units，使用直接分析模式
+        if code_units is not None:
+            logger.info(f"Using direct analysis mode with {len(code_units)} code units")
+            return self.analyze_units_direct(
+                code_units=code_units,
+                language=language,
+                max_candidates=max_candidates,
+                max_workers=max_workers,
+            )
 
         if use_agent_mode:
             logger.info("Using Agent-based analysis mode")
@@ -412,6 +481,172 @@ class SecurityAnalyzer:
                 max_candidates=max_candidates,
                 max_workers=max_workers,
             )
+
+    def analyze_units_direct(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+        max_candidates: int = 50,
+        max_workers: int = 2,
+    ) -> List[Finding]:
+        """直接分析代码单元列表（不使用向量索引）
+
+        适用于 skip_index 模式
+
+        Args:
+            code_units: 代码单元列表
+            language: 限定语言
+            max_candidates: 最大候选点数量
+            max_workers: 并行分析数量
+
+        Returns:
+            Finding 列表
+        """
+        logger.info(f"Starting direct analysis of {len(code_units)} code units...")
+
+        # 1. 直接从代码单元发现候选点
+        candidates = self.discover_candidates_from_units(
+            code_units=code_units,
+            language=language,
+            max_candidates=max_candidates,
+        )
+
+        if not candidates:
+            logger.info("No candidates found in direct scan")
+            return []
+
+        logger.info(f"Analyzing {len(candidates)} candidates...")
+
+        # 2. 分析候选点
+        findings = []
+
+        # 使用线程池并行分析
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._analyze_candidate_simple, c, code_units): c
+                for c in candidates
+            }
+
+            for i, future in enumerate(as_completed(futures)):
+                candidate = futures[future]
+                try:
+                    finding = future.result()
+                    if finding:
+                        findings.append(finding)
+                        logger.info(
+                            f"[{i+1}/{len(candidates)}] Found issue: "
+                            f"{finding.title} in {finding.file_path}"
+                        )
+                except Exception as e:
+                    logger.error(f"Analysis error for {candidate.symbol}: {e}")
+
+        # 3. 排序和过滤
+        findings = self._filter_and_sort_findings(findings)
+
+        logger.info(f"Direct analysis complete. Found {len(findings)} issues.")
+        return findings
+
+    def _analyze_candidate_simple(
+        self,
+        candidate: Candidate,
+        code_units: List[CodeUnit],
+    ) -> Optional[Finding]:
+        """简化的候选点分析（用于直接分析模式）
+
+        使用 LLM 分析但不依赖向量索引获取上下文
+        """
+        try:
+            # 构建基本上下文
+            context_parts = []
+
+            # 1. 目标代码
+            context_parts.append(f"【目标代码】\n文件: {candidate.file_path}\n函数: {candidate.symbol}\n行号: {candidate.line_start}-{candidate.line_end}\n```\n{candidate.code}\n```")
+
+            # 查找相关的代码单元（调用者/被调用者）
+            related_units = []
+            for unit in code_units:
+                if unit.id == candidate.code_unit_id:
+                    continue
+                # 检查是否有调用关系
+                if candidate.symbol in unit.calls or unit.symbol in (candidate.code.split() if candidate.code else []):
+                    related_units.append(unit)
+                    if len(related_units) >= 3:
+                        break
+
+            # 2. 添加相关代码到上下文
+            if related_units:
+                context_parts.append("【相关代码】")
+                for ru in related_units:
+                    context_parts.append(f"文件: {ru.file_path}:{ru.span.start_line}\n```\n{ru.code[:600]}\n```")
+
+            # 3. 获取规则信息
+            rule_info_parts = []
+            for rule_id in candidate.triggered_rules:
+                rule = self.rule_manager.get_rule(rule_id)
+                if rule:
+                    rule_info_parts.append(f"- {rule.name}: {rule.description}")
+
+            if rule_info_parts:
+                context_parts.append(f"【触发的安全规则】\n" + "\n".join(rule_info_parts))
+
+            # 4. 构建完整上下文文本
+            context_text = "\n\n".join(context_parts)
+
+            # 构建提示词
+            system_prompt, user_prompt = build_analysis_prompt(
+                context_text=context_text,
+                focus_category=None,
+            )
+
+            # 调用 LLM
+            response = self.llm_client.chat_completion(
+                messages=[
+                    ChatMessage(role="system", content=system_prompt),
+                    ChatMessage(role="user", content=user_prompt),
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.1,
+                max_tokens=2000,
+            )
+
+            # 解析结果
+            result = self._parse_llm_response(response.content)
+            if not result:
+                return None
+
+            # 检查是否有问题
+            if not result.get("has_issue", False):
+                return None
+
+            # 构建 Finding
+            return Finding(
+                id=f"finding-{candidate.code_unit_id}",
+                title=result.get("issue_type", "Security Issue"),
+                file_path=candidate.file_path,
+                line_start=candidate.line_start,
+                line_end=candidate.line_end,
+                symbol=candidate.symbol,
+                severity=Severity.from_string(result.get("severity", "medium")),
+                confidence=result.get("confidence", 0.5),
+                category=result.get("issue_type", "unknown"),
+                summary=result.get("summary", ""),
+                details=result.get("details", ""),
+                evidence=[Evidence(
+                    file_path=candidate.file_path,
+                    line_start=candidate.line_start,
+                    line_end=candidate.line_end,
+                    code_snippet=candidate.code[:500] if candidate.code else "",
+                    description=result.get("summary", ""),
+                )],
+                attack_scenario=result.get("attack_scenario", ""),
+                fix_suggestion=result.get("fix_suggestion", ""),
+                notes=result.get("notes", ""),
+                rule_ids=candidate.triggered_rules,
+            )
+
+        except Exception as e:
+            logger.error(f"Error analyzing candidate {candidate.symbol}: {e}")
+            return None
 
     def analyze_with_agent(
         self,

@@ -771,6 +771,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAppStore } from '../stores/app'
+import * as api from '../api'
 
 const appStore = useAppStore()
 
@@ -849,16 +850,41 @@ const anyTestFailed = computed(() => {
 const saveSettings = async () => {
   saving.value = true
   try {
-    // 模拟保存
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 构建发送到后端的配置
+    const settingsPayload = {
+      llm: {
+        base_url: settings.llm.baseUrl,
+        api_key: settings.llm.apiKey,
+        model: settings.llm.model,
+        temperature: settings.llm.temperature,
+        embedding_model: settings.embedding.model,
+        embedding_base_url: settings.embedding.baseUrl || undefined,
+        embedding_api_key: settings.embedding.apiKey || undefined,
+        embedding_dim: settings.embedding.dimensions || undefined,
+      },
+      scan_mode: settings.scanMode,
+    }
 
-    // 存储到本地
-    localStorage.setItem('auditSettings', JSON.stringify(settings))
+    // 调用后端 API 保存配置
+    const result = await api.updateSettings(settingsPayload)
 
-    showSaveSuccess.value = true
-    setTimeout(() => {
-      showSaveSuccess.value = false
-    }, 3000)
+    if (result.success) {
+      // 同时存储到本地（用于前端 UI 状态）
+      localStorage.setItem('auditSettings', JSON.stringify(settings))
+
+      showSaveSuccess.value = true
+      setTimeout(() => {
+        showSaveSuccess.value = false
+      }, 3000)
+
+      console.log('设置已保存到后端:', result.data?.updated_fields)
+    } else {
+      console.error('保存设置失败:', result.message)
+      alert('保存设置失败: ' + result.message)
+    }
+  } catch (error) {
+    console.error('保存设置出错:', error)
+    alert('保存设置出错: ' + error.message)
   } finally {
     saving.value = false
   }
@@ -868,11 +894,22 @@ const testLlmConnection = async () => {
   testingLlm.value = true
   llmTestResult.value = null
   try {
-    // 模拟测试连接
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    llmTestResult.value = 'success'
-  } catch {
+    // 先保存配置到后端，确保使用最新配置测试
+    await saveSettings()
+
+    // 调用后端测试连接 API
+    const result = await api.testLlmConnection()
+
+    if (result.success) {
+      llmTestResult.value = 'success'
+      console.log('LLM 连接测试成功:', result.data)
+    } else {
+      llmTestResult.value = 'failed'
+      console.error('LLM 连接测试失败:', result.message)
+    }
+  } catch (error) {
     llmTestResult.value = 'failed'
+    console.error('LLM 连接测试出错:', error)
   } finally {
     testingLlm.value = false
   }
@@ -882,18 +919,29 @@ const testEmbeddingConnection = async () => {
   testingEmbedding.value = true
   embeddingTestResult.value = null
   try {
-    // 模拟测试嵌入模型连接
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    // 检查配置是否有效
-    const baseUrl = settings.embedding.baseUrl || settings.llm.baseUrl
-    const apiKey = settings.embedding.apiKey || settings.llm.apiKey
-    if (baseUrl && apiKey) {
+    // 先保存配置到后端，确保使用最新配置测试
+    await saveSettings()
+
+    // 调用后端嵌入模型测试连接 API
+    const result = await api.testEmbeddingConnection()
+
+    if (result.success) {
       embeddingTestResult.value = 'success'
+      console.log('嵌入模型连接测试成功:', result.data)
+
+      // 检查维度是否匹配
+      if (result.data && !result.data.dim_match) {
+        const actualDim = result.data.embedding_dim
+        const configuredDim = result.data.configured_dim
+        alert(`警告：嵌入模型实际维度 (${actualDim}) 与配置维度 (${configuredDim}) 不匹配！\n建议将向量维度设置为 ${actualDim}`)
+      }
     } else {
       embeddingTestResult.value = 'failed'
+      console.error('嵌入模型连接测试失败:', result.message)
     }
-  } catch {
+  } catch (error) {
     embeddingTestResult.value = 'failed'
+    console.error('嵌入模型连接测试出错:', error)
   } finally {
     testingEmbedding.value = false
   }
@@ -901,8 +949,40 @@ const testEmbeddingConnection = async () => {
 
 const clearCache = async () => {
   if (confirm('确定要清空嵌入缓存吗？这将需要重新计算所有代码的向量。')) {
-    // 清空缓存逻辑
-    cacheStats.value = { total_entries: 0, cache_size_mb: 0 }
+    try {
+      const result = await api.clearCache()
+
+      if (result.success) {
+        alert('嵌入缓存已清空')
+        // 刷新缓存统计
+        await loadCacheStats()
+      } else {
+        alert('清空缓存失败: ' + result.message)
+      }
+    } catch (error) {
+      console.error('清空缓存出错:', error)
+      alert('清空缓存出错: ' + error.message)
+    }
+  }
+}
+
+// 加载缓存统计
+const loadCacheStats = async () => {
+  try {
+    const result = await api.getCacheStats()
+
+    if (result.success && result.data) {
+      cacheStats.value = {
+        total_entries: result.data.total_entries || 0,
+        cache_size_mb: result.data.cache_size_mb || 0,
+      }
+    }
+  } catch (error) {
+    console.warn('获取缓存统计失败:', error)
+    cacheStats.value = {
+      total_entries: 0,
+      cache_size_mb: 0,
+    }
   }
 }
 
@@ -952,26 +1032,36 @@ const runConfigTest = async (testType) => {
   configTestResults[testType] = 'running'
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
     switch (testType) {
       case 'connection':
-        // 测试 API 连接
-        if (settings.llm.apiKey && settings.llm.baseUrl) {
+        // 测试 API 连接 - 先保存配置
+        await saveSettings()
+
+        // 调用后端测试连接 API
+        const connResult = await api.testLlmConnection()
+
+        if (connResult.success) {
           configTestResults.connection = 'success'
         } else {
           configTestResults.connection = 'failed'
+          console.error('连接测试失败:', connResult.message)
         }
         break
 
       case 'rules':
         // 测试规则加载
-        rulesCount.value = 47 // 模拟规则数量
-        configTestResults.rules = 'success'
+        const rulesResult = await api.listRules()
+
+        if (rulesResult.success) {
+          rulesCount.value = rulesResult.data?.total || 0
+          configTestResults.rules = 'success'
+        } else {
+          configTestResults.rules = 'failed'
+        }
         break
 
       case 'demo':
-        // 运行示例扫描
+        // 运行示例扫描 - 依赖连接测试成功
         if (configTestResults.connection === 'success') {
           configTestResults.demo = 'success'
         } else {
@@ -979,7 +1069,8 @@ const runConfigTest = async (testType) => {
         }
         break
     }
-  } catch {
+  } catch (error) {
+    console.error(`配置测试 ${testType} 出错:`, error)
     configTestResults[testType] = 'failed'
   } finally {
     configTestRunning.value = false
@@ -1002,22 +1093,84 @@ const runAllTests = async () => {
   configTestRunning.value = false
 }
 
-onMounted(() => {
-  // 从本地存储加载设置
+// 从后端 API 加载配置
+const loadSettingsFromBackend = async () => {
+  try {
+    const result = await api.getSettings()
+
+    if (result.success && result.data) {
+      const data = result.data
+
+      // 映射后端配置到前端结构
+      if (data.llm) {
+        settings.llm.baseUrl = data.llm.base_url || settings.llm.baseUrl
+        settings.llm.model = data.llm.model || settings.llm.model
+        settings.llm.temperature = data.llm.temperature ?? settings.llm.temperature
+        // API Key 不从后端加载（安全考虑），从 localStorage 加载
+      }
+
+      // 嵌入模型配置
+      if (data.llm) {
+        settings.embedding.model = data.llm.embedding_model || settings.embedding.model
+        settings.embedding.baseUrl = data.llm.embedding_base_url || ''
+        settings.embedding.dimensions = data.llm.embedding_dim || settings.embedding.dimensions
+        // API Key 从 localStorage 加载
+      }
+
+      // 向量存储配置
+      if (data.vector_store) {
+        settings.vectorStore.type = data.vector_store.provider || settings.vectorStore.type
+        const host = data.vector_store.host || 'localhost'
+        const port = data.vector_store.port || 6333
+        settings.vectorStore.url = `http://${host}:${port}`
+      }
+
+      // 扫描配置
+      if (data.scan) {
+        settings.scanMode = data.scan.mode || settings.scanMode
+      }
+
+      console.log('从后端加载配置成功')
+    }
+  } catch (error) {
+    console.warn('从后端加载配置失败，使用本地缓存:', error)
+  }
+}
+
+// 从 localStorage 加载敏感配置（API Key 等）
+const loadLocalSettings = () => {
   const saved = localStorage.getItem('auditSettings')
   if (saved) {
     try {
       const parsed = JSON.parse(saved)
-      Object.assign(settings, parsed)
+      // 只加载 API Key 等敏感信息
+      if (parsed.llm?.apiKey) {
+        settings.llm.apiKey = parsed.llm.apiKey
+      }
+      if (parsed.embedding?.apiKey) {
+        settings.embedding.apiKey = parsed.embedding.apiKey
+      }
+      // 加载其他本地配置作为后备
+      if (parsed.scan) {
+        settings.scan = { ...settings.scan, ...parsed.scan }
+      }
+      if (parsed.highRisk) {
+        settings.highRisk = { ...settings.highRisk, ...parsed.highRisk }
+      }
     } catch (e) {
-      console.error('Failed to load settings:', e)
+      console.error('Failed to load local settings:', e)
     }
   }
+}
 
-  // 模拟缓存统计
-  cacheStats.value = {
-    total_entries: 1234,
-    cache_size_mb: 45.6
-  }
+onMounted(async () => {
+  // 1. 先从 localStorage 加载敏感配置
+  loadLocalSettings()
+
+  // 2. 再从后端 API 加载配置（会覆盖非敏感配置）
+  await loadSettingsFromBackend()
+
+  // 3. 从后端加载缓存统计
+  await loadCacheStats()
 })
 </script>

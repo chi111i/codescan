@@ -490,3 +490,39 @@ class CodeIndexer:
         """
         all_units = self.get_all_units()
         return [u for u in all_units if file_path in u.file_path]
+
+    def parse_directory_without_index(self, directory: str, languages: Optional[List[str]] = None) -> List[CodeUnit]:
+        """直接解析目录中的代码文件，不使用向量索引
+
+        适用于小项目，跳过嵌入向量的生成和存储。
+
+        Args:
+            directory: 目标目录路径
+            languages: 限定的语言列表（可选）
+
+        Returns:
+            CodeUnit 列表
+        """
+        root_path = Path(directory).resolve()
+        if not root_path.exists():
+            raise ValueError(f"目录不存在: {directory}")
+
+        logger.info(f"直接解析目录（跳过索引）: {root_path}")
+
+        all_units = []
+        file_count = 0
+
+        for file_path in self._scan_files(root_path):
+            units = self._parse_file(file_path, root_path)
+            if units:
+                # 如果指定了语言，过滤
+                if languages:
+                    units = [u for u in units if u.language in languages]
+                all_units.extend(units)
+                file_count += 1
+
+        # 分块处理
+        all_units = self._chunk_units(all_units, self.scan_config.chunk_size)
+
+        logger.info(f"直接解析完成: {file_count} 个文件, {len(all_units)} 个代码单元")
+        return all_units

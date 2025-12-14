@@ -263,8 +263,30 @@ class QdrantVectorStore(BaseVectorStore):
         collections = client.get_collections().collections
         exists = any(c.name == self.collection_name for c in collections)
 
+        if exists:
+            # 检查现有集合的维度是否匹配
+            try:
+                collection_info = client.get_collection(self.collection_name)
+                existing_dim = collection_info.config.params.vectors.size
+                if existing_dim != self.embedding_dim:
+                    logger.warning(
+                        f"集合 {self.collection_name} 维度不匹配: "
+                        f"现有={existing_dim}, 期望={self.embedding_dim}，将删除并重建"
+                    )
+                    client.delete_collection(self.collection_name)
+                    exists = False
+                else:
+                    logger.info(f"集合 {self.collection_name} 已存在，维度匹配: {existing_dim}")
+            except Exception as e:
+                logger.warning(f"检查集合维度失败: {e}，将尝试重建")
+                try:
+                    client.delete_collection(self.collection_name)
+                except Exception:
+                    pass
+                exists = False
+
         if not exists:
-            logger.info(f"Creating Qdrant collection: {self.collection_name}")
+            logger.info(f"Creating Qdrant collection: {self.collection_name} (dim={self.embedding_dim})")
             client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=qmodels.VectorParams(
@@ -353,13 +375,15 @@ class QdrantVectorStore(BaseVectorStore):
             if conditions:
                 query_filter = qmodels.Filter(must=conditions)
 
-        results = client.search(
+        # qdrant-client 1.7+ 使用 query_points 替代 search
+        response = client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             query_filter=query_filter,
             limit=top_k,
             with_payload=True,
         )
+        results = response.points
 
         search_results = []
         for hit in results:

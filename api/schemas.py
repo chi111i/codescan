@@ -61,6 +61,7 @@ class ScanRequest(BaseModel):
     scan_logic: bool = Field(True, description="是否扫描业务逻辑漏洞")
     max_issues: int = Field(50, description="最大分析候选数量")
     reindex: bool = Field(False, description="是否重新索引")
+    skip_index: bool = Field(False, description="跳过向量索引（小项目推荐，直接遍历文件）")
 
 
 class IndexRequest(BaseModel):

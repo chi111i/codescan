@@ -326,14 +326,87 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
     )
 
 
+# =============================================================================
+# 用户配置持久化
+# =============================================================================
+
+# 用户本地配置文件路径
+USER_CONFIG_FILE = Path(__file__).parent.parent / ".user_config.yaml"
+
+
+def save_user_config(config_updates: Dict[str, Any]) -> bool:
+    """保存用户配置到本地文件
+
+    Args:
+        config_updates: 要更新的配置字典
+
+    Returns:
+        是否保存成功
+    """
+    try:
+        # 读取现有配置
+        existing_config = {}
+        if USER_CONFIG_FILE.exists():
+            with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
+                existing_config = yaml.safe_load(f) or {}
+
+        # 深度合并配置
+        merged_config = _deep_merge(existing_config, config_updates)
+
+        # 写入文件
+        with open(USER_CONFIG_FILE, "w", encoding="utf-8") as f:
+            yaml.dump(merged_config, f, default_flow_style=False, allow_unicode=True)
+
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"保存用户配置失败: {e}")
+        return False
+
+
+def load_user_config() -> Dict[str, Any]:
+    """加载用户本地配置
+
+    Returns:
+        用户配置字典
+    """
+    if not USER_CONFIG_FILE.exists():
+        return {}
+
+    try:
+        with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"加载用户配置失败: {e}")
+        return {}
+
+
+def clear_user_config() -> bool:
+    """清除用户本地配置
+
+    Returns:
+        是否清除成功
+    """
+    try:
+        if USER_CONFIG_FILE.exists():
+            USER_CONFIG_FILE.unlink()
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"清除用户配置失败: {e}")
+        return False
+
+
 def load_config(config_path: Optional[str] = None, target_path: Optional[str] = None) -> AuditConfig:
     """加载配置
 
     优先级（从低到高）：
     1. 默认配置
     2. 项目级配置文件
-    3. 环境变量
-    4. 函数参数
+    3. 用户本地配置文件 (.user_config.yaml)
+    4. 环境变量
+    5. 函数参数
 
     Args:
         config_path: 配置文件路径，默认查找 audit.config.yaml
@@ -363,10 +436,15 @@ def load_config(config_path: Optional[str] = None, target_path: Optional[str] = 
             file_config = yaml.safe_load(f) or {}
             config_dict = _deep_merge(config_dict, file_config)
 
-    # 3. 应用环境变量覆盖
+    # 3. 加载用户本地配置文件（高优先级）
+    user_config = load_user_config()
+    if user_config:
+        config_dict = _deep_merge(config_dict, user_config)
+
+    # 4. 应用环境变量覆盖
     config_dict = _apply_env_overrides(config_dict)
 
-    # 4. 应用函数参数
+    # 5. 应用函数参数
     if target_path:
         if "scan" not in config_dict:
             config_dict["scan"] = {}
@@ -381,8 +459,13 @@ def load_config(config_path: Optional[str] = None, target_path: Optional[str] = 
     return config
 
 
-def _validate_config(config: AuditConfig) -> None:
-    """验证配置的必填项和合法性"""
+def _validate_config(config: AuditConfig, suppress_warnings: bool = False) -> None:
+    """验证配置的必填项和合法性
+
+    Args:
+        config: 配置对象
+        suppress_warnings: 是否抑制警告（用于运行时动态更新配置时）
+    """
     errors = []
 
     # LLM 配置验证
@@ -407,9 +490,10 @@ def _validate_config(config: AuditConfig) -> None:
 
     if errors:
         # 只打印警告，不阻止启动
-        import warnings
-        for error in errors:
-            warnings.warn(f"配置警告: {error}")
+        if not suppress_warnings:
+            import warnings
+            for error in errors:
+                warnings.warn(f"配置警告: {error}")
 
 
 def save_default_config(output_path: str = "audit.config.yaml") -> None:

@@ -17,6 +17,11 @@ from .settings import (
     # 函数
     load_config,
     save_default_config,
+    # 用户配置持久化
+    save_user_config,
+    load_user_config,
+    clear_user_config,
+    USER_CONFIG_FILE,
 )
 
 __all__ = [
@@ -36,4 +41,9 @@ __all__ = [
     # 函数
     "load_config",
     "save_default_config",
+    # 用户配置持久化
+    "save_user_config",
+    "load_user_config",
+    "clear_user_config",
+    "USER_CONFIG_FILE",
 ]

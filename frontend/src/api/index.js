@@ -41,6 +41,20 @@ export const getRule = (ruleId) => api.get(`/rules/${ruleId}`)
 export const listUnits = (params) => api.get('/units', { params })
 export const getUnit = (unitId) => api.get(`/units/${unitId}`)
 
+// 设置相关
+export const getSettings = () => api.get('/settings')
+export const updateSettings = (data) => api.post('/settings', data)
+export const testLlmConnection = () => api.post('/settings/test-connection')
+export const testEmbeddingConnection = () => api.post('/settings/test-embedding')
+
+// 缓存相关
+export const getCacheStats = () => api.get('/cache/stats')
+export const clearCache = () => api.delete('/cache')
+export const cleanupCache = () => api.post('/cache/cleanup')
+
+// 清空索引
+export const clearIndex = () => api.delete('/index')
+
 // WebSocket 连接
 export const createScanWebSocket = (scanId) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'

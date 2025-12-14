@@ -199,6 +199,19 @@
                     </div>
                   </label>
 
+                  <label class="option-card col-span-2">
+                    <input type="checkbox" v-model="config.skipIndex" class="hidden" />
+                    <div class="option-checkbox" :class="{ checked: config.skipIndex }">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <span class="text-sm font-medium text-gray-800">跳过向量索引（小项目推荐）</span>
+                      <p class="text-xs text-gray-500">直接遍历代码文件分析，不使用向量数据库索引。适合代码量较小的项目，速度更快。</p>
+                    </div>
+                  </label>
+
                   <div class="col-span-2 grid grid-cols-2 gap-4">
                     <div class="p-4 rounded-xl bg-white/30">
                       <label class="text-sm font-medium text-gray-700 block mb-2">最大分析数</label>
@@ -473,6 +486,7 @@ const config = reactive({
   scanLogic: true,
   taintAnalysis: true,
   reindex: false,
+  skipIndex: false,
   maxIssues: 50,
   concurrency: 3,
 })
@@ -596,6 +610,7 @@ const resetConfig = () => {
   config.scanLogic = true
   config.taintAnalysis = true
   config.reindex = false
+  config.skipIndex = false
   config.maxIssues = 50
   config.concurrency = 3
 }
@@ -619,6 +634,7 @@ const startScan = async () => {
       scan_logic: config.scanLogic,
       taint_analysis: config.taintAnalysis,
       reindex: config.reindex,
+      skip_index: config.skipIndex,
       max_issues: config.maxIssues,
       concurrency: config.concurrency,
     })

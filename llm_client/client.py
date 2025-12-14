@@ -212,12 +212,24 @@ class OpenAICompatibleClient(BaseLLMClient):
             "Content-Type": "application/json",
         }
 
-    def _log_request(self, endpoint: str, model: str, tokens: Optional[int] = None):
+    def _log_request(self, endpoint: str, model: str, tokens: Optional[int] = None, payload: Optional[Dict[str, Any]] = None):
         """安全的请求日志（不输出敏感内容）"""
-        logger.debug(
-            f"LLM Request: endpoint={endpoint}, model={model}, "
-            f"tokens={tokens or 'N/A'}"
-        )
+        log_info = f"LLM Request: endpoint={endpoint}, model={model}, tokens={tokens or 'N/A'}"
+
+        if payload:
+            # 添加更多调试信息，但不输出敏感内容
+            if "messages" in payload:
+                msg_count = len(payload.get("messages", []))
+                log_info += f", messages_count={msg_count}"
+            if "tools" in payload:
+                tool_count = len(payload.get("tools", []))
+                log_info += f", tools_count={tool_count}"
+            if "temperature" in payload:
+                log_info += f", temperature={payload['temperature']}"
+            if "max_tokens" in payload:
+                log_info += f", max_tokens={payload['max_tokens']}"
+
+        logger.info(log_info)
 
     def _handle_error(self, response: httpx.Response, attempt: int) -> None:
         """处理错误响应"""
@@ -263,12 +275,31 @@ class OpenAICompatibleClient(BaseLLMClient):
         url = f"{use_base_url}{endpoint}"
         last_exception = None
 
+        # 检查 API Key 是否配置
+        api_key_to_check = self.embedding_api_key if client == self._embedding_client else self.api_key
+        if not api_key_to_check:
+            logger.error(f"API Key 未配置: endpoint={endpoint}, base_url={use_base_url}")
+            raise APIError("API Key 未配置，请在设置中配置 API Key 后重试")
+
+        # 记录请求详情
+        logger.info(f"准备发送请求: {method} {url}")
+        logger.info(f"  - 使用 API Key: {api_key_to_check[:8]}...{api_key_to_check[-4:] if len(api_key_to_check) > 12 else '****'}")
+        logger.info(f"  - 模型: {json_data.get('model', 'N/A')}")
+
         for attempt in range(1, self.max_retries + 1):
             try:
+                logger.info(f"发送请求: {method} {url} (尝试 {attempt}/{self.max_retries})")
                 response = use_client.request(method, url, json=json_data)
 
+                logger.info(f"收到响应: status={response.status_code}")
+
                 if response.status_code == 200:
-                    return response.json()
+                    result = response.json()
+                    # 记录成功响应的简要信息
+                    if "usage" in result:
+                        usage = result["usage"]
+                        logger.info(f"请求成功: prompt_tokens={usage.get('prompt_tokens', 0)}, completion_tokens={usage.get('completion_tokens', 0)}")
+                    return result
 
                 self._handle_error(response, attempt)
 
@@ -355,7 +386,7 @@ class OpenAICompatibleClient(BaseLLMClient):
         # 合并额外参数
         payload.update(kwargs)
 
-        self._log_request("/v1/chat/completions", use_model)
+        self._log_request("/v1/chat/completions", use_model, payload=payload)
 
         result = self._request_with_retry("POST", "/v1/chat/completions", payload)
 
@@ -371,9 +402,10 @@ class OpenAICompatibleClient(BaseLLMClient):
                 ToolCall.from_dict(tc) for tc in message["tool_calls"]
             ]
 
-        logger.debug(
+        logger.info(
             f"LLM Response: model={result.get('model')}, "
             f"tokens={usage.get('total_tokens', 'N/A')}, "
+            f"finish_reason={choice.get('finish_reason', 'unknown')}, "
             f"tool_calls={len(tool_calls) if tool_calls else 0}"
         )
 
@@ -424,7 +456,7 @@ class OpenAICompatibleClient(BaseLLMClient):
         if encoding_format:
             payload["encoding_format"] = encoding_format
 
-        self._log_request("/v1/embeddings", use_model, len(texts))
+        self._log_request("/v1/embeddings", use_model, len(texts), payload=payload)
 
         # 使用嵌入模型专用的客户端和 base_url
         result = self._request_with_retry(
@@ -438,6 +470,12 @@ class OpenAICompatibleClient(BaseLLMClient):
         # 解析嵌入向量
         embeddings = [item["embedding"] for item in result["data"]]
         usage = result.get("usage", {})
+
+        logger.info(
+            f"Embedding Response: model={result.get('model', use_model)}, "
+            f"texts_count={len(texts)}, embedding_dim={len(embeddings[0]) if embeddings else 0}, "
+            f"total_tokens={usage.get('total_tokens', 'N/A')}"
+        )
 
         return EmbeddingResponse(
             embeddings=embeddings,
