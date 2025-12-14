@@ -1,0 +1,746 @@
+# 综合安全规则库
+# 覆盖 OWASP Top 10 和常见安全漏洞
+
+rules:
+  # ============ 认证与会话管理 ============
+
+  - id: auth-hardcoded-credentials
+    name: 硬编码凭证
+    rule_type: pattern
+    category: auth
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:password = "
+      - "contains:api_key = "
+      - "contains:secret = "
+      - "contains:AWS_SECRET"
+      - "contains:PRIVATE_KEY"
+    description: |
+      代码中硬编码密码、API Key 等敏感凭证，
+      可能通过源代码泄露。
+    fix_suggestion: |
+      1. 使用环境变量存储敏感信息
+      2. 使用密钥管理服务 (AWS KMS, HashiCorp Vault)
+      3. 不要将敏感信息提交到版本控制
+    cwe_ids: ["CWE-798"]
+    owasp_ids: ["A07:2021"]
+    tags: ["credentials", "secrets"]
+
+  - id: auth-session-fixation
+    name: 会话固定风险
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [python, javascript, typescript, php]
+    patterns:
+      - "session.save"
+      - "session.regenerate"
+      - "session_regenerate_id"
+    description: |
+      登录后未重新生成 session ID 可能导致会话固定攻击。
+    fix_suggestion: |
+      登录成功后调用 session.regenerate() 或 session_regenerate_id()
+    cwe_ids: ["CWE-384"]
+    tags: ["session", "fixation"]
+
+  - id: auth-weak-password-policy
+    name: 弱密码策略
+    rule_type: pattern
+    category: auth
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:password_min_length"
+      - "contains:MIN_PASSWORD_LENGTH"
+      - "contains:validatePassword"
+    description: |
+      密码策略过弱可能导致账户被暴力破解。
+    fix_suggestion: |
+      1. 最小长度 8-12 字符
+      2. 要求大小写、数字、特殊字符组合
+      3. 检查常见弱密码字典
+      4. 实施登录失败限制
+    cwe_ids: ["CWE-521"]
+    tags: ["password", "policy"]
+
+  - id: auth-missing-mfa
+    name: 缺少多因素认证
+    rule_type: pattern
+    category: auth
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:login"
+      - "contains:signin"
+      - "contains:authenticate"
+    description: |
+      关键操作缺少多因素认证（MFA）保护。
+    fix_suggestion: |
+      对敏感操作（登录、支付、删除账户等）实施 MFA
+    cwe_ids: ["CWE-287"]
+    tags: ["mfa", "2fa"]
+
+  # ============ 授权与访问控制 ============
+
+  - id: authz-missing-ownership-check
+    name: 缺少资源归属检查
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:get_object_or_404"
+      - "contains:findById"
+      - "contains:findOne"
+      - "contains:query.filter"
+      - "contains:WHERE id ="
+    description: |
+      使用用户可控的 ID 查询资源，但未检查资源是否属于当前用户，
+      可能导致水平越权（IDOR）。
+    fix_suggestion: |
+      1. 同时检查 resource.user_id == current_user.id
+      2. 使用 UUID 替代自增 ID
+      3. 在 ORM 查询中添加 user_id 条件
+    cwe_ids: ["CWE-639"]
+    owasp_ids: ["A01:2021"]
+    tags: ["idor", "authz"]
+
+  - id: authz-insecure-direct-object-ref
+    name: 不安全的直接对象引用
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "request.args.get('id')"
+      - "request.POST.get('id')"
+      - "req.query.id"
+      - "req.params.id"
+      - "$_GET['id']"
+      - "$_POST['id']"
+    description: |
+      直接使用用户提供的 ID 访问资源，
+      未进行权限检查，可能导致越权访问。
+    fix_suggestion: |
+      1. 验证当前用户是否有权访问该资源
+      2. 使用间接引用映射（用户只能看到自己的资源列表）
+      3. 在数据层面实施权限过滤
+    cwe_ids: ["CWE-639", "CWE-284"]
+    owasp_ids: ["A01:2021"]
+    tags: ["idor", "direct-reference"]
+
+  - id: authz-role-based-check-missing
+    name: 缺少角色权限检查
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:@admin"
+      - "contains:@require_role"
+      - "contains:is_admin"
+      - "contains:hasRole"
+      - "contains:checkPermission"
+    description: |
+      管理功能缺少角色检查或检查不完整。
+    fix_suggestion: |
+      1. 使用装饰器或中间件统一进行权限检查
+      2. 检查用户角色和权限
+      3. 不要信任客户端传递的角色信息
+    cwe_ids: ["CWE-862"]
+    tags: ["rbac", "admin"]
+
+  # ============ 注入漏洞 ============
+
+  - id: injection-xpath
+    name: XPath 注入
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "xpath.evaluate"
+      - "xpath.select"
+      - "selectNodes"
+      - "selectSingleNode"
+    description: |
+      在 XPath 查询中使用用户输入可能导致 XPath 注入。
+    fix_suggestion: |
+      使用参数化 XPath 查询或输入验证
+    cwe_ids: ["CWE-643"]
+    tags: ["xpath", "injection"]
+
+  - id: injection-email-header
+    name: 邮件头注入
+    rule_type: sink
+    category: injection
+    risk_level: medium
+    languages: [python, javascript, typescript, php]
+    patterns:
+      - "send_mail"
+      - "sendmail"
+      - "mail.send"
+      - "nodemailer.send"
+      - "mail("
+    description: |
+      在邮件头中使用用户输入可能导致邮件头注入，
+      攻击者可能发送垃圾邮件或钓鱼邮件。
+    fix_suggestion: |
+      1. 验证邮件地址格式
+      2. 过滤换行符和特殊字符
+      3. 使用邮件库的内置验证
+    cwe_ids: ["CWE-93"]
+    tags: ["email", "injection"]
+
+  - id: injection-expression-lang
+    name: 表达式语言注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [java, python]
+    patterns:
+      - "eval"
+      - "Expression"
+      - "SpEL"
+      - "OGNL"
+      - "MVEL"
+    description: |
+      在表达式语言中使用用户输入可能导致代码执行。
+    fix_suggestion: |
+      1. 不要使用用户输入构造表达式
+      2. 使用沙箱环境
+      3. 禁用危险功能
+    cwe_ids: ["CWE-917"]
+    tags: ["expression", "rce"]
+
+  # ============ 文件操作 ============
+
+  - id: file-unrestricted-upload
+    name: 文件上传限制不足
+    rule_type: sink
+    category: file-upload
+    risk_level: critical
+    languages: [python, javascript, typescript, php]
+    patterns:
+      - "save"
+      - "move_uploaded_file"
+      - "multer"
+      - "request.FILES"
+      - "req.file"
+    description: |
+      文件上传未进行充分验证可能导致：
+      - 上传 webshell 执行代码
+      - 上传超大文件导致 DoS
+      - 文件覆盖
+    fix_suggestion: |
+      1. 白名单验证文件类型（检查内容而非扩展名）
+      2. 限制文件大小
+      3. 重命名上传文件
+      4. 存储在静态资源目录外
+      5. 禁用上传文件的执行权限
+    cwe_ids: ["CWE-434"]
+    owasp_ids: ["A04:2021"]
+    tags: ["upload", "webshell"]
+
+  - id: file-zip-slip
+    name: Zip Slip 漏洞
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "zipfile.extract"
+      - "zipfile.extractall"
+      - "tarfile.extract"
+      - "unzip"
+      - "decompress"
+    description: |
+      解压 zip 文件时未验证文件名可能导致路径遍历，
+      攻击者可能覆盖任意文件。
+    fix_suggestion: |
+      1. 验证解压后的路径在预期目录内
+      2. 过滤包含 .. 的文件名
+      3. 使用 safe-extract 库
+    cwe_ids: ["CWE-22"]
+    tags: ["zip", "path-traversal"]
+
+  # ============ 加密与哈希 ============
+
+  - id: crypto-weak-ssl
+    name: 弱 SSL/TLS 配置
+    rule_type: pattern
+    category: crypto
+    risk_level: high
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "SSLv2"
+      - "SSLv3"
+      - "TLSv1"
+      - "verify=False"
+      - "rejectUnauthorized: false"
+      - "NODE_TLS_REJECT_UNAUTHORIZED"
+    description: |
+      使用过时的 SSL/TLS 协议或禁用证书验证
+      可能导致中间人攻击。
+    fix_suggestion: |
+      1. 使用 TLS 1.2 或更高版本
+      2. 启用证书验证
+      3. 使用强加密套件
+    cwe_ids: ["CWE-326", "CWE-295"]
+    tags: ["ssl", "tls", "mitm"]
+
+  - id: crypto-hardcoded-key
+    name: 硬编码加密密钥
+    rule_type: pattern
+    category: crypto
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:SECRET_KEY ="
+      - "contains:ENCRYPTION_KEY ="
+      - "contains:AES.encrypt"
+      - "contains:createCipher"
+    description: |
+      硬编码加密密钥导致所有加密数据使用相同密钥，
+      一旦泄露影响所有用户。
+    fix_suggestion: |
+      1. 每个用户使用独立密钥
+      2. 密钥存储在密钥管理服务中
+      3. 定期轮换密钥
+    cwe_ids: ["CWE-321"]
+    tags: ["encryption", "key"]
+
+  # ============ 业务逻辑漏洞 ============
+
+  - id: logic-price-manipulation
+    name: 价格篡改风险
+    rule_type: pattern
+    category: business-logic
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:price"
+      - "contains:amount"
+      - "contains:total"
+      - "contains:discount"
+      - "contains:coupon"
+    description: |
+      从客户端接收价格信息可能被篡改。
+    fix_suggestion: |
+      1. 价格必须从服务端数据库读取
+      2. 计算总价时重新验证
+      3. 对价格计算过程进行审计日志
+    cwe_ids: ["CWE-472"]
+    tags: ["price", "payment"]
+
+  - id: logic-order-status-bypass
+    name: 订单状态绕过
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:order.status"
+      - "contains:order_status"
+      - "contains:orderStatus"
+      - "contains:setState"
+    description: |
+      直接修改订单状态可能绕过业务流程。
+    fix_suggestion: |
+      1. 使用状态机严格控制状态转换
+      2. 验证状态转换的合法性
+      3. 记录所有状态变更日志
+    cwe_ids: ["CWE-840"]
+    tags: ["order", "state"]
+
+  - id: logic-refund-bypass
+    name: 退款逻辑绕过
+    rule_type: pattern
+    category: business-logic
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:refund"
+      - "contains:return"
+      - "contains:chargeback"
+    description: |
+      退款逻辑可能存在漏洞，允许重复退款或超额退款。
+    fix_suggestion: |
+      1. 检查订单状态（已退款的不能再次退款）
+      2. 验证退款金额不超过订单金额
+      3. 使用数据库事务保证一致性
+      4. 记录退款审计日志
+    cwe_ids: ["CWE-840"]
+    tags: ["refund", "payment"]
+
+  - id: logic-inventory-negative
+    name: 库存负数风险
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:inventory"
+      - "contains:stock"
+      - "contains:quantity"
+      - "contains:-.="
+      - "contains:decrement"
+    description: |
+      库存减少操作可能导致负数库存。
+    fix_suggestion: |
+      1. 使用数据库约束防止负数
+      2. 在减库存前检查是否充足
+      3. 使用原子操作（如 UPDATE ... WHERE stock >= x）
+    cwe_ids: ["CWE-682"]
+    tags: ["inventory", "race-condition"]
+
+  # ============ 数据泄露 ============
+
+  - id: data-sensitive-in-url
+    name: 敏感数据通过 URL 传递
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "request.args"
+      - "request.GET"
+      - "req.query"
+      - "$_GET"
+    description: |
+      敏感数据通过 URL 参数传递可能被记录在日志、
+      浏览器历史或 Referer 头中。
+    fix_suggestion: |
+      1. 敏感数据使用 POST 方法传递
+      2. 使用请求体而非 URL 参数
+      3. Token 使用 Authorization 头
+    cwe_ids: ["CWE-598"]
+    tags: ["url", "sensitive-data"]
+
+  - id: data-error-disclosure
+    name: 错误信息泄露
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:traceback"
+      - "contains:printStackTrace"
+      - "contains:stack trace"
+      - "contains:Exception"
+      - "contains:debug=True"
+    description: |
+      详细的错误信息可能泄露敏感的系统信息。
+    fix_suggestion: |
+      1. 生产环境不显示详细错误
+      2. 返回通用错误消息给用户
+      3. 详细错误记录到服务器日志
+    cwe_ids: ["CWE-209"]
+    owasp_ids: ["A05:2021"]
+    tags: ["error", "disclosure"]
+
+  - id: data-pii-unencrypted
+    name: 个人信息未加密
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:phone"
+      - "contains:id_card"
+      - "contains:ssn"
+      - "contains:credit_card"
+      - "contains:email"
+    description: |
+      个人敏感信息可能未加密存储。
+    fix_suggestion: |
+      1. 加密存储 PII 数据
+      2. 使用字段级加密
+      3. 仅存储必要的最小数据
+    cwe_ids: ["CWE-311"]
+    owasp_ids: ["A02:2021"]
+    tags: ["pii", "encryption"]
+
+  # ============ SSRF 与网络 ============
+
+  - id: ssrf-url-fetch
+    name: SSRF 风险
+    rule_type: sink
+    category: ssrf
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "requests.get"
+      - "requests.post"
+      - "urllib.request.urlopen"
+      - "http.request"
+      - "axios"
+      - "fetch"
+      - "curl_exec"
+      - "file_get_contents"
+    description: |
+      使用用户输入构造 URL 可能导致 SSRF 攻击，
+      攻击者可能访问内网资源或发起攻击。
+    fix_suggestion: |
+      1. 使用 URL 白名单
+      2. 禁止访问内网地址（127.0.0.1, 192.168.x.x 等）
+      3. 验证协议（只允许 http/https）
+      4. 使用专用的 SSRF 防护库
+    cwe_ids: ["CWE-918"]
+    owasp_ids: ["A10:2021"]
+    tags: ["ssrf", "url"]
+
+  - id: ssrf-dns-rebinding
+    name: DNS 重绑定风险
+    rule_type: pattern
+    category: ssrf
+    risk_level: high
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "contains:urlparse"
+      - "contains:URL("
+      - "contains:urllib.parse"
+    description: |
+      仅验证初始域名可能被 DNS 重绑定绕过。
+    fix_suggestion: |
+      1. 在每次连接时重新验证 IP
+      2. 禁用 DNS 缓存或使用短 TTL
+      3. 使用 IP 白名单替代域名
+    cwe_ids: ["CWE-350"]
+    tags: ["dns", "rebinding"]
+
+  # ============ 竞态条件与并发 ============
+
+  - id: race-toctou
+    name: TOCTOU 竞态条件
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "contains:if.*exists"
+      - "contains:os.path.exists"
+      - "contains:fs.exists"
+      - "contains:file_exists"
+    description: |
+      检查后使用（TOCTOU）可能被竞态条件利用。
+    fix_suggestion: |
+      1. 使用原子操作
+      2. 使用文件锁
+      3. 在数据库层面使用事务
+    cwe_ids: ["CWE-367"]
+    tags: ["toctou", "race"]
+
+  - id: race-double-spending
+    name: 双花攻击风险
+    rule_type: pattern
+    category: business-logic
+    risk_level: critical
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "contains:balance"
+      - "contains:withdraw"
+      - "contains:transfer"
+      - "contains:spend"
+    description: |
+      余额扣减操作可能存在竞态条件，
+      允许用户超额消费。
+    fix_suggestion: |
+      1. 使用数据库事务
+      2. 使用 SELECT FOR UPDATE 锁定记录
+      3. 在数据库层检查余额约束
+      4. 使用队列串行化处理
+    cwe_ids: ["CWE-362"]
+    tags: ["balance", "double-spend"]
+
+  # ============ API 安全 ============
+
+  - id: api-excessive-data
+    name: 过度数据暴露
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "to_dict"
+      - "toJSON"
+      - "serialize"
+      - "JsonResponse"
+    description: |
+      API 返回了过多数据，可能暴露敏感字段。
+    fix_suggestion: |
+      1. 使用序列化器明确指定返回字段
+      2. 不返回 password、token 等敏感字段
+      3. 根据用户权限返回不同数据
+    cwe_ids: ["CWE-213"]
+    tags: ["api", "exposure"]
+
+  - id: api-missing-pagination
+    name: 缺少分页限制
+    rule_type: pattern
+    category: business-logic
+    risk_level: low
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - ".all()"
+      - "find()"
+      - "SELECT * FROM"
+      - "contains:query.all"
+    description: |
+      查询未限制数量可能导致性能问题或信息泄露。
+    fix_suggestion: |
+      1. 强制分页或限制返回数量
+      2. 使用游标分页
+      3. 限制最大每页数量
+    cwe_ids: ["CWE-1284"]
+    tags: ["pagination", "performance"]
+
+  - id: api-cors-misconfiguration
+    name: CORS 配置不当
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "Access-Control-Allow-Origin"
+      - "CORS"
+      - "cors()"
+    description: |
+      CORS 配置过于宽松可能导致跨域攻击。
+    fix_suggestion: |
+      1. 不要使用 * 作为允许的源
+      2. 严格验证 Origin 头
+      3. 仅对需要的端点启用 CORS
+    cwe_ids: ["CWE-942"]
+    tags: ["cors", "xss"]
+
+  # ============ 第三方依赖 ============
+
+  - id: dependency-vulnerable-package
+    name: 已知漏洞依赖
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "contains:requirements.txt"
+      - "contains:package.json"
+      - "contains:pom.xml"
+    description: |
+      使用已知存在漏洞的第三方库。
+    fix_suggestion: |
+      1. 定期使用 safety/snyk 扫描依赖
+      2. 及时更新有漏洞的依赖
+      3. 使用 dependabot 自动更新
+    cwe_ids: ["CWE-1035"]
+    tags: ["dependency", "sca"]
+
+  # ============ 输入源定义 ============
+
+  - id: source-http-param-python
+    name: HTTP 请求参数（Python）
+    rule_type: source
+    category: other
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "request.args"
+      - "request.form"
+      - "request.json"
+      - "request.data"
+      - "request.GET"
+      - "request.POST"
+    frameworks: [flask, django, fastapi]
+    description: HTTP 请求参数是不可信的用户输入
+    tags: ["source", "http"]
+
+  - id: source-http-param-js
+    name: HTTP 请求参数（JavaScript）
+    rule_type: source
+    category: other
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - "req.query"
+      - "req.params"
+      - "req.body"
+      - "req.cookies"
+      - "req.headers"
+    frameworks: [express, koa, nestjs]
+    description: HTTP 请求参数是不可信的用户输入
+    tags: ["source", "http"]
+
+  - id: source-file-upload
+    name: 文件上传输入
+    rule_type: source
+    category: file-upload
+    risk_level: critical
+    languages: [python, javascript, typescript, php]
+    patterns:
+      - "request.files"
+      - "request.FILES"
+      - "req.file"
+      - "req.files"
+      - "$_FILES"
+    description: 文件上传是高风险的用户输入
+    tags: ["source", "file"]
+
+  # ============ 消毒函数定义 ============
+
+  - id: sanitizer-sql-parameterized
+    name: SQL 参数化查询
+    rule_type: sanitizer
+    category: injection
+    risk_level: low
+    languages: [python, javascript, typescript, php]
+    patterns:
+      - "execute("
+      - "executemany("
+      - "query("
+      - "prepare("
+    description: 参数化查询可以防止 SQL 注入
+    tags: ["sanitizer", "sql"]
+
+  - id: sanitizer-html-escape
+    name: HTML 转义
+    rule_type: sanitizer
+    category: injection
+    risk_level: low
+    languages: [python, javascript, typescript]
+    patterns:
+      - "html.escape"
+      - "escape"
+      - "sanitize"
+      - "DOMPurify"
+    description: HTML 转义可以防止 XSS
+    tags: ["sanitizer", "xss"]
+
+  - id: sanitizer-path-validation
+    name: 路径验证
+    rule_type: sanitizer
+    category: injection
+    risk_level: low
+    languages: [python, javascript, typescript]
+    patterns:
+      - "os.path.realpath"
+      - "os.path.abspath"
+      - "path.resolve"
+      - "secure_filename"
+      - "basename"
+    description: 路径规范化可以防止路径遍历
+    tags: ["sanitizer", "path"]
+
+  - id: sanitizer-url-whitelist
+    name: URL 白名单验证
+    rule_type: sanitizer
+    category: ssrf
+    risk_level: low
+    languages: [python, javascript, typescript]
+    patterns:
+      - "urlparse"
+      - "URL("
+      - "contains:whitelist"
+      - "contains:allowed_domains"
+    description: URL 白名单验证可以防止 SSRF
+    tags: ["sanitizer", "ssrf"]

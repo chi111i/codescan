@@ -1027,6 +1027,7 @@ class TaintAnalyzer:
         self,
         code_units: List[CodeUnit],
         max_depth: int = 10,
+        use_topological: bool = True,
     ) -> List[CrossFunctionFlow]:
         """跨函数污点分析
 
@@ -1036,6 +1037,7 @@ class TaintAnalyzer:
         Args:
             code_units: 代码单元列表
             max_depth: 最大追踪深度
+            use_topological: 是否使用拓扑排序优化
 
         Returns:
             跨函数污点流列表
@@ -1048,19 +1050,126 @@ class TaintAnalyzer:
         # 2. 检测使用的框架
         self._detect_frameworks(code_units)
 
-        # 3. 分析每个函数的内部污点
-        for unit in code_units:
-            self._analyze_function_taints(unit)
+        # 3. 使用拓扑排序优化分析顺序
+        if use_topological and self.call_graph:
+            logger.info("Using topological ordering for taint propagation...")
+            self._analyze_with_topological_order()
+        else:
+            # 原始方法：分析每个函数的内部污点
+            for unit in code_units:
+                self._analyze_function_taints(unit)
 
-        # 4. 构建跨函数污点传播
-        if self.call_graph:
-            self._propagate_taints_across_calls(max_depth)
+            # 使用迭代传播
+            if self.call_graph:
+                self._propagate_taints_across_calls(max_depth)
 
-        # 5. 查找最终的 sink
+        # 4. 查找最终的 sink
         self._find_cross_function_sinks()
 
         logger.info(f"Found {len(self.cross_function_flows)} cross-function taint flows")
         return self.cross_function_flows
+
+    def _analyze_with_topological_order(self) -> None:
+        """使用拓扑排序优化污点分析
+
+        按依赖顺序分析函数，确保被调用函数先于调用者分析，
+        从而实现单次遍历完成污点传播。
+        """
+        from .optimized_algorithms import OptimizedPathFinder
+
+        optimizer = OptimizedPathFinder(self.call_graph)
+        topo_order = optimizer.compute_topological_order()
+
+        logger.debug(f"Analyzing {len(topo_order)} functions in topological order")
+
+        # 按拓扑序分析
+        for func_id in topo_order:
+            unit = self._code_units_cache.get(func_id)
+            if not unit:
+                continue
+
+            # 分析函数内部污点
+            self._analyze_function_taints(unit)
+
+            # 从调用者传播污点（调用者在拓扑序中已经分析）
+            self._propagate_from_callers_single_pass(func_id)
+
+    def _propagate_from_callers_single_pass(self, func_id: str) -> None:
+        """从调用者单次传播污点（用于拓扑排序模式）
+
+        Args:
+            func_id: 当前函数 ID
+        """
+        if not self.call_graph:
+            return
+
+        # 获取当前函数
+        unit = self._code_units_cache.get(func_id)
+        if not unit:
+            return
+
+        # 获取所有调用者
+        callers = self.call_graph._callers.get(func_id, set())
+
+        for caller_id in callers:
+            # 获取 caller 的污点
+            caller_taints = self.function_taints.get(caller_id, [])
+            if not caller_taints:
+                continue
+
+            caller_unit = self._code_units_cache.get(caller_id)
+            if not caller_unit:
+                continue
+
+            # 获取当前函数的参数
+            callee_params = self._function_params.get(func_id, [])
+            if not callee_params:
+                continue
+
+            # 提取调用时的参数
+            call_args = self._extract_call_arguments(caller_unit.code, unit.symbol)
+
+            # 检查每个参数是否被污染
+            for arg_idx, arg in enumerate(call_args):
+                for taint in caller_taints:
+                    if taint.tainted_var.name == arg:
+                        # 传播到当前函数的对应参数
+                        if arg_idx < len(callee_params):
+                            param_name = callee_params[arg_idx]
+
+                            # 检查是否已存在
+                            existing_taints = self.function_taints.get(func_id, [])
+                            already_exists = any(
+                                t.tainted_var.name == param_name and t.is_parameter
+                                for t in existing_taints
+                            )
+
+                            if not already_exists:
+                                # 创建新的污点
+                                new_tainted_var = TaintedVariable(
+                                    name=param_name,
+                                    source_type=taint.tainted_var.source_type,
+                                    source_location=taint.tainted_var.source_location,
+                                    propagation_path=taint.tainted_var.propagation_path + [
+                                        f"{caller_unit.symbol}:{arg} -> {unit.symbol}:{param_name}"
+                                    ],
+                                    origin_function=taint.tainted_var.origin_function,
+                                    parameter_index=arg_idx,
+                                )
+
+                                new_taint = InterproceduralTaint(
+                                    tainted_var=new_tainted_var,
+                                    function_id=func_id,
+                                    function_name=unit.symbol,
+                                    is_parameter=True,
+                                    parameter_index=arg_idx,
+                                    is_return_value=False,
+                                    callers=[caller_id],
+                                )
+
+                                if func_id not in self.function_taints:
+                                    self.function_taints[func_id] = []
+                                self.function_taints[func_id].append(new_taint)
 
     def _build_code_unit_cache(self, code_units: List[CodeUnit]) -> None:
         """构建代码单元缓存并提取参数信息"""

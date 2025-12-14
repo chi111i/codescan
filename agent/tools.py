@@ -148,6 +148,120 @@ SECURITY_ANALYSIS_TOOLS: List[Dict[str, Any]] = CODE_READER_TOOLS + [
     {
         "type": "function",
         "function": {
+            "name": "analyze_call_chain",
+            "description": "分析函数的调用关系链，包括调用者（谁调用了它）和被调用者（它调用了谁）。可以识别调用链中的输入源（Source）、危险函数（Sink）和过滤函数（Sanitizer）。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol_name": {
+                        "type": "string",
+                        "description": "要分析的函数/方法名"
+                    },
+                    "direction": {
+                        "type": "string",
+                        "description": "分析方向：both（双向）、callers（调用者）、callees（被调用者）",
+                        "enum": ["both", "callers", "callees"],
+                        "default": "both"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "最大深度，默认 3",
+                        "default": 3
+                    },
+                    "include_sources": {
+                        "type": "boolean",
+                        "description": "是否标记输入源节点（HTTP 请求参数等）",
+                        "default": True
+                    },
+                    "include_sinks": {
+                        "type": "boolean",
+                        "description": "是否标记危险函数节点（SQL 执行、命令执行等）",
+                        "default": True
+                    }
+                },
+                "required": ["symbol_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "trace_taint_path",
+            "description": "追踪污点传播路径，从输入源（Source）到危险函数（Sink）。可以识别路径上是否有安全过滤函数（Sanitizer）。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source_symbol": {
+                        "type": "string",
+                        "description": "污点源函数/符号名（可选，不指定则查找所有源）"
+                    },
+                    "sink_symbol": {
+                        "type": "string",
+                        "description": "危险函数/符号名（可选，不指定则查找所有汇）"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "最大路径深度，默认 10",
+                        "default": 10
+                    },
+                    "show_sanitizers": {
+                        "type": "boolean",
+                        "description": "是否显示路径上的过滤函数",
+                        "default": True
+                    },
+                    "only_unsanitized": {
+                        "type": "boolean",
+                        "description": "是否只返回未经过滤的高风险路径",
+                        "default": False
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_code_context",
+            "description": "获取代码的完整上下文信息，包括调用者、被调用者、所属类和相关定义。用于全面理解代码的作用和依赖。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol_name": {
+                        "type": "string",
+                        "description": "符号名称"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "文件路径（可选）"
+                    },
+                    "include_callers": {
+                        "type": "boolean",
+                        "description": "包含调用者代码",
+                        "default": True
+                    },
+                    "include_callees": {
+                        "type": "boolean",
+                        "description": "包含被调用者代码",
+                        "default": True
+                    },
+                    "include_class": {
+                        "type": "boolean",
+                        "description": "如果是方法，包含所属类的其他方法",
+                        "default": True
+                    },
+                    "include_imports": {
+                        "type": "boolean",
+                        "description": "包含相关的导入语句",
+                        "default": False
+                    }
+                },
+                "required": ["symbol_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "check_vulnerability_pattern",
             "description": "检查代码中是否存在特定的漏洞模式。",
             "parameters": {

@@ -201,6 +201,20 @@ class CallChainAnalyzer:
         self.call_graph = CallGraph()
         self.taint_paths: List[TaintPath] = []
 
+        # 新增：路径缓存
+        self._path_cache: Dict[Tuple[str, frozenset], List[List[str]]] = {}
+        # 可达性缓存
+        self._reachability: Dict[Tuple[str, str, int], bool] = {}
+        # 优化算法实例（延迟初始化）
+        self._optimizer = None
+
+    def _get_optimizer(self):
+        """获取优化算法实例（懒加载）"""
+        if self._optimizer is None:
+            from .optimized_algorithms import OptimizedPathFinder
+            self._optimizer = OptimizedPathFinder(self.call_graph)
+        return self._optimizer
+
     def build_call_graph(self, code_units: List[CodeUnit]) -> CallGraph:
         """从代码单元构建调用图
 
@@ -347,14 +361,16 @@ class CallChainAnalyzer:
         self,
         max_depth: int = 10,
         max_paths: int = 100,
+        use_optimized: bool = True,
     ) -> List[TaintPath]:
         """查找污点传播路径（Source -> Sink）
 
-        使用 DFS 从每个 Source 节点出发，查找到 Sink 节点的路径
+        使用 DFS 或优化的双向 BFS 从每个 Source 节点出发，查找到 Sink 节点的路径
 
         Args:
             max_depth: 最大搜索深度
             max_paths: 最大路径数量
+            use_optimized: 是否使用优化算法（双向 BFS）
 
         Returns:
             污点路径列表
@@ -375,13 +391,23 @@ class CallChainAnalyzer:
             if len(paths_found) >= max_paths:
                 break
 
-            # DFS 查找路径
-            paths = self._dfs_find_paths(
-                source.id,
-                sink_ids,
-                max_depth,
-                max_paths - len(paths_found)
-            )
+            # 使用优化算法或原始 DFS
+            if use_optimized:
+                optimizer = self._get_optimizer()
+                paths = optimizer.find_paths_bidirectional_bfs(
+                    source.id,
+                    sink_ids,
+                    max_depth,
+                    max_paths - len(paths_found)
+                )
+            else:
+                # 原始 DFS（fallback）
+                paths = self._dfs_find_paths(
+                    source.id,
+                    sink_ids,
+                    max_depth,
+                    max_paths - len(paths_found)
+                )
 
             for path in paths:
                 taint_path = self._create_taint_path(source, path)
@@ -389,7 +415,7 @@ class CallChainAnalyzer:
                     paths_found.append(taint_path)
 
         self.taint_paths = paths_found
-        logger.info(f"Found {len(paths_found)} taint paths")
+        logger.info(f"Found {len(paths_found)} taint paths (optimized={use_optimized})")
 
         return paths_found
 

@@ -41,6 +41,15 @@ class SecurityAnalyzer:
         self.indexer = indexer
         self.rule_manager = rule_manager
 
+        # 新增：调用链和污点分析器
+        self.call_chain_analyzer = None
+        self.taint_analyzer = None
+        self._call_graph = None
+        self._taint_flows = None
+
+        # 新增：Agent 模式标志
+        self.use_agent_mode = True  # 默认使用 Agent 模式
+
     def discover_candidates(
         self,
         language: Optional[str] = None,
@@ -372,6 +381,7 @@ class SecurityAnalyzer:
         file_pattern: Optional[str] = None,
         max_candidates: int = 50,
         max_workers: int = 2,
+        use_agent: Optional[bool] = None,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -380,10 +390,84 @@ class SecurityAnalyzer:
             file_pattern: 文件模式
             max_candidates: 最大候选点数量
             max_workers: 并行分析数量
+            use_agent: 是否使用 Agent 模式（None 则使用默认配置）
 
         Returns:
             Finding 列表
         """
+        use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
+
+        if use_agent_mode:
+            logger.info("Using Agent-based analysis mode")
+            return self.analyze_with_agent(
+                language=language,
+                file_pattern=file_pattern,
+                max_candidates=max_candidates,
+            )
+        else:
+            logger.info("Using legacy analysis mode")
+            return self.analyze_legacy(
+                language=language,
+                file_pattern=file_pattern,
+                max_candidates=max_candidates,
+                max_workers=max_workers,
+            )
+
+    def analyze_with_agent(
+        self,
+        language: Optional[str] = None,
+        file_pattern: Optional[str] = None,
+        max_candidates: int = 50,
+    ) -> List[Finding]:
+        """使用 Agent 模式进行分析（新方法）
+
+        流程：
+        1. 构建调用图和污点分析
+        2. 发现候选点
+        3. 为每个候选点使用 Agent 进行深度分析
+        """
+        logger.info("Starting Agent-based security analysis...")
+
+        # 1. 准备分析环境
+        self._prepare_analysis_environment()
+
+        # 2. 发现候选点
+        candidates = self.discover_candidates(
+            language=language,
+            file_pattern=file_pattern,
+            max_candidates=max_candidates,
+        )
+
+        if not candidates:
+            logger.info("No candidates found")
+            return []
+
+        logger.info(f"Analyzing {len(candidates)} candidates with Agent...")
+
+        # 3. 使用 Agent 分析每个候选点
+        findings = []
+        for i, candidate in enumerate(candidates):
+            logger.info(f"[{i+1}/{len(candidates)}] Analyzing {candidate.symbol}")
+
+            finding = self._analyze_candidate_with_agent(candidate)
+            if finding:
+                findings.append(finding)
+                logger.info(f"  -> Found issue: {finding.title}")
+
+        # 4. 排序和过滤
+        findings = self._filter_and_sort_findings(findings)
+
+        logger.info(f"Agent analysis complete. Found {len(findings)} issues.")
+        return findings
+
+    def analyze_legacy(
+        self,
+        language: Optional[str] = None,
+        file_pattern: Optional[str] = None,
+        max_candidates: int = 50,
+        max_workers: int = 2,
+    ) -> List[Finding]:
+        """原始分析流程（保留作为 fallback）"""
         logger.info("Starting security analysis...")
 
         # 1. 发现候选点
@@ -422,7 +506,165 @@ class SecurityAnalyzer:
                 except Exception as e:
                     logger.error(f"Analysis error for {candidate.symbol}: {e}")
 
-        # 3. 按严重性排序
+        # 3. 排序和过滤
+        findings = self._filter_and_sort_findings(findings)
+
+        logger.info(f"Analysis complete. Found {len(findings)} issues.")
+        return findings
+
+    def _prepare_analysis_environment(self):
+        """准备分析环境（构建调用图和污点分析）"""
+        from .call_chain import CallChainAnalyzer
+        from .taint_analysis import TaintAnalyzer
+
+        # 获取所有代码单元
+        code_units = self.indexer.get_all_units()
+
+        # 构建调用图
+        if self.call_chain_analyzer is None:
+            logger.info("Initializing call chain analyzer...")
+            self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
+
+        if self._call_graph is None:
+            logger.info("Building call graph...")
+            self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+            logger.info(
+                f"Call graph built: {len(self._call_graph.nodes)} nodes, "
+                f"{len(self._call_graph.edges)} edges"
+            )
+
+        # 执行污点分析
+        if self.taint_analyzer is None:
+            logger.info("Initializing taint analyzer...")
+            self.taint_analyzer = TaintAnalyzer(self.rule_manager, self._call_graph)
+
+        if self._taint_flows is None:
+            logger.info("Running interprocedural taint analysis...")
+            self._taint_flows = self.taint_analyzer.analyze_interprocedural(
+                code_units,
+                max_depth=10,
+                use_topological=True,
+            )
+            logger.info(f"Taint analysis complete: {len(self._taint_flows)} flows")
+
+    def _analyze_candidate_with_agent(self, candidate: Candidate) -> Optional[Finding]:
+        """使用 Agent 分析候选点"""
+        try:
+            from agent import EnhancedSecurityAgent
+            from indexer import CodeReader
+
+            # 创建 CodeReader
+            code_reader = CodeReader(
+                project_path=self.config.scan.target_path,
+                indexer=self.indexer,
+            )
+
+            # 创建增强 Agent
+            agent = EnhancedSecurityAgent(
+                llm_client=self.llm_client,
+                code_reader=code_reader,
+                indexer=self.indexer,
+                call_chain_analyzer=self.call_chain_analyzer,
+                taint_analyzer=self.taint_analyzer,
+                max_tool_calls=15,
+            )
+
+            # 准备 Agent 的分析环境
+            agent._call_graph = self._call_graph
+            agent._taint_flows = self._taint_flows
+
+            # 构建分析任务
+            task = self._build_agent_task(candidate)
+
+            # 执行分析
+            result = agent.analyze(
+                task=task,
+                context=self._build_candidate_context(candidate),
+            )
+
+            # 解析结果
+            if result.error:
+                logger.error(f"Agent error: {result.error}")
+                return None
+
+            finding = self._parse_agent_result(result, candidate)
+            return finding
+
+        except Exception as e:
+            logger.error(f"Agent analysis failed for {candidate.symbol}: {e}")
+            # Fallback to legacy method
+            return self.analyze_candidate(candidate)
+
+    def _build_agent_task(self, candidate: Candidate) -> str:
+        """构建 Agent 分析任务"""
+        rules_text = ", ".join(candidate.triggered_rules)
+
+        task = f"""请分析以下代码是否存在安全漏洞：
+
+**目标函数**: {candidate.symbol}
+**文件位置**: {candidate.file_path}:{candidate.line_start}-{candidate.line_end}
+**触发规则**: {rules_text}
+
+请按以下步骤进行分析：
+1. 使用 read_symbol 读取目标函数的完整代码
+2. 使用 analyze_call_chain 了解调用关系，识别入口点和调用链
+3. 如果涉及用户输入，使用 trace_taint_path 追踪污点传播
+4. 根据需要使用 get_code_context 获取完整上下文
+5. 检查以下安全问题：
+   - 认证和授权是否正确
+   - 用户输入是否经过验证
+   - 业务流程是否可被绕过
+   - 是否存在越权访问风险
+
+最后以 JSON 格式返回分析结果，包含：
+- has_issue: boolean
+- issue_type: string
+- severity: "low" | "medium" | "high" | "critical"
+- confidence: 0-1
+- summary: string
+- details: string
+- attack_scenario: string
+- fix_suggestion: string
+- notes: string"""
+
+        return task
+
+    def _build_candidate_context(self, candidate: Candidate) -> str:
+        """构建候选点上下文"""
+        context_parts = []
+
+        # 代码预览
+        code_preview = candidate.code[:500] if len(candidate.code) > 500 else candidate.code
+        context_parts.append(f"代码预览：\n```\n{code_preview}\n```")
+
+        return "\n\n".join(context_parts)
+
+    def _parse_agent_result(self, agent_result: "AgentResult", candidate: Candidate) -> Optional[Finding]:
+        """从 Agent 结果解析 Finding"""
+        try:
+            # 尝试从 content 中解析 JSON
+            result_data = self._parse_llm_response(agent_result.content)
+
+            if not result_data or not result_data.get("has_issue"):
+                logger.debug(f"No issue found in {candidate.symbol}")
+                return None
+
+            # 创建 Finding
+            finding = self._create_finding(candidate, None, result_data)
+
+            # 添加 Agent 元数据
+            finding.metadata["agent_tool_calls"] = agent_result.total_tool_calls
+            finding.metadata["agent_total_tokens"] = agent_result.total_tokens
+
+            return finding
+
+        except Exception as e:
+            logger.error(f"Failed to parse agent result: {e}")
+            return None
+
+    def _filter_and_sort_findings(self, findings: List[Finding]) -> List[Finding]:
+        """过滤和排序发现"""
+        # 按严重性排序
         severity_order = {
             Severity.CRITICAL: 0,
             Severity.HIGH: 1,
@@ -431,9 +673,8 @@ class SecurityAnalyzer:
         }
         findings.sort(key=lambda f: (severity_order.get(f.severity, 4), -f.confidence))
 
-        # 4. 按置信度过滤
+        # 按置信度过滤
         min_confidence = self.config.report.min_confidence
         findings = [f for f in findings if f.confidence >= min_confidence]
 
-        logger.info(f"Analysis complete. Found {len(findings)} issues.")
         return findings
