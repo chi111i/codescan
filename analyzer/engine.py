@@ -5,6 +5,7 @@
 import json
 import logging
 import re
+import time
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -645,8 +646,16 @@ class SecurityAnalyzer:
                 sink_category=sink_category,
             )
 
+            # 记录开始分析（thinking）
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_thinking(
+                    self.scan_id,
+                    f"正在分析调用链 {chain_id}，Sink 类别: {sink_category}"
+                )
+
             # 调用 LLM
             logger.info(f"[ChainLLM] 分析调用链: {chain_id}, Sink类别: {sink_category}")
+            start_time = time.time()
             response = self.llm_client.chat_completion(
                 messages=[
                     ChatMessage(role="system", content=system_prompt),
@@ -656,6 +665,17 @@ class SecurityAnalyzer:
                 temperature=0.1,
                 max_tokens=2500,
             )
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # 记录 LLM 分析结果
+            tokens_used = response.usage.get("total_tokens", 0) if response.usage else 0
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_analysis(
+                    self.scan_id,
+                    llm_response=response.content[:500] if response.content else "",
+                    tokens_used=tokens_used,
+                    duration_ms=duration_ms,
+                )
 
             # 使用输出验证器验证响应
             validation_report = self.output_validator.validate(
@@ -718,7 +738,7 @@ class SecurityAnalyzer:
                 f"(置信度: {result.get('confidence', 0)})"
             )
 
-            return Finding(
+            finding = Finding(
                 id=f"finding-{chain_id}",
                 title=result.get("issue_type", "Security Issue"),
                 file_path=sink_site.file_path,
@@ -749,6 +769,22 @@ class SecurityAnalyzer:
                     "security_controls": result.get("security_controls", []),
                 },
             )
+
+            # 记录发现的问题
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_finding(
+                    self.scan_id,
+                    finding_data={
+                        "title": finding.title,
+                        "severity": finding.severity.value,
+                        "file_path": finding.file_path,
+                        "line_start": finding.line_start,
+                        "confidence": finding.confidence,
+                        "category": finding.category,
+                    }
+                )
+
+            return finding
 
         except Exception as e:
             logger.error(f"调用链分析错误 {chain_context.sink_site.symbol}: {e}")
@@ -930,8 +966,16 @@ class SecurityAnalyzer:
             focus_category=focus_category,
         )
 
+        # 记录开始分析
+        if self.interaction_repo and self.scan_id:
+            self.interaction_repo.log_thinking(
+                self.scan_id,
+                f"正在分析: {candidate.file_path}:{candidate.symbol}"
+            )
+
         # 调用 LLM
         try:
+            start_time = time.time()
             response = self.llm_client.chat_completion(
                 messages=[
                     ChatMessage(role="system", content=system_prompt),
@@ -940,12 +984,37 @@ class SecurityAnalyzer:
                 response_format={"type": "json_object"},
                 temperature=0.0,
             )
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # 记录 LLM 分析结果
+            tokens_used = response.usage.get("total_tokens", 0) if response.usage else 0
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_analysis(
+                    self.scan_id,
+                    llm_response=response.content[:500] if response.content else "",
+                    tokens_used=tokens_used,
+                    duration_ms=duration_ms,
+                )
 
             # 解析响应
             result = self._parse_llm_response(response.content)
 
             if result and result.get("has_issue"):
-                return self._create_finding(candidate, context, result)
+                finding = self._create_finding(candidate, context, result)
+                # 记录发现的问题
+                if finding and self.interaction_repo and self.scan_id:
+                    self.interaction_repo.log_finding(
+                        self.scan_id,
+                        finding_data={
+                            "title": finding.title,
+                            "severity": finding.severity.value,
+                            "file_path": finding.file_path,
+                            "line_start": finding.line_start,
+                            "confidence": finding.confidence,
+                            "category": finding.category,
+                        }
+                    )
+                return finding
 
         except Exception as e:
             logger.error(f"Analysis failed for {candidate.symbol}: {e}")
@@ -1187,6 +1256,13 @@ class SecurityAnalyzer:
         使用 LLM 分析但不依赖向量索引获取上下文
         """
         logger.info(f"[LLM] 开始分析候选点: {candidate.file_path}:{candidate.symbol}")
+
+        # 记录开始分析（thinking）
+        if self.interaction_repo and self.scan_id:
+            self.interaction_repo.log_thinking(
+                self.scan_id,
+                f"正在分析候选点: {candidate.file_path}:{candidate.symbol}"
+            )
         try:
             # 构建基本上下文
             context_parts = []
@@ -1232,6 +1308,7 @@ class SecurityAnalyzer:
 
             # 调用 LLM
             logger.info(f"[LLM] 调用 chat_completion, 模型: {self.llm_client.model if hasattr(self.llm_client, 'model') else 'unknown'}")
+            start_time = time.time()
             response = self.llm_client.chat_completion(
                 messages=[
                     ChatMessage(role="system", content=system_prompt),
@@ -1241,7 +1318,18 @@ class SecurityAnalyzer:
                 temperature=0.1,
                 max_tokens=2000,
             )
-            logger.info(f"[LLM] 收到响应，长度: {len(response.content) if response.content else 0}")
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"[LLM] 收到响应，长度: {len(response.content) if response.content else 0}, 耗时: {duration_ms}ms")
+
+            # 记录 LLM 分析结果
+            tokens_used = response.usage.get("total_tokens", 0) if response.usage else 0
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_analysis(
+                    self.scan_id,
+                    llm_response=response.content[:500] if response.content else "",
+                    tokens_used=tokens_used,
+                    duration_ms=duration_ms,
+                )
 
             # 解析结果
             result = self._parse_llm_response(response.content)
@@ -1257,7 +1345,7 @@ class SecurityAnalyzer:
             logger.info(f"[LLM] 发现问题: {result.get('issue_type', 'unknown')}, 严重性: {result.get('severity', 'unknown')}")
 
             # 构建 Finding
-            return Finding(
+            finding = Finding(
                 id=f"finding-{candidate.code_unit_id}",
                 title=result.get("issue_type", "Security Issue"),
                 file_path=candidate.file_path,
@@ -1281,6 +1369,22 @@ class SecurityAnalyzer:
                 notes=result.get("notes", ""),
                 rule_ids=candidate.triggered_rules,
             )
+
+            # 记录发现的问题
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_finding(
+                    self.scan_id,
+                    finding_data={
+                        "title": finding.title,
+                        "severity": finding.severity.value,
+                        "file_path": finding.file_path,
+                        "line_start": finding.line_start,
+                        "confidence": finding.confidence,
+                        "category": finding.category,
+                    }
+                )
+
+            return finding
 
         except Exception as e:
             logger.error(f"Error analyzing candidate {candidate.symbol}: {e}")

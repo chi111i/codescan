@@ -1066,8 +1066,19 @@ async def get_scan_result(scan_id: str):
         if db_task:
             # 获取发现统计
             finding_stats = {}
+            findings_list = []
+            vuln_findings_list = []
+
             if app_state.finding_repo:
                 finding_stats = app_state.finding_repo.get_stats(scan_id)
+                # 加载实际的发现数据
+                db_findings = app_state.finding_repo.get_by_scan_id(scan_id, limit=200)
+                for f in db_findings:
+                    f_dict = f.to_dict()
+                    if f.finding_type == "security":
+                        findings_list.append(f_dict)
+                    else:
+                        vuln_findings_list.append(f_dict)
 
             return APIResponse(
                 success=True,
@@ -1084,6 +1095,8 @@ async def get_scan_result(scan_id: str):
                     "error_message": db_task.error_message,
                     "findings_count": finding_stats.get("total", 0),
                     "findings_stats": finding_stats,
+                    "findings": findings_list,
+                    "vuln_findings": vuln_findings_list,
                 },
             )
 
