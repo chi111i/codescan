@@ -84,8 +84,15 @@ async def lifespan(app: FastAPI):
     try:
         app_state.initialize()
         logger.info("API 服务启动")
+        print(f"[INIT] rule_manager 已初始化: {app_state.rule_manager is not None}")
+        if app_state.rule_manager:
+            print(f"[INIT] 规则总数: {app_state.rule_manager.count()}")
     except Exception as e:
+        import traceback
         logger.error(f"初始化失败: {e}")
+        print(f"[INIT ERROR] 初始化失败: {e}")
+        print(f"[INIT ERROR] 堆栈: {traceback.format_exc()}")
+        # 不要 re-raise，让服务器继续运行但记录错误
 
     yield
 
@@ -380,11 +387,15 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
     注意：耗时的同步操作使用 asyncio.to_thread() 放到线程池执行，
     避免阻塞事件循环影响其他请求。
     """
+    print(f"[SCAN] 进入 run_scan_task, scan_id={scan_id}")  # 直接打印确保可见
+    logger.warning(f"[SCAN] 开始执行扫描任务 {scan_id}")  # 使用 warning 级别确保可见
+
     task = app_state.scan_tasks[scan_id]
 
     try:
         target_path = Path(request.target_path)
-        logger.info(f"开始扫描任务 {scan_id}, 目标路径: {target_path}")
+        print(f"[SCAN] 目标路径: {target_path}, skip_index={request.skip_index}, use_llm={request.use_llm}")
+        logger.warning(f"开始扫描任务 {scan_id}, 目标路径: {target_path}")
 
         # 检查 LLM 配置
         if not app_state.config.llm.api_key:
@@ -439,7 +450,8 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
 
         task.progress = 0.2
         await broadcast_scan_progress(scan_id, task)
-        logger.info(f"扫描任务 {scan_id}: 代码解析完成，共 {len(code_units)} 个代码单元")
+        print(f"[SCAN] 代码解析完成，共 {len(code_units)} 个代码单元")
+        logger.warning(f"扫描任务 {scan_id}: 代码解析完成，共 {len(code_units)} 个代码单元")
 
         # 更新状态：分析中
         task.status = ScanStatus.ANALYZING
@@ -454,7 +466,20 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         task.current_step = "执行安全规则扫描..."
         task.progress = 0.4
         await broadcast_scan_progress(scan_id, task)
-        logger.info(f"扫描任务 {scan_id}: 开始安全规则扫描，代码单元数: {len(code_units)}")
+        print(f"[SCAN] 开始安全规则扫描，代码单元数: {len(code_units)}")
+        logger.warning(f"扫描任务 {scan_id}: 开始安全规则扫描，代码单元数: {len(code_units)}")
+
+        # 检查 rule_manager 是否已初始化
+        if app_state.rule_manager is None:
+            logger.error("rule_manager 未初始化！请检查启动日志")
+            print("[SCAN ERROR] rule_manager 未初始化！")
+            task.status = ScanStatus.FAILED
+            task.error_message = "规则管理器未初始化，请重启服务器"
+            task.current_step = "错误: 规则管理器未初始化"
+            await broadcast_scan_progress(scan_id, task)
+            return
+
+        print(f"[SCAN] rule_manager 规则数: {app_state.rule_manager.count()}")
 
         analyzer = SecurityAnalyzer(
             app_state.config,
@@ -463,26 +488,26 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             app_state.rule_manager,
         )
 
-        logger.info(f"扫描任务 {scan_id}: 调用 SecurityAnalyzer.analyze()")
+        print(f"[SCAN] 调用 SecurityAnalyzer.analyze()")
+        logger.warning(f"扫描任务 {scan_id}: 调用 SecurityAnalyzer.analyze()")
+
+        # 根据配置选择分析模式
+        analysis_mode = "链级分析" if request.use_chain_analysis else "简单分析"
+        logger.info(f"扫描任务 {scan_id}: 使用 {analysis_mode} 模式")
+
         # 使用线程池执行同步的分析操作（可能调用 LLM）
-        # 如果是 skip_index 模式，传递 code_units 参数
-        if request.skip_index:
-            findings = await asyncio.to_thread(
-                analyzer.analyze,
-                request.languages[0] if request.languages else None,  # language
-                None,  # file_pattern
-                request.max_issues,  # max_candidates
-                2,  # max_workers
-                None,  # use_agent
-                code_units,  # code_units - 直接传递解析的代码单元
-            )
-        else:
-            findings = await asyncio.to_thread(
-                analyzer.analyze,
-                request.languages[0] if request.languages else None,  # language
-                None,  # file_pattern
-                request.max_issues,  # max_candidates
-            )
+        # 始终传递 code_units 使用直接分析模式，避免依赖不可靠的向量搜索
+        findings = await asyncio.to_thread(
+            analyzer.analyze,
+            request.languages[0] if request.languages else None,  # language
+            None,  # file_pattern
+            request.max_issues,  # max_candidates
+            2,  # max_workers
+            None,  # use_agent
+            code_units,  # code_units - 直接传递代码单元进行模式匹配
+            request.use_chain_analysis,  # use_chain_analysis - 是否使用链级分析
+            request.max_chain_depth,  # max_chain_depth - 最大调用链深度
+        )
         logger.info(f"扫描任务 {scan_id}: 安全规则扫描完成，发现 {len(findings)} 个问题")
 
         for f in findings:
@@ -693,6 +718,8 @@ async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
 @app.post("/api/scan", response_model=APIResponse)
 async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     """开始扫描任务"""
+    print(f"[API] 收到扫描请求: {request.target_path}")
+
     if not app_state.indexer:
         raise HTTPException(status_code=500, detail="索引器未初始化")
 
@@ -711,8 +738,10 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     )
     app_state.scan_tasks[scan_id] = task
 
-    # 启动后台任务
-    background_tasks.add_task(run_scan_task, scan_id, request)
+    # 启动后台任务 - 使用 asyncio.create_task 替代 background_tasks
+    # BackgroundTasks 对异步函数支持有问题
+    print(f"[API] 创建扫描任务 {scan_id}")
+    asyncio.create_task(run_scan_task(scan_id, request))
 
     return APIResponse(
         success=True,

@@ -62,6 +62,8 @@ class ScanRequest(BaseModel):
     max_issues: int = Field(50, description="最大分析候选数量")
     reindex: bool = Field(False, description="是否重新索引")
     skip_index: bool = Field(False, description="跳过向量索引（小项目推荐，直接遍历文件）")
+    use_chain_analysis: bool = Field(True, description="是否使用链级分析（P0推荐流程）")
+    max_chain_depth: int = Field(5, description="最大调用链深度")
 
 
 class IndexRequest(BaseModel):

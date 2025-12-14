@@ -22,6 +22,7 @@ from .output_validator import (
     ValidationReport,
     LLMOutputSchema,
     AUDIT_RESULT_SCHEMA,
+    CHAIN_ANALYSIS_SCHEMA,
     create_validator,
 )
 
@@ -46,5 +47,6 @@ __all__ = [
     "ValidationReport",
     "LLMOutputSchema",
     "AUDIT_RESULT_SCHEMA",
+    "CHAIN_ANALYSIS_SCHEMA",
     "create_validator",
 ]

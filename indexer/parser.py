@@ -138,17 +138,51 @@ class PythonParser(BaseLanguageParser):
 
         return signature
 
+    def _get_full_attr_name(self, node: ast.AST) -> str:
+        """递归获取完整的属性链名称
+
+        例如:
+        - ast.Name('os') -> 'os'
+        - ast.Attribute(ast.Name('os'), 'system') -> 'os.system'
+        - ast.Attribute(ast.Attribute(ast.Name('subprocess'), 'run'), 'call') -> 'subprocess.run'
+        """
+        if isinstance(node, ast.Name):
+            return node.id
+        elif isinstance(node, ast.Attribute):
+            value_name = self._get_full_attr_name(node.value)
+            if value_name:
+                return f"{value_name}.{node.attr}"
+            return node.attr
+        elif isinstance(node, ast.Call):
+            # 处理链式调用如 foo().bar()
+            return self._get_full_attr_name(node.func)
+        elif isinstance(node, ast.Subscript):
+            # 处理下标访问如 foo[0].bar()
+            return self._get_full_attr_name(node.value)
+        return ""
+
     def _extract_calls(self, node: ast.AST) -> List[str]:
-        """提取函数调用"""
-        calls = []
+        """提取函数调用，包含完整限定名和短名
+
+        返回列表中包含:
+        - 完整限定名 (如 os.system, subprocess.Popen)
+        - 短名 (如 system, Popen) 用于兼容匹配
+        """
+        calls = set()
         for child in ast.walk(node):
             if isinstance(child, ast.Call):
                 if isinstance(child.func, ast.Name):
-                    calls.append(child.func.id)
+                    # 简单函数调用: func()
+                    calls.add(child.func.id)
                 elif isinstance(child.func, ast.Attribute):
-                    # 如 obj.method() -> 记录 method
-                    calls.append(child.func.attr)
-        return list(set(calls))
+                    # 属性调用: obj.method() 或 module.func()
+                    # 获取完整限定名
+                    full_name = self._get_full_attr_name(child.func)
+                    if full_name:
+                        calls.add(full_name)
+                    # 同时保留短名用于兼容
+                    calls.add(child.func.attr)
+        return list(calls)
 
     def _get_docstring(self, node: Union[ast.FunctionDef, ast.ClassDef]) -> Optional[str]:
         """提取文档字符串"""
@@ -540,15 +574,34 @@ class JavaScriptParser(BaseLanguageParser):
         return units
 
     def _extract_calls(self, code: str) -> List[str]:
-        """提取函数调用"""
+        """提取函数调用，包含完整限定名和短名
+
+        支持:
+        - 简单调用: func()
+        - 方法调用: obj.method()
+        - 链式调用: fs.readFile(), child_process.exec()
+        """
         calls = set()
-        # 匹配函数调用: name(...) 或 obj.name(...)
-        pattern = r'(?:^|[^\w.])(\w+)\s*\('
-        for match in re.finditer(pattern, code):
+
+        # 匹配完整的属性链调用: obj.method() 或 obj.prop.method()
+        # 例如: fs.readFile, child_process.exec, process.env.get
+        chain_pattern = r'((?:\w+\.)+\w+)\s*\('
+        for match in re.finditer(chain_pattern, code):
+            full_name = match.group(1)
+            calls.add(full_name)
+            # 同时添加最后一个方法名作为短名
+            parts = full_name.split('.')
+            if parts:
+                calls.add(parts[-1])
+
+        # 匹配简单函数调用: name(...)
+        simple_pattern = r'(?:^|[^\w.])(\w+)\s*\('
+        for match in re.finditer(simple_pattern, code):
             name = match.group(1)
             # 排除关键字
-            if name not in ("if", "for", "while", "switch", "catch", "function", "return", "new", "typeof"):
+            if name not in ("if", "for", "while", "switch", "catch", "function", "return", "new", "typeof", "async", "await"):
                 calls.add(name)
+
         return list(calls)
 
 
@@ -602,6 +655,105 @@ class PHPParser(BaseLanguageParser):
 
         # 解析顶层函数
         units.extend(self._parse_functions(content, file_path, lines, imports))
+
+        # 如果没有找到函数/类，尝试解析内联 PHP 代码块
+        if not units:
+            units.extend(self._parse_inline_php(content, file_path, lines, imports))
+
+        return units
+
+    def _parse_inline_php(
+        self,
+        content: str,
+        file_path: str,
+        lines: List[str],
+        imports: List[str]
+    ) -> List[CodeUnit]:
+        """解析内联 PHP 代码块（用于处理没有函数/类定义的 PHP 文件）"""
+        print(f"[PHP_PARSER] 开始解析内联 PHP: {file_path}")
+        print(f"[PHP_PARSER] 原始内容长度: {len(content)} 字符")
+        units = []
+
+        # 提取所有 PHP 代码块: <?php ... ?> 或 <? ... ?> 或 <?= ... ?>
+        php_block_pattern = r'<\?(?:php)?\s*([\s\S]*?)(?:\?>|$)'
+        php_blocks = []
+
+        for match in re.finditer(php_block_pattern, content, re.IGNORECASE):
+            php_code = match.group(1).strip()
+            if php_code:
+                start_pos = match.start()
+                end_pos = match.end()
+                start_line = self._get_line_number(content, start_pos)
+                end_line = self._get_line_number(content, end_pos)
+                print(f"[PHP_PARSER] 找到 PHP 块: 行 {start_line}-{end_line}, 长度: {len(php_code)} 字符")
+                print(f"[PHP_PARSER] PHP 代码预览: {php_code[:500]}...")
+                php_blocks.append({
+                    'code': php_code,
+                    'full_match': match.group(0),
+                    'start_line': start_line,
+                    'end_line': end_line,
+                    'start_pos': start_pos,
+                    'end_pos': end_pos,
+                })
+
+        if not php_blocks:
+            print(f"[PHP_PARSER] 未找到任何 PHP 代码块")
+            return units
+
+        print(f"[PHP_PARSER] 共找到 {len(php_blocks)} 个 PHP 代码块")
+
+        # 如果只有一个或几个小的 PHP 块，合并为一个代码单元
+        # 如果有多个较大的块，分别创建
+        total_php_code = "\n".join([b['code'] for b in php_blocks])
+        calls = self._extract_calls(total_php_code)
+
+        # 检查是否包含危险函数调用
+        dangerous_calls = [c for c in calls if c in self.DANGEROUS_FUNCTIONS]
+
+        # 创建一个代表整个文件的代码单元
+        file_name = file_path.split('/')[-1].split('\\')[-1]
+        symbol_name = f"<script:{file_name}>"
+
+        span = CodeSpan(
+            start_line=php_blocks[0]['start_line'],
+            end_line=php_blocks[-1]['end_line']
+        )
+        unit_id = CodeUnit.generate_id(file_path, symbol_name, span)
+
+        # 构建代码内容：提取所有 PHP 代码
+        code_content = "\n// === PHP Code Blocks ===\n"
+        for i, block in enumerate(php_blocks):
+            code_content += f"\n// Block {i+1} (line {block['start_line']}-{block['end_line']}):\n"
+            code_content += block['code'] + "\n"
+
+        print(f"[PHP_PARSER] 最终代码内容长度: {len(code_content)} 字符")
+        print(f"[PHP_PARSER] 提取的函数调用: {calls}")
+        print(f"[PHP_PARSER] 危险函数调用: {dangerous_calls}")
+
+        # 确定代码单元类型
+        unit_type = CodeUnitType.FUNCTION  # 默认为脚本类型
+        # 如果包含 $_GET, $_POST, $_REQUEST 等，标记为处理器
+        if any(var in total_php_code for var in ['$_GET', '$_POST', '$_REQUEST', '$_COOKIE', '$_FILES']):
+            unit_type = CodeUnitType.HANDLER
+
+        units.append(CodeUnit(
+            id=unit_id,
+            language=self.language,
+            file_path=file_path,
+            symbol=symbol_name,
+            unit_type=unit_type,
+            signature=f"inline PHP script: {file_name}",
+            span=span,
+            code=code_content,
+            calls=calls,
+            imports=imports,
+            metadata={
+                "is_inline": True,
+                "block_count": len(php_blocks),
+                "dangerous_calls": dangerous_calls,
+                "has_user_input": any(var in total_php_code for var in ['$_GET', '$_POST', '$_REQUEST', '$_COOKIE', '$_FILES']),
+            },
+        ))
 
         return units
 
@@ -825,23 +977,44 @@ class PHPParser(BaseLanguageParser):
         return units
 
     def _extract_calls(self, code: str) -> List[str]:
-        """提取函数调用"""
+        """提取函数调用，包含完整限定名和短名
+
+        支持:
+        - 普通函数: func_name()
+        - 方法调用: $obj->method()
+        - 静态调用: Class::method()
+        - 命名空间调用: Namespace\\Class::method()
+        """
         calls = set()
 
         # 普通函数调用: func_name(...)
-        pattern = r'(?:^|[^\w$>])(\w+)\s*\('
+        pattern = r'(?:^|[^\w$>\\])(\w+)\s*\('
         for match in re.finditer(pattern, code):
             name = match.group(1)
             if name not in ("if", "for", "foreach", "while", "switch", "catch", "function", "return", "new", "array", "list", "isset", "empty", "unset"):
                 calls.add(name)
 
-        # 方法调用: $obj->method(...) 或 Class::method(...)
-        pattern = r'(?:\$\w+|[A-Z]\w*)\s*(?:->|::)\s*(\w+)\s*\('
-        for match in re.finditer(pattern, code):
-            calls.add(match.group(1))
+        # 方法调用: $obj->method(...) - 提取完整链
+        # 例如: $this->db->query, $request->input
+        obj_method_pattern = r'(\$\w+(?:->\w+)*)\s*\('
+        for match in re.finditer(obj_method_pattern, code):
+            full_call = match.group(1)
+            calls.add(full_call)
+            # 提取最后的方法名
+            parts = full_call.replace('$', '').split('->')
+            if len(parts) > 1:
+                calls.add(parts[-1])
 
-        # 标记危险函数
-        dangerous_found = [f for f in calls if f in self.DANGEROUS_FUNCTIONS]
+        # 静态调用: Class::method(...) 或 \Namespace\Class::method(...)
+        static_pattern = r'((?:\\?[\w\\]+)?::?\w+)\s*\('
+        for match in re.finditer(static_pattern, code):
+            full_call = match.group(1)
+            if '::' in full_call:
+                calls.add(full_call)
+                # 提取方法名
+                parts = full_call.split('::')
+                if len(parts) == 2:
+                    calls.add(parts[1])
 
         return list(calls)
 

@@ -16,6 +16,15 @@ class Severity(Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
+    @classmethod
+    def from_string(cls, value: str) -> "Severity":
+        """从字符串创建 Severity"""
+        value_lower = value.lower() if value else "medium"
+        for member in cls:
+            if member.value == value_lower:
+                return member
+        return cls.MEDIUM  # 默认返回 MEDIUM
+
 
 @dataclass
 class Evidence:

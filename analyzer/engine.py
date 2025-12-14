@@ -9,12 +9,14 @@ from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import AuditConfig
-from llm_client import BaseLLMClient, ChatMessage
+from llm_client import BaseLLMClient, ChatMessage, OutputValidator, CHAIN_ANALYSIS_SCHEMA
 from indexer import CodeIndexer, CodeUnit
 from rules import RuleManager, RuleType
 
 from .models import Finding, Candidate, AnalysisContext, Severity, Evidence
-from .prompts import build_analysis_prompt
+from .prompts import build_analysis_prompt, build_chain_analysis_prompt
+from .sink_scanner import SinkCallScanner, SinkCallSite, SinkCategory
+from .chain_context import ChainContextCollector, ChainContext
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,9 @@ class SecurityAnalyzer:
         self.indexer = indexer
         self.rule_manager = rule_manager
 
+        # 新增：SinkCallScanner 确定性扫描器
+        self.sink_scanner = SinkCallScanner(rule_manager)
+
         # 新增：调用链和污点分析器
         self.call_chain_analyzer = None
         self.taint_analyzer = None
@@ -49,6 +54,12 @@ class SecurityAnalyzer:
 
         # 新增：Agent 模式标志
         self.use_agent_mode = True  # 默认使用 Agent 模式
+
+        # 新增：输出验证器（用于链级分析）
+        self.output_validator = OutputValidator(
+            project_root=config.scan.target_path,
+            min_confidence=config.rules.min_confidence if hasattr(config.rules, 'min_confidence') else 0.0,
+        )
 
     def discover_candidates(
         self,
@@ -138,17 +149,43 @@ class SecurityAnalyzer:
             patterns = [r for r in patterns if language in r.languages]
 
         all_rules = sinks + patterns
+        print(f"[DISCOVER] 扫描 {len(code_units)} 个代码单元，使用 {len(all_rules)} 条规则 (sinks: {len(sinks)}, patterns: {len(patterns)})")
         logger.info(f"Scanning {len(code_units)} code units for {len(all_rules)} rules (sinks: {len(sinks)}, patterns: {len(patterns)})...")
+
+        # 调试：显示 PHP 相关规则
+        php_rules = [r for r in all_rules if 'php' in r.languages]
+        print(f"[DISCOVER] PHP 规则数: {len(php_rules)}")
+        if php_rules:
+            print(f"[DISCOVER] PHP 规则示例: {[r.id for r in php_rules[:5]]}")
+            print(f"[DISCOVER] 第一条 PHP 规则的模式: {php_rules[0].patterns[:5] if php_rules else 'none'}")
 
         # 遍历所有代码单元
         for unit in code_units:
+            print(f"[DISCOVER] 检查代码单元: {unit.symbol}, 语言: {unit.language}")
+            print(f"[DISCOVER] 代码预览: {unit.code[:300]}...")
+
             # 如果指定了语言，跳过不匹配的
             if language and unit.language != language:
+                print(f"[DISCOVER] 跳过（语言不匹配）: {unit.language} != {language}")
                 continue
 
             # 检查每个规则
+            matched_rule = None
+            print(f"[DISCOVER] 开始对 {len(all_rules)} 条规则进行模式匹配...")
+
+            # 首先手动检查代码中是否包含常见的危险函数关键词
+            code_lower = unit.code.lower()
+            dangerous_keywords = ['mysql_query', 'mysqli_query', 'exec(', 'eval(', 'system(', 'shell_exec', '$_get', '$_post', '$_request']
+            found_keywords = [kw for kw in dangerous_keywords if kw in code_lower]
+            if found_keywords:
+                print(f"[DISCOVER] 代码中发现危险关键词: {found_keywords}")
+            else:
+                print(f"[DISCOVER] 代码中未发现常见危险关键词")
+
             for rule in all_rules:
-                if self._contains_pattern(unit.code, rule.patterns):
+                if self._contains_pattern(unit.code, rule.patterns, debug=True):
+                    matched_rule = rule
+                    print(f"[DISCOVER] 匹配规则: {rule.id}, 模式: {rule.patterns[:3]}")
                     # 计算优先级
                     priority = self._calculate_priority(unit, rule)
 
@@ -164,30 +201,579 @@ class SecurityAnalyzer:
                     ))
                     break  # 每个代码单元只记录一次
 
+            if not matched_rule:
+                print(f"[DISCOVER] 未匹配任何规则")
+
         # 按优先级排序
         candidates.sort(key=lambda x: x.priority, reverse=True)
 
+        print(f"[DISCOVER] 发现 {len(candidates)} 个候选点")
         logger.info(f"Discovered {len(candidates)} candidates from direct scan")
         return candidates[:max_candidates]
 
-    def _contains_pattern(self, code: str, patterns: List[str]) -> bool:
+    def discover_sink_sites(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+    ) -> List[SinkCallSite]:
+        """使用 SinkCallScanner 确定性扫描危险函数触发点
+
+        这是目标文档 P0-1 的核心实现：不使用向量检索，
+        而是使用 AST/正则进行确定性扫描。
+
+        Args:
+            code_units: 代码单元列表
+            language: 限定语言
+
+        Returns:
+            SinkCallSite 列表
+        """
+        logger.info(f"[SinkScanner] 开始确定性扫描 {len(code_units)} 个代码单元")
+
+        # 使用 SinkCallScanner 进行扫描
+        sink_sites = self.sink_scanner.scan(
+            code_units=code_units,
+            language=language,
+        )
+
+        # 输出统计信息
+        stats = self.sink_scanner.get_statistics(sink_sites)
+        logger.info(f"[SinkScanner] 扫描完成: {stats}")
+
+        return sink_sites
+
+    def sink_sites_to_candidates(
+        self,
+        sink_sites: List[SinkCallSite],
+    ) -> List[Candidate]:
+        """将 SinkCallSite 转换为 Candidate
+
+        Args:
+            sink_sites: SinkCallSite 列表
+
+        Returns:
+            Candidate 列表
+        """
+        candidates = []
+
+        for site in sink_sites:
+            # 计算优先级（基于风险等级和置信度）
+            risk_scores = {"low": 0.25, "medium": 0.5, "high": 0.75, "critical": 1.0}
+            priority = risk_scores.get(site.risk_level.value, 0.5) * site.confidence
+
+            candidate = Candidate(
+                code_unit_id=site.unit_id,
+                file_path=site.file_path,
+                symbol=site.symbol,
+                line_start=site.line_start,
+                line_end=site.line_end,
+                code=site.call_snippet,
+                triggered_rules=site.matched_rule_ids,
+                priority=priority,
+            )
+            candidates.append(candidate)
+
+        # 按优先级排序
+        candidates.sort(key=lambda x: x.priority, reverse=True)
+
+        return candidates
+
+    def analyze_with_sink_scanner(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+        max_candidates: int = 50,
+        max_workers: int = 2,
+    ) -> List[Finding]:
+        """使用 SinkCallScanner 确定性扫描 + LLM 分析的完整流程
+
+        这是目标文档推荐的分析流程：
+        1. 确定性扫描所有危险函数触发点
+        2. 转换为候选点
+        3. 为每个候选点调用 LLM 进行深度分析
+
+        Args:
+            code_units: 代码单元列表
+            language: 限定语言
+            max_candidates: 最大候选点数量
+            max_workers: 并行分析数量
+
+        Returns:
+            Finding 列表
+        """
+        logger.info(f"[SinkScan] 开始确定性扫描分析流程...")
+
+        # 1. 使用 SinkCallScanner 扫描危险函数触发点
+        sink_sites = self.discover_sink_sites(code_units, language)
+
+        if not sink_sites:
+            logger.info("[SinkScan] 未发现任何危险函数触发点")
+            return []
+
+        logger.info(f"[SinkScan] 发现 {len(sink_sites)} 个危险函数触发点")
+
+        # 2. 转换为候选点
+        candidates = self.sink_sites_to_candidates(sink_sites)
+        candidates = candidates[:max_candidates]
+
+        logger.info(f"[SinkScan] 转换为 {len(candidates)} 个候选点，开始 LLM 分析...")
+
+        # 3. 使用 LLM 分析每个候选点
+        findings = []
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._analyze_candidate_simple, c, code_units): c
+                for c in candidates
+            }
+
+            for i, future in enumerate(as_completed(futures)):
+                candidate = futures[future]
+                try:
+                    finding = future.result()
+                    if finding:
+                        findings.append(finding)
+                        logger.info(
+                            f"[{i+1}/{len(candidates)}] 发现问题: "
+                            f"{finding.title} in {finding.file_path}"
+                        )
+                except Exception as e:
+                    logger.error(f"分析错误 {candidate.symbol}: {e}")
+
+        # 4. 排序和过滤
+        findings = self._filter_and_sort_findings(findings)
+
+        logger.info(f"[SinkScan] 分析完成，发现 {len(findings)} 个安全问题")
+        return findings
+
+    def analyze_chains(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+        max_candidates: int = 50,
+        max_workers: int = 2,
+        max_chain_depth: int = 5,
+    ) -> List[Finding]:
+        """统一的链级分析入口（P0 目标推荐流程）
+
+        完整流程：
+        1. P0-1: SinkCallScanner 确定性扫描危险函数触发点
+        2. P0-2: 构建调用图
+        3. P0-3: 枚举调用链（带爆炸控制）
+        4. P0-4: ChainContextCollector 收集调用链上下文
+        5. P0-5: LLM 链级分析（输出结构化结果）+ 输出验证
+
+        Args:
+            code_units: 代码单元列表
+            language: 限定语言
+            max_candidates: 最大候选点数量
+            max_workers: 并行分析数量
+            max_chain_depth: 最大调用链深度
+
+        Returns:
+            Finding 列表
+        """
+        from .call_chain import CallChainAnalyzer
+
+        logger.info(f"[P0] 开始链级分析流程，代码单元数: {len(code_units)}")
+
+        # ============================================================
+        # P0-1: 使用 SinkCallScanner 确定性扫描危险函数触发点
+        # ============================================================
+        logger.info("[P0-1] SinkCallScanner 确定性扫描...")
+        sink_sites = self.discover_sink_sites(code_units, language)
+
+        if not sink_sites:
+            logger.info("[P0-1] 未发现任何危险函数触发点")
+            return []
+
+        logger.info(f"[P0-1] 发现 {len(sink_sites)} 个危险函数触发点")
+
+        # 限制候选点数量
+        sink_sites = sink_sites[:max_candidates]
+
+        # ============================================================
+        # P0-2: 构建调用图
+        # ============================================================
+        logger.info("[P0-2] 构建调用图...")
+        if self.call_chain_analyzer is None:
+            self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
+
+        if self._call_graph is None:
+            self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+            logger.info(
+                f"[P0-2] 调用图: {len(self._call_graph.nodes)} 节点, "
+                f"{len(self._call_graph.edges)} 边"
+            )
+
+        # ============================================================
+        # P0-3 & P0-4: 枚举调用链并收集上下文
+        # ============================================================
+        logger.info("[P0-3/P0-4] 收集调用链上下文...")
+        context_collector = ChainContextCollector(
+            call_chain_analyzer=self.call_chain_analyzer,
+            code_units=code_units,
+        )
+
+        chain_contexts = context_collector.collect_contexts_batch(
+            sink_sites=sink_sites,
+            max_depth=max_chain_depth,
+        )
+
+        if not chain_contexts:
+            logger.warning("[P0-4] 未能收集到任何调用链上下文，回退到简单分析")
+            # 回退：直接使用 sink_sites 进行简单分析
+            return self._analyze_sink_sites_fallback(sink_sites, code_units, max_workers)
+
+        logger.info(f"[P0-4] 收集了 {len(chain_contexts)} 个调用链上下文")
+
+        # ============================================================
+        # P0-5: LLM 链级分析
+        # ============================================================
+        logger.info("[P0-5] 开始 LLM 链级分析...")
+        findings = []
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._analyze_chain_context, ctx, code_units): ctx
+                for ctx in chain_contexts
+            }
+
+            for i, future in enumerate(as_completed(futures)):
+                ctx = futures[future]
+                try:
+                    finding = future.result()
+                    if finding:
+                        findings.append(finding)
+                        logger.info(
+                            f"[{i+1}/{len(chain_contexts)}] 发现问题: "
+                            f"{finding.title} (置信度: {finding.confidence:.2f})"
+                        )
+                except Exception as e:
+                    logger.error(f"分析错误 {ctx.sink_site.symbol}: {e}")
+
+        # 排序和过滤
+        findings = self._filter_and_sort_findings(findings)
+
+        logger.info(f"[P0] 链级分析完成，发现 {len(findings)} 个安全问题")
+        return findings
+
+    def _analyze_sink_sites_fallback(
+        self,
+        sink_sites: List[SinkCallSite],
+        code_units: List[CodeUnit],
+        max_workers: int = 2,
+    ) -> List[Finding]:
+        """回退分析：当无法收集调用链上下文时，直接分析 sink sites
+
+        Args:
+            sink_sites: SinkCallSite 列表
+            code_units: 代码单元列表
+            max_workers: 并行数量
+
+        Returns:
+            Finding 列表
+        """
+        logger.info(f"[Fallback] 直接分析 {len(sink_sites)} 个 sink sites...")
+
+        # 转换为 Candidate
+        candidates = self.sink_sites_to_candidates(sink_sites)
+
+        findings = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._analyze_candidate_simple, c, code_units): c
+                for c in candidates
+            }
+
+            for future in as_completed(futures):
+                try:
+                    finding = future.result()
+                    if finding:
+                        findings.append(finding)
+                except Exception as e:
+                    logger.error(f"Fallback 分析错误: {e}")
+
+        return self._filter_and_sort_findings(findings)
+
+    def analyze_with_chain_context(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+        max_candidates: int = 50,
+        max_workers: int = 2,
+        max_chain_depth: int = 5,
+    ) -> List[Finding]:
+        """使用调用链上下文的完整分析流程（目标文档推荐）
+
+        流程：
+        1. SinkCallScanner 确定性扫描
+        2. 构建调用图
+        3. 为每个 sink 收集调用链上下文
+        4. 使用调用链上下文调用 LLM 分析
+
+        Args:
+            code_units: 代码单元列表
+            language: 限定语言
+            max_candidates: 最大候选点数量
+            max_workers: 并行分析数量
+            max_chain_depth: 最大调用链深度
+
+        Returns:
+            Finding 列表
+        """
+        from .call_chain import CallChainAnalyzer
+
+        logger.info(f"[ChainAnalysis] 开始调用链驱动的分析流程...")
+
+        # 1. 使用 SinkCallScanner 扫描危险函数触发点
+        sink_sites = self.discover_sink_sites(code_units, language)
+
+        if not sink_sites:
+            logger.info("[ChainAnalysis] 未发现任何危险函数触发点")
+            return []
+
+        logger.info(f"[ChainAnalysis] 发现 {len(sink_sites)} 个危险函数触发点")
+
+        # 2. 构建调用图
+        if self.call_chain_analyzer is None:
+            self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
+
+        if self._call_graph is None:
+            logger.info("[ChainAnalysis] 构建调用图...")
+            self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+            logger.info(
+                f"[ChainAnalysis] 调用图: {len(self._call_graph.nodes)} 节点, "
+                f"{len(self._call_graph.edges)} 边"
+            )
+
+        # 3. 收集调用链上下文
+        logger.info("[ChainAnalysis] 收集调用链上下文...")
+        context_collector = ChainContextCollector(
+            call_chain_analyzer=self.call_chain_analyzer,
+            code_units=code_units,
+        )
+
+        chain_contexts = context_collector.collect_contexts_batch(
+            sink_sites=sink_sites[:max_candidates],
+            max_depth=max_chain_depth,
+        )
+
+        logger.info(f"[ChainAnalysis] 收集了 {len(chain_contexts)} 个调用链上下文")
+
+        # 4. 使用调用链上下文进行 LLM 分析
+        findings = []
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._analyze_chain_context, ctx, code_units): ctx
+                for ctx in chain_contexts
+            }
+
+            for i, future in enumerate(as_completed(futures)):
+                ctx = futures[future]
+                try:
+                    finding = future.result()
+                    if finding:
+                        findings.append(finding)
+                        logger.info(
+                            f"[{i+1}/{len(chain_contexts)}] 发现问题: "
+                            f"{finding.title} in {finding.file_path}"
+                        )
+                except Exception as e:
+                    logger.error(f"分析错误 {ctx.sink_site.symbol}: {e}")
+
+        # 5. 排序和过滤
+        findings = self._filter_and_sort_findings(findings)
+
+        logger.info(f"[ChainAnalysis] 分析完成，发现 {len(findings)} 个安全问题")
+        return findings
+
+    def _analyze_chain_context(
+        self,
+        chain_context: ChainContext,
+        code_units: List[CodeUnit],
+    ) -> Optional[Finding]:
+        """使用调用链上下文分析单个 sink（链级分析）
+
+        根据目标文档 P0-5 的要求：
+        - 使用链级分析提示词
+        - 输出包含 chain_id, sink_category, data_flow 等字段
+        - 集成输出验证器
+
+        Args:
+            chain_context: 调用链上下文
+            code_units: 代码单元列表
+
+        Returns:
+            Finding 或 None
+        """
+        try:
+            sink_site = chain_context.sink_site
+
+            # 生成调用链 ID
+            chain_id = f"chain-{sink_site.id}"
+
+            # 获取 sink 类别
+            sink_category = sink_site.sink_category.value
+
+            # 构建调用链上下文文本
+            context_text = chain_context.to_prompt_text()
+
+            # 添加规则信息
+            rule_info_parts = []
+            for rule_id in sink_site.matched_rule_ids:
+                rule = self.rule_manager.get_rule(rule_id)
+                if rule:
+                    rule_info_parts.append(f"- {rule.name}: {rule.description}")
+                    if rule.cwe_ids:
+                        rule_info_parts.append(f"  CWE: {', '.join(rule.cwe_ids)}")
+
+            if rule_info_parts:
+                context_text += f"\n\n【触发的安全规则】\n" + "\n".join(rule_info_parts)
+
+            # 使用链级分析提示词（根据目标文档 P0-5）
+            system_prompt, user_prompt = build_chain_analysis_prompt(
+                chain_context_text=context_text,
+                chain_id=chain_id,
+                sink_category=sink_category,
+            )
+
+            # 调用 LLM
+            logger.info(f"[ChainLLM] 分析调用链: {chain_id}, Sink类别: {sink_category}")
+            response = self.llm_client.chat_completion(
+                messages=[
+                    ChatMessage(role="system", content=system_prompt),
+                    ChatMessage(role="user", content=user_prompt),
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.1,
+                max_tokens=2500,
+            )
+
+            # 使用输出验证器验证响应
+            validation_report = self.output_validator.validate(
+                content=response.content,
+                schema=CHAIN_ANALYSIS_SCHEMA,
+                check_hallucinations=True,
+            )
+
+            if not validation_report.is_valid:
+                logger.warning(
+                    f"[ChainLLM] 输出验证失败 {chain_id}: {validation_report.errors}"
+                )
+                # 尝试使用原始解析
+                result = self._parse_llm_response(response.content)
+            else:
+                result = validation_report.corrected_data
+                if validation_report.warnings:
+                    logger.info(f"[ChainLLM] 验证警告 {chain_id}: {validation_report.warnings}")
+
+            if not result:
+                logger.warning(f"[ChainLLM] 无法解析响应 {chain_id}")
+                return None
+
+            # 检查是否存在问题
+            has_issue = result.get("has_issue", False)
+            if has_issue is False or has_issue == "false":
+                logger.debug(f"[ChainLLM] 调用链 {chain_id} 未发现问题")
+                return None
+
+            # 处理 "uncertain" 情况
+            is_uncertain = has_issue == "uncertain"
+
+            # 从 LLM 结果提取 evidence
+            evidence_list = []
+            llm_evidence = result.get("evidence", [])
+            if isinstance(llm_evidence, list):
+                for e in llm_evidence:
+                    if isinstance(e, dict):
+                        evidence_list.append(Evidence(
+                            file_path=e.get("file_path", sink_site.file_path),
+                            line_start=e.get("line_start", sink_site.line_start),
+                            line_end=e.get("line_end", sink_site.line_end),
+                            code_snippet=e.get("snippet", ""),
+                            description=e.get("reason", ""),
+                        ))
+
+            # 如果没有提取到 evidence，使用 sink 信息
+            if not evidence_list:
+                evidence_list.append(Evidence(
+                    file_path=sink_site.file_path,
+                    line_start=sink_site.line_start,
+                    line_end=sink_site.line_end,
+                    code_snippet=sink_site.call_snippet,
+                    description=result.get("summary", "危险函数调用点"),
+                ))
+
+            # 构建 Finding
+            logger.info(
+                f"[ChainLLM] 发现问题: {result.get('issue_type', 'unknown')} "
+                f"(置信度: {result.get('confidence', 0)})"
+            )
+
+            return Finding(
+                id=f"finding-{chain_id}",
+                title=result.get("issue_type", "Security Issue"),
+                file_path=sink_site.file_path,
+                line_start=sink_site.line_start,
+                line_end=sink_site.line_end,
+                symbol=sink_site.symbol,
+                severity=Severity.from_string(result.get("risk_level", "medium")),
+                confidence=result.get("confidence", chain_context.confidence),
+                category=result.get("sink_category", sink_category),
+                summary=result.get("summary", ""),
+                details=result.get("details", "") or result.get("data_flow", ""),
+                evidence=evidence_list,
+                attack_scenario=result.get("exploitability_conditions", ""),
+                fix_suggestion=result.get("fix_suggestion", ""),
+                notes=result.get("notes", ""),
+                rule_ids=sink_site.matched_rule_ids,
+                metadata={
+                    # 调用链信息
+                    "chain_id": chain_id,
+                    "chain_length": chain_context.chain_length,
+                    "has_user_input": chain_context.has_user_input,
+                    "sanitizers_on_path": chain_context.sanitizers_on_path,
+                    # Sink 信息
+                    "sink_category": sink_category,
+                    # LLM 分析信息
+                    "is_uncertain": is_uncertain,
+                    "data_flow": result.get("data_flow", ""),
+                    "security_controls": result.get("security_controls", []),
+                },
+            )
+
+        except Exception as e:
+            logger.error(f"调用链分析错误 {chain_context.sink_site.symbol}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return None
+
+    def _contains_pattern(self, code: str, patterns: List[str], debug: bool = False) -> bool:
         """检查代码是否包含指定模式"""
         for pattern in patterns:
+            matched = False
             if pattern.startswith("regex:"):
                 if re.search(pattern[6:], code):
-                    return True
+                    matched = True
             elif pattern.startswith("prefix:"):
                 if pattern[7:] in code:
-                    return True
+                    matched = True
             elif pattern.startswith("suffix:"):
                 if pattern[7:] in code:
-                    return True
+                    matched = True
             elif pattern.startswith("contains:"):
                 if pattern[9:] in code:
-                    return True
+                    matched = True
             else:
                 if pattern in code:
-                    return True
+                    matched = True
+
+            if matched:
+                if debug:
+                    print(f"[PATTERN] 匹配成功: '{pattern}'")
+                return True
         return False
 
     def _calculate_priority(self, unit: CodeUnit, rule) -> float:
@@ -440,6 +1026,8 @@ class SecurityAnalyzer:
         max_workers: int = 2,
         use_agent: Optional[bool] = None,
         code_units: Optional[List[CodeUnit]] = None,
+        use_chain_analysis: bool = True,
+        max_chain_depth: int = 5,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -450,21 +1038,36 @@ class SecurityAnalyzer:
             max_workers: 并行分析数量
             use_agent: 是否使用 Agent 模式（None 则使用默认配置）
             code_units: 直接提供的代码单元列表（用于 skip_index 模式）
+            use_chain_analysis: 是否使用链级分析（默认 True，推荐）
+            max_chain_depth: 最大调用链深度
 
         Returns:
             Finding 列表
         """
-        use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
-
-        # 如果提供了 code_units，使用直接分析模式
+        # 如果提供了 code_units，优先使用链级分析
         if code_units is not None:
             logger.info(f"Using direct analysis mode with {len(code_units)} code units")
-            return self.analyze_units_direct(
-                code_units=code_units,
-                language=language,
-                max_candidates=max_candidates,
-                max_workers=max_workers,
-            )
+
+            # 默认使用链级分析（P0 目标推荐）
+            if use_chain_analysis:
+                logger.info("[P0] Using chain-level analysis (recommended)")
+                return self.analyze_chains(
+                    code_units=code_units,
+                    language=language,
+                    max_candidates=max_candidates,
+                    max_workers=max_workers,
+                    max_chain_depth=max_chain_depth,
+                )
+            else:
+                # 回退到 SinkScanner 模式
+                return self.analyze_units_direct(
+                    code_units=code_units,
+                    language=language,
+                    max_candidates=max_candidates,
+                    max_workers=max_workers,
+                )
+
+        use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
 
         if use_agent_mode:
             logger.info("Using Agent-based analysis mode")
@@ -488,6 +1091,7 @@ class SecurityAnalyzer:
         language: Optional[str] = None,
         max_candidates: int = 50,
         max_workers: int = 2,
+        use_sink_scanner: bool = True,
     ) -> List[Finding]:
         """直接分析代码单元列表（不使用向量索引）
 
@@ -498,11 +1102,30 @@ class SecurityAnalyzer:
             language: 限定语言
             max_candidates: 最大候选点数量
             max_workers: 并行分析数量
+            use_sink_scanner: 是否使用 SinkCallScanner（推荐，确定性扫描）
 
         Returns:
             Finding 列表
         """
+        print(f"[ANALYZE_DIRECT] 进入 analyze_units_direct，代码单元数: {len(code_units)}, 语言: {language}")
         logger.info(f"Starting direct analysis of {len(code_units)} code units...")
+
+        # 调试：打印代码单元信息
+        for i, unit in enumerate(code_units[:5]):  # 只打印前5个
+            print(f"[ANALYZE_DIRECT] 代码单元 {i+1}: symbol={unit.symbol}, language={unit.language}, file={unit.file_path}")
+
+        # 优先使用 SinkCallScanner（确定性扫描）
+        if use_sink_scanner:
+            logger.info("[ANALYZE_DIRECT] 使用 SinkCallScanner 进行确定性扫描")
+            return self.analyze_with_sink_scanner(
+                code_units=code_units,
+                language=language,
+                max_candidates=max_candidates,
+                max_workers=max_workers,
+            )
+
+        # 回退到旧的模式匹配方法
+        logger.info("[ANALYZE_DIRECT] 使用旧的模式匹配方法")
 
         # 1. 直接从代码单元发现候选点
         candidates = self.discover_candidates_from_units(
@@ -512,9 +1135,11 @@ class SecurityAnalyzer:
         )
 
         if not candidates:
+            print(f"[ANALYZE_DIRECT] 未发现任何候选点！")
             logger.info("No candidates found in direct scan")
             return []
 
+        print(f"[ANALYZE_DIRECT] 发现 {len(candidates)} 个候选点，开始 LLM 分析...")
         logger.info(f"Analyzing {len(candidates)} candidates...")
 
         # 2. 分析候选点
@@ -555,6 +1180,7 @@ class SecurityAnalyzer:
 
         使用 LLM 分析但不依赖向量索引获取上下文
         """
+        logger.info(f"[LLM] 开始分析候选点: {candidate.file_path}:{candidate.symbol}")
         try:
             # 构建基本上下文
             context_parts = []
@@ -599,6 +1225,7 @@ class SecurityAnalyzer:
             )
 
             # 调用 LLM
+            logger.info(f"[LLM] 调用 chat_completion, 模型: {self.llm_client.model if hasattr(self.llm_client, 'model') else 'unknown'}")
             response = self.llm_client.chat_completion(
                 messages=[
                     ChatMessage(role="system", content=system_prompt),
@@ -608,15 +1235,20 @@ class SecurityAnalyzer:
                 temperature=0.1,
                 max_tokens=2000,
             )
+            logger.info(f"[LLM] 收到响应，长度: {len(response.content) if response.content else 0}")
 
             # 解析结果
             result = self._parse_llm_response(response.content)
             if not result:
+                logger.warning(f"[LLM] 无法解析响应: {response.content[:200] if response.content else 'empty'}")
                 return None
 
             # 检查是否有问题
             if not result.get("has_issue", False):
+                logger.info(f"[LLM] 分析结果: 无安全问题")
                 return None
+
+            logger.info(f"[LLM] 发现问题: {result.get('issue_type', 'unknown')}, 严重性: {result.get('severity', 'unknown')}")
 
             # 构建 Finding
             return Finding(
@@ -646,6 +1278,8 @@ class SecurityAnalyzer:
 
         except Exception as e:
             logger.error(f"Error analyzing candidate {candidate.symbol}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
     def analyze_with_agent(

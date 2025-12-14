@@ -76,6 +76,54 @@ AUDIT_RESULT_SCHEMA = LLMOutputSchema(
 )
 
 
+# 链级分析结果 Schema（根据目标文档 P0-5）
+CHAIN_ANALYSIS_SCHEMA = LLMOutputSchema(
+    required_fields=[
+        "chain_id",
+        "sink_category",
+        "has_issue",
+        "confidence",
+    ],
+    optional_fields=[
+        "risk_level",
+        "issue_type",
+        "summary",
+        "evidence",
+        "data_flow",
+        "security_controls",
+        "exploitability_conditions",
+        "fix_suggestion",
+        "notes",
+    ],
+    field_types={
+        "chain_id": str,
+        "sink_category": str,
+        "has_issue": (bool, str),  # 允许 "uncertain"
+        "risk_level": str,
+        "issue_type": str,
+        "confidence": (int, float),
+        "summary": str,
+        "evidence": list,
+        "data_flow": str,
+        "security_controls": list,
+        "exploitability_conditions": str,
+        "fix_suggestion": str,
+        "notes": str,
+    },
+    enum_values={
+        "risk_level": ["low", "medium", "high", "critical"],
+        "sink_category": [
+            "command_exec", "code_exec", "sql_injection",
+            "file_read", "file_write", "deserialization",
+            "ssrf", "xss", "path_traversal", "other"
+        ],
+    },
+    range_constraints={
+        "confidence": (0.0, 1.0),
+    }
+)
+
+
 class OutputValidator:
     """LLM 输出验证器"""
 

@@ -432,6 +432,146 @@ class RuleManager:
                 description="密码操作需要二次验证和速率限制",
                 tags=["password", "auth"],
             ),
+
+            # === PHP 危险函数 (Sinks) ===
+            SecurityRule(
+                id="php-sql-injection",
+                name="PHP SQL 注入风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["php"],
+                patterns=["mysql_query", "mysqli_query", "pg_query", "sqlite_query", "->query(", "->exec(", "->prepare("],
+                description="直接拼接 SQL 语句可能导致 SQL 注入",
+                cwe_ids=["CWE-89"],
+                owasp_ids=["A03:2021"],
+                fix_suggestion="使用参数化查询或预处理语句",
+            ),
+            SecurityRule(
+                id="php-command-injection",
+                name="PHP 命令注入风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["php"],
+                patterns=["exec(", "shell_exec(", "system(", "passthru(", "popen(", "proc_open(", "pcntl_exec(", "`"],
+                description="执行系统命令时使用用户输入可能导致命令注入",
+                cwe_ids=["CWE-78"],
+                owasp_ids=["A03:2021"],
+                fix_suggestion="避免直接执行用户输入，使用白名单验证",
+            ),
+            SecurityRule(
+                id="php-code-injection",
+                name="PHP 代码注入风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["php"],
+                patterns=["eval(", "assert(", "create_function(", "call_user_func(", "call_user_func_array(", "preg_replace"],
+                description="动态执行代码可能导致远程代码执行",
+                cwe_ids=["CWE-94"],
+                owasp_ids=["A03:2021"],
+                fix_suggestion="避免使用 eval 等动态执行函数",
+            ),
+            SecurityRule(
+                id="php-file-inclusion",
+                name="PHP 文件包含风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["php"],
+                patterns=["include(", "include_once(", "require(", "require_once(", "include $", "require $"],
+                description="动态文件包含可能导致本地/远程文件包含漏洞",
+                cwe_ids=["CWE-98"],
+                owasp_ids=["A03:2021"],
+                fix_suggestion="使用白名单限制可包含的文件",
+            ),
+            SecurityRule(
+                id="php-file-operation",
+                name="PHP 文件操作风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.FILE_UPLOAD,
+                risk_level=RiskLevel.HIGH,
+                languages=["php"],
+                patterns=["file_get_contents(", "file_put_contents(", "fopen(", "fread(", "fwrite(", "readfile(", "unlink(", "move_uploaded_file("],
+                description="文件操作使用用户输入可能导致任意文件读写",
+                cwe_ids=["CWE-22"],
+                owasp_ids=["A01:2021"],
+                fix_suggestion="验证和过滤文件路径，使用白名单",
+            ),
+            SecurityRule(
+                id="php-deserialization",
+                name="PHP 反序列化风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.DESERIALIZATION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["php"],
+                patterns=["unserialize("],
+                description="反序列化不可信数据可能导致远程代码执行",
+                cwe_ids=["CWE-502"],
+                owasp_ids=["A08:2021"],
+                fix_suggestion="避免反序列化用户输入，使用 JSON 替代",
+            ),
+            SecurityRule(
+                id="php-ssrf",
+                name="PHP SSRF 风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.SSRF,
+                risk_level=RiskLevel.HIGH,
+                languages=["php"],
+                patterns=["curl_exec(", "curl_init(", "file_get_contents(", "fsockopen(", "fopen("],
+                description="使用用户输入构造 URL 可能导致 SSRF",
+                cwe_ids=["CWE-918"],
+                owasp_ids=["A10:2021"],
+                fix_suggestion="验证和限制目标 URL，使用白名单",
+            ),
+            SecurityRule(
+                id="php-xss",
+                name="PHP XSS 风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.HIGH,
+                languages=["php"],
+                patterns=["echo", "print", "printf", "<?="],
+                description="输出用户输入到 HTML 可能导致 XSS",
+                cwe_ids=["CWE-79"],
+                owasp_ids=["A03:2021"],
+                fix_suggestion="使用 htmlspecialchars() 或 htmlentities() 转义输出",
+            ),
+
+            # === PHP 输入源 (Sources) ===
+            SecurityRule(
+                id="php-http-input",
+                name="PHP HTTP 请求输入",
+                rule_type=RuleType.SOURCE,
+                category=RuleCategory.OTHER,
+                risk_level=RiskLevel.MEDIUM,
+                languages=["php"],
+                patterns=["$_GET", "$_POST", "$_REQUEST", "$_COOKIE", "$_FILES", "$_SERVER"],
+                description="来自 HTTP 请求的用户输入",
+            ),
+
+            # === PHP 消毒函数 (Sanitizers) ===
+            SecurityRule(
+                id="php-sql-escape",
+                name="PHP SQL 转义",
+                rule_type=RuleType.SANITIZER,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.LOW,
+                languages=["php"],
+                patterns=["mysql_real_escape_string", "mysqli_real_escape_string", "addslashes", "PDO::quote"],
+                description="SQL 转义函数（推荐使用预处理语句）",
+            ),
+            SecurityRule(
+                id="php-html-escape",
+                name="PHP HTML 转义",
+                rule_type=RuleType.SANITIZER,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.LOW,
+                languages=["php"],
+                patterns=["htmlspecialchars", "htmlentities", "strip_tags"],
+                description="HTML 转义函数防止 XSS",
+            ),
         ]
 
 
@@ -440,14 +580,34 @@ def create_rule_manager(config: RulesConfig) -> RuleManager:
     manager = RuleManager(config)
 
     # 加载内置规则
-    manager.load_builtin_rules()
+    builtin_count = manager.load_builtin_rules()
+    logger.info(f"内置规则加载完成: {builtin_count} 条")
 
     # 加载配置目录的规则
     if config.rules_dir:
-        manager.load_from_directory(config.rules_dir)
+        # 解析相对路径（相对于项目根目录）
+        from pathlib import Path
+        rules_path = Path(config.rules_dir)
+        if not rules_path.is_absolute():
+            # 尝试从项目根目录解析
+            project_root = Path(__file__).parent.parent
+            rules_path = project_root / config.rules_dir
+
+        logger.info(f"从目录加载规则: {rules_path}")
+        file_count = manager.load_from_directory(str(rules_path))
+        logger.info(f"文件规则加载完成: {file_count} 条")
 
     # 加载自定义规则
     if config.custom_rules_dir:
-        manager.load_from_directory(config.custom_rules_dir)
+        custom_count = manager.load_from_directory(config.custom_rules_dir)
+        logger.info(f"自定义规则加载完成: {custom_count} 条")
+
+    # 输出规则统计
+    total = len(manager.all_rules())
+    by_type = {}
+    for rule in manager.all_rules():
+        type_name = rule.rule_type.value if rule.rule_type else 'unknown'
+        by_type[type_name] = by_type.get(type_name, 0) + 1
+    logger.info(f"规则加载完成，共 {total} 条。按类型: {by_type}")
 
     return manager

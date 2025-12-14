@@ -7,7 +7,14 @@ from .models import (
     Severity,
     Evidence,
 )
-from .prompts import build_analysis_prompt, SYSTEM_PROMPT
+from .prompts import (
+    build_analysis_prompt,
+    build_chain_analysis_prompt,
+    get_chain_output_schema,
+    SYSTEM_PROMPT,
+    CHAIN_SYSTEM_PROMPT,
+    SINK_CATEGORY_PROMPTS,
+)
 from .engine import SecurityAnalyzer
 from .call_chain import (
     CallChainAnalyzer,
@@ -59,6 +66,16 @@ from .variant_analysis import (
     GeneratedRule,
     PatternType,
 )
+from .sink_scanner import (
+    SinkCallScanner,
+    SinkCallSite,
+    SinkCategory as SinkScanCategory,
+)
+from .chain_context import (
+    ChainContextCollector,
+    ChainContext,
+    ChainNode,
+)
 
 __all__ = [
     # 基础模型
@@ -69,7 +86,11 @@ __all__ = [
     "Evidence",
     # 提示词
     "build_analysis_prompt",
+    "build_chain_analysis_prompt",
+    "get_chain_output_schema",
     "SYSTEM_PROMPT",
+    "CHAIN_SYSTEM_PROMPT",
+    "SINK_CATEGORY_PROMPTS",
     # 分析引擎
     "SecurityAnalyzer",
     # 调用链分析
@@ -116,4 +137,12 @@ __all__ = [
     "VariantMatch",
     "GeneratedRule",
     "PatternType",
+    # SinkCallScanner
+    "SinkCallScanner",
+    "SinkCallSite",
+    "SinkScanCategory",
+    # 调用链上下文收集
+    "ChainContextCollector",
+    "ChainContext",
+    "ChainNode",
 ]

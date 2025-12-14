@@ -167,6 +167,16 @@ def create_app():
             "--reindex",
             help="扫描前重新索引"
         ),
+        chain_analysis: bool = typer.Option(
+            True,
+            "--chain/--no-chain",
+            help="是否使用链级分析（P0推荐流程，默认开启）"
+        ),
+        max_chain_depth: int = typer.Option(
+            5,
+            "--chain-depth",
+            help="最大调用链深度"
+        ),
     ):
         """执行安全扫描"""
         try:
@@ -207,12 +217,15 @@ def create_app():
                 console.print(f"  使用现有索引 ({stats['total_units']} 个单元)")
 
             # 执行分析
-            console.print("\n[cyan]正在分析...[/cyan]")
+            analysis_mode = "链级分析" if chain_analysis else "简单分析"
+            console.print(f"\n[cyan]正在分析（{analysis_mode}模式）...[/cyan]")
             with console.status("[bold green]LLM 分析中..."):
                 findings = analyzer.analyze(
                     language=language,
                     max_candidates=max_issues,
                     max_workers=2,
+                    use_chain_analysis=chain_analysis,
+                    max_chain_depth=max_chain_depth,
                 )
 
             # 生成报告

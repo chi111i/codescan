@@ -171,7 +171,7 @@ class OpenAICompatibleClient(BaseLLMClient):
 
     def __init__(self, config: LLMConfig):
         self.config = config
-        self.base_url = config.base_url.rstrip("/")
+        self.base_url = self._normalize_base_url(config.base_url)
         self.api_key = config.api_key or os.environ.get("OPENAI_API_KEY", "")
         self.default_model = config.model
         self.embedding_model = config.embedding_model
@@ -179,10 +179,31 @@ class OpenAICompatibleClient(BaseLLMClient):
         self.max_retries = config.max_retries
 
         # 嵌入模型独立配置（如果设置了则使用，否则使用 LLM 配置）
-        self.embedding_base_url = (config.embedding_base_url or self.base_url).rstrip("/")
+        self.embedding_base_url = self._normalize_base_url(config.embedding_base_url or config.base_url)
         self.embedding_api_key = config.embedding_api_key or self.api_key
         self.embedding_dim = config.embedding_dim
 
+        # 初始化 HTTP 客户端
+        self._init_http_clients()
+
+    @staticmethod
+    def _normalize_base_url(url: str) -> str:
+        """规范化 base_url，确保以 /v1 结尾
+
+        这样 endpoint 只需要用 /chat/completions 而不是 /v1/chat/completions，
+        避免 URL 重复拼接问题（如 /v1/v1/chat/completions）
+
+        规则：
+        - 如果 url 已经以 /v1 结尾，保持不变
+        - 如果 url 不以 /v1 结尾，自动添加 /v1
+        """
+        url = url.rstrip("/")
+        if not url.endswith("/v1"):
+            url = url + "/v1"
+        return url
+
+    def _init_http_clients(self):
+        """初始化 HTTP 客户端"""
         # HTTP 客户端
         self._client = httpx.Client(
             timeout=httpx.Timeout(self.timeout, connect=10.0),
@@ -386,9 +407,9 @@ class OpenAICompatibleClient(BaseLLMClient):
         # 合并额外参数
         payload.update(kwargs)
 
-        self._log_request("/v1/chat/completions", use_model, payload=payload)
+        self._log_request("/chat/completions", use_model, payload=payload)
 
-        result = self._request_with_retry("POST", "/v1/chat/completions", payload)
+        result = self._request_with_retry("POST", "/chat/completions", payload)
 
         # 解析响应
         choice = result["choices"][0]
@@ -456,12 +477,12 @@ class OpenAICompatibleClient(BaseLLMClient):
         if encoding_format:
             payload["encoding_format"] = encoding_format
 
-        self._log_request("/v1/embeddings", use_model, len(texts), payload=payload)
+        self._log_request("/embeddings", use_model, len(texts), payload=payload)
 
         # 使用嵌入模型专用的客户端和 base_url
         result = self._request_with_retry(
             "POST",
-            "/v1/embeddings",
+            "/embeddings",
             payload,
             client=self._embedding_client,
             base_url=self.embedding_base_url

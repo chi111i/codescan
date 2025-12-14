@@ -174,15 +174,15 @@
                   </label>
 
                   <label class="option-card">
-                    <input type="checkbox" v-model="config.taintAnalysis" class="hidden" />
-                    <div class="option-checkbox" :class="{ checked: config.taintAnalysis }">
+                    <input type="checkbox" v-model="config.useChainAnalysis" class="hidden" />
+                    <div class="option-checkbox" :class="{ checked: config.useChainAnalysis }">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                       </svg>
                     </div>
                     <div>
-                      <span class="text-sm font-medium text-gray-800">污点分析</span>
-                      <p class="text-xs text-gray-500">追踪 source → sink 数据流</p>
+                      <span class="text-sm font-medium text-gray-800">链级分析（推荐）</span>
+                      <p class="text-xs text-gray-500">追踪调用链 + 污点传播，P0级推荐流程</p>
                     </div>
                   </label>
 
@@ -224,14 +224,15 @@
                       />
                     </div>
                     <div class="p-4 rounded-xl bg-white/30">
-                      <label class="text-sm font-medium text-gray-700 block mb-2">并发数</label>
+                      <label class="text-sm font-medium text-gray-700 block mb-2">调用链深度</label>
                       <input
                         type="number"
-                        v-model="config.concurrency"
+                        v-model="config.maxChainDepth"
                         min="1"
-                        max="10"
+                        max="15"
                         class="w-full px-3 py-2 rounded-lg bg-white/50 border border-white/30 outline-none focus:border-blue-400"
                       />
+                      <p class="text-xs text-gray-500 mt-1">链级分析的最大追溯深度</p>
                     </div>
                   </div>
                 </div>
@@ -484,11 +485,11 @@ const config = reactive({
   vulnTypes: ['rce', 'command_injection', 'sql_injection'],
   useLLM: true,
   scanLogic: true,
-  taintAnalysis: true,
+  useChainAnalysis: true,
   reindex: false,
   skipIndex: false,
   maxIssues: 50,
-  concurrency: 3,
+  maxChainDepth: 5,
 })
 
 const isScanning = ref(false)
@@ -608,11 +609,11 @@ const resetConfig = () => {
   config.vulnTypes = ['rce', 'command_injection', 'sql_injection']
   config.useLLM = true
   config.scanLogic = true
-  config.taintAnalysis = true
+  config.useChainAnalysis = true
   config.reindex = false
   config.skipIndex = false
   config.maxIssues = 50
-  config.concurrency = 3
+  config.maxChainDepth = 5
 }
 
 const startScan = async () => {
@@ -632,11 +633,11 @@ const startScan = async () => {
       vuln_types: config.vulnTypes.length > 0 ? config.vulnTypes : null,
       use_llm: config.useLLM,
       scan_logic: config.scanLogic,
-      taint_analysis: config.taintAnalysis,
+      use_chain_analysis: config.useChainAnalysis,
       reindex: config.reindex,
       skip_index: config.skipIndex,
       max_issues: config.maxIssues,
-      concurrency: config.concurrency,
+      max_chain_depth: config.maxChainDepth,
     })
 
     if (result.success) {

@@ -537,15 +537,18 @@ const allFindings = computed(() => {
   return [
     ...(scanResult.value.findings || []).map(f => ({ ...f, id: f.id || `f-${Math.random()}` })),
     ...(scanResult.value.vuln_findings || []).map(f => ({ ...f, id: f.id || `v-${Math.random()}` })),
-    ...(scanResult.value.taint_flows || []).map(f => ({
+    ...(scanResult.value.taint_paths || []).map(f => ({
       ...f,
       id: f.id || `t-${Math.random()}`,
       is_taint_flow: true,
-      title: `污点流: ${f.source} → ${f.sink}`,
-      file_path: f.sink_location?.split(':')[0] || '',
-      line_start: f.sink_location?.split(':')[1] || 0,
+      title: `污点流: ${f.source_node} → ${f.sink_node}`,
+      file_path: f.sink_node || '',
+      line_start: 0,
       severity: f.risk_level?.toLowerCase() || 'medium',
       taint_path: f.path,
+      confidence: f.confidence,
+      is_sanitized: f.is_sanitized,
+      sanitizers: f.sanitizers,
     })),
   ]
 })
