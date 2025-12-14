@@ -9,9 +9,10 @@ LLM 客户端封装 - 统一的 OpenAI 兼容接口
 
 import os
 import time
+import json
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Union
 import httpx
 
@@ -21,19 +22,77 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class ToolCall:
+    """工具调用"""
+    id: str
+    name: str
+    arguments: Dict[str, Any]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 API 格式"""
+        return {
+            "id": self.id,
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "arguments": json.dumps(self.arguments, ensure_ascii=False) if isinstance(self.arguments, dict) else self.arguments,
+            }
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ToolCall":
+        """从 API 响应创建"""
+        func = data.get("function", {})
+        arguments = func.get("arguments", "{}")
+        # 解析 arguments JSON 字符串
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        return cls(
+            id=data.get("id", ""),
+            name=func.get("name", ""),
+            arguments=arguments,
+        )
+
+
+@dataclass
 class ChatMessage:
     """聊天消息"""
-    role: str  # system, user, assistant
-    content: str
+    role: str  # system, user, assistant, tool
+    content: Optional[str] = None
+    tool_calls: Optional[List[ToolCall]] = None  # assistant 消息中的工具调用
+    tool_call_id: Optional[str] = None  # tool 消息的调用 ID
+    name: Optional[str] = None  # tool 消息的函数名
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 API 格式"""
+        msg = {"role": self.role}
+
+        if self.content is not None:
+            msg["content"] = self.content
+
+        if self.tool_calls:
+            msg["tool_calls"] = [tc.to_dict() for tc in self.tool_calls]
+
+        if self.tool_call_id:
+            msg["tool_call_id"] = self.tool_call_id
+
+        if self.name:
+            msg["name"] = self.name
+
+        return msg
 
 
 @dataclass
 class ChatResponse:
     """聊天响应"""
-    content: str
+    content: Optional[str]
     model: str
     usage: Dict[str, int]
     finish_reason: str
+    tool_calls: Optional[List[ToolCall]] = None  # 工具调用列表
     raw_response: Optional[Dict[str, Any]] = None
 
 
@@ -71,9 +130,21 @@ class BaseLLMClient(ABC):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         response_format: Optional[Dict[str, str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         **kwargs
     ) -> ChatResponse:
-        """发送聊天请求"""
+        """发送聊天请求
+
+        Args:
+            messages: 消息列表
+            model: 模型名称
+            temperature: 温度参数
+            max_tokens: 最大生成 token 数
+            response_format: 响应格式
+            tools: 工具定义列表
+            tool_choice: 工具选择策略 ("auto", "none", "required" 或指定工具)
+        """
         pass
 
     @abstractmethod
@@ -232,6 +303,8 @@ class OpenAICompatibleClient(BaseLLMClient):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         response_format: Optional[Dict[str, str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         **kwargs
     ) -> ChatResponse:
         """发送聊天请求
@@ -242,6 +315,8 @@ class OpenAICompatibleClient(BaseLLMClient):
             temperature: 温度参数
             max_tokens: 最大生成 token 数
             response_format: 响应格式，如 {"type": "json_object"}
+            tools: 工具定义列表 (Function Calling)
+            tool_choice: 工具选择策略 ("auto", "none", "required" 或指定工具)
             **kwargs: 额外参数（如 top_p, frequency_penalty 等）
 
         Returns:
@@ -251,15 +326,31 @@ class OpenAICompatibleClient(BaseLLMClient):
         use_temp = temperature if temperature is not None else self.config.temperature
         use_max_tokens = max_tokens or self.config.max_tokens
 
+        # 构建消息列表，使用 ChatMessage.to_dict() 支持 tool_calls
+        formatted_messages = []
+        for m in messages:
+            if hasattr(m, 'to_dict'):
+                formatted_messages.append(m.to_dict())
+            else:
+                formatted_messages.append({"role": m.role, "content": m.content})
+
         payload = {
             "model": use_model,
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "messages": formatted_messages,
             "temperature": use_temp,
             "max_tokens": use_max_tokens,
         }
 
         if response_format:
             payload["response_format"] = response_format
+
+        # 添加工具定义
+        if tools:
+            payload["tools"] = tools
+
+        # 添加工具选择策略
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
 
         # 合并额外参数
         payload.update(kwargs)
@@ -270,15 +361,24 @@ class OpenAICompatibleClient(BaseLLMClient):
 
         # 解析响应
         choice = result["choices"][0]
+        message = choice["message"]
         usage = result.get("usage", {})
+
+        # 解析 tool_calls
+        tool_calls = None
+        if "tool_calls" in message and message["tool_calls"]:
+            tool_calls = [
+                ToolCall.from_dict(tc) for tc in message["tool_calls"]
+            ]
 
         logger.debug(
             f"LLM Response: model={result.get('model')}, "
-            f"tokens={usage.get('total_tokens', 'N/A')}"
+            f"tokens={usage.get('total_tokens', 'N/A')}, "
+            f"tool_calls={len(tool_calls) if tool_calls else 0}"
         )
 
         return ChatResponse(
-            content=choice["message"]["content"],
+            content=message.get("content"),
             model=result.get("model", use_model),
             usage={
                 "prompt_tokens": usage.get("prompt_tokens", 0),
@@ -286,6 +386,7 @@ class OpenAICompatibleClient(BaseLLMClient):
                 "total_tokens": usage.get("total_tokens", 0),
             },
             finish_reason=choice.get("finish_reason", "unknown"),
+            tool_calls=tool_calls,
             raw_response=result,
         )
 
@@ -366,6 +467,11 @@ class MockLLMClient(BaseLLMClient):
 
     def __init__(self):
         self.call_history: List[Dict[str, Any]] = []
+        self.mock_tool_calls: Optional[List[ToolCall]] = None  # 可设置模拟的工具调用
+
+    def set_mock_tool_calls(self, tool_calls: List[ToolCall]):
+        """设置模拟返回的工具调用"""
+        self.mock_tool_calls = tool_calls
 
     def chat_completion(
         self,
@@ -374,6 +480,8 @@ class MockLLMClient(BaseLLMClient):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         response_format: Optional[Dict[str, str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         **kwargs
     ) -> ChatResponse:
         """模拟聊天响应"""
@@ -381,7 +489,21 @@ class MockLLMClient(BaseLLMClient):
             "type": "chat",
             "messages": messages,
             "model": model,
+            "tools": tools,
+            "tool_choice": tool_choice,
         })
+
+        # 如果设置了模拟工具调用，返回它
+        if self.mock_tool_calls:
+            tool_calls = self.mock_tool_calls
+            self.mock_tool_calls = None  # 重置
+            return ChatResponse(
+                content=None,
+                model=model or "mock-model",
+                usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+                finish_reason="tool_calls",
+                tool_calls=tool_calls,
+            )
 
         # 返回模拟响应
         mock_content = '{"has_issue": false, "notes": "Mock response for testing"}'
@@ -395,6 +517,7 @@ class MockLLMClient(BaseLLMClient):
             model=model or "mock-model",
             usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
             finish_reason="stop",
+            tool_calls=None,
         )
 
     def embed(

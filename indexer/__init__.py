@@ -19,6 +19,7 @@ from .vector_store import (
     create_vector_store,
 )
 from .indexer import CodeIndexer
+from .code_reader import CodeReader
 from .storage import (
     StorageManager,
     ProjectIndex,
@@ -68,6 +69,8 @@ __all__ = [
     "create_vector_store",
     # 索引器
     "CodeIndexer",
+    # 代码读取器
+    "CodeReader",
     # 存储管理器
     "StorageManager",
     "ProjectIndex",
