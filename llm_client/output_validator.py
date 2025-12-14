@@ -76,6 +76,48 @@ AUDIT_RESULT_SCHEMA = LLMOutputSchema(
 )
 
 
+# sink_category 别名映射（将 LLM 返回的非标准值映射到标准值）
+SINK_CATEGORY_ALIASES = {
+    # file_write 的别名
+    "arbitrary_file_write": "file_write",
+    "file_upload": "file_write",
+    "arbitrary_file_upload": "file_write",
+    "file_overwrite": "file_write",
+    "write_file": "file_write",
+    # file_read 的别名
+    "arbitrary_file_read": "file_read",
+    "file_disclosure": "file_read",
+    "read_file": "file_read",
+    "lfi": "file_read",  # Local File Inclusion
+    # command_exec 的别名
+    "command_injection": "command_exec",
+    "os_command_injection": "command_exec",
+    "shell_injection": "command_exec",
+    "rce": "command_exec",  # Remote Code Execution (when via command)
+    # code_exec 的别名
+    "remote_code_execution": "code_exec",
+    "code_injection": "code_exec",
+    "eval_injection": "code_exec",
+    # sql_injection 的别名
+    "sqli": "sql_injection",
+    "sql": "sql_injection",
+    # ssrf 的别名
+    "server_side_request_forgery": "ssrf",
+    # xss 的别名
+    "cross_site_scripting": "xss",
+    "reflected_xss": "xss",
+    "stored_xss": "xss",
+    "dom_xss": "xss",
+    # path_traversal 的别名
+    "directory_traversal": "path_traversal",
+    "path_manipulation": "path_traversal",
+    # deserialization 的别名
+    "insecure_deserialization": "deserialization",
+    "unsafe_deserialization": "deserialization",
+    "pickle_injection": "deserialization",
+}
+
+
 # 链级分析结果 Schema（根据目标文档 P0-5）
 CHAIN_ANALYSIS_SCHEMA = LLMOutputSchema(
     required_fields=[
@@ -269,12 +311,23 @@ class OutputValidator:
                             f"Field '{field}' has wrong type: expected {expected_type.__name__}, got {type(data[field]).__name__}"
                         )
 
-        # 检查枚举值
+        # 检查枚举值（支持别名映射）
         for field, allowed_values in schema.enum_values.items():
             if field in data and data[field] is not None:
-                if data[field] not in allowed_values:
+                value = data[field]
+                # 对 sink_category 字段进行别名映射
+                if field == "sink_category" and isinstance(value, str):
+                    # 先转为小写进行匹配
+                    lower_value = value.lower().replace("-", "_").replace(" ", "_")
+                    if lower_value in SINK_CATEGORY_ALIASES:
+                        # 映射到标准值
+                        mapped_value = SINK_CATEGORY_ALIASES[lower_value]
+                        data[field] = mapped_value  # 直接修正数据
+                        value = mapped_value
+
+                if value not in allowed_values:
                     errors.append(
-                        f"Field '{field}' has invalid value: {data[field]}, allowed: {allowed_values}"
+                        f"Field '{field}' has invalid value: {value}, allowed: {allowed_values}"
                     )
 
         # 检查范围约束
