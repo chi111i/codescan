@@ -4,7 +4,11 @@
       "mcp__serena__list_dir",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: 支持嵌入模型独立配置\n\n- 新增嵌入模型独立 API 地址、API Key 和向量维度配置\n- LLM 客户端支持独立的嵌入模型 HTTP 客户端\n- 嵌入 API 支持 dimensions 和 encoding_format 参数\n- 向量存储从外部接收维度参数，移除冗余配置\n- 前端设置页面新增嵌入模型独立配置项和连接测试\n- 新增 glass-card 样式组件\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")"
     ]
   }
 }

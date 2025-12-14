@@ -96,7 +96,10 @@ class CodeIndexer:
         self.config = config
         self.scan_config = config.scan
         self.llm_client = llm_client
-        self.vector_store = vector_store or create_vector_store(config.vector_store)
+        self.vector_store = vector_store or create_vector_store(
+            config.vector_store,
+            embedding_dim=config.llm.embedding_dim
+        )
 
         # 初始化嵌入缓存
         if config.vector_store.enable_cache:

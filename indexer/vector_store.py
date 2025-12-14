@@ -213,10 +213,16 @@ class BaseVectorStore(ABC):
 class QdrantVectorStore(BaseVectorStore):
     """Qdrant 向量数据库实现"""
 
-    def __init__(self, config: VectorStoreConfig):
+    def __init__(self, config: VectorStoreConfig, embedding_dim: int = 1536):
+        """初始化 Qdrant 向量存储
+
+        Args:
+            config: 向量存储配置
+            embedding_dim: 嵌入向量维度，默认 1536
+        """
         self.config = config
         self.collection_name = config.collection_name
-        self.embedding_dim = config.embedding_dim
+        self.embedding_dim = embedding_dim
         self._client = None
 
     def _get_client(self):
@@ -610,12 +616,20 @@ class InMemoryVectorStore(BaseVectorStore):
         return results
 
 
-def create_vector_store(config: VectorStoreConfig) -> BaseVectorStore:
-    """创建向量存储工厂函数"""
+def create_vector_store(config: VectorStoreConfig, embedding_dim: int = 1536) -> BaseVectorStore:
+    """创建向量存储工厂函数
+
+    Args:
+        config: 向量存储配置
+        embedding_dim: 嵌入向量维度，默认 1536
+
+    Returns:
+        向量存储实例
+    """
     provider = config.provider.lower()
 
     if provider == "qdrant":
-        return QdrantVectorStore(config)
+        return QdrantVectorStore(config, embedding_dim=embedding_dim)
     elif provider in ("memory", "inmemory", "in-memory"):
         return InMemoryVectorStore(config)
     else:

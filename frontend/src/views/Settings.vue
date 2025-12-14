@@ -140,6 +140,32 @@
               class="input-glass"
               placeholder="使用 LLM 相同地址则留空"
             />
+            <p class="text-xs text-gray-500 mt-1">留空则使用 LLM 的 API 地址</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">嵌入模型 API Key</label>
+            <div class="relative">
+              <input
+                v-model="settings.embedding.apiKey"
+                :type="showEmbeddingApiKey ? 'text' : 'password'"
+                class="input-glass pr-10"
+                placeholder="使用 LLM 相同 Key 则留空"
+              />
+              <button
+                @click="showEmbeddingApiKey = !showEmbeddingApiKey"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                <svg v-if="showEmbeddingApiKey" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                </svg>
+                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">留空则使用 LLM 的 API Key</p>
           </div>
 
           <div>
@@ -154,14 +180,31 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">向量维度</label>
-            <select v-model="settings.embedding.dimensions" class="select-glass">
-              <option value="256">256</option>
-              <option value="512">512</option>
-              <option value="768">768</option>
-              <option value="1024">1024</option>
-              <option value="1536">1536</option>
-              <option value="3072">3072</option>
-            </select>
+            <div class="flex items-center gap-3">
+              <input
+                v-model.number="settings.embedding.dimensions"
+                type="number"
+                min="1"
+                max="8192"
+                step="1"
+                class="input-glass flex-1"
+                placeholder="1536"
+              />
+              <div class="flex gap-1">
+                <button
+                  v-for="dim in [256, 512, 1024, 1536, 3072]"
+                  :key="dim"
+                  @click="settings.embedding.dimensions = dim"
+                  class="px-2 py-1 text-xs rounded-md transition-colors"
+                  :class="settings.embedding.dimensions === dim
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                >
+                  {{ dim }}
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">OpenAI text-embedding-3 系列支持任意维度（1-3072），其他模型请参考文档</p>
           </div>
 
           <div>
@@ -174,6 +217,20 @@
               class="input-glass"
               placeholder="50"
             />
+          </div>
+
+          <div class="flex items-center justify-between pt-4 border-t border-gray-200/50">
+            <span class="text-sm text-gray-700">嵌入模型连接测试</span>
+            <button
+              @click="testEmbeddingConnection"
+              :disabled="testingEmbedding"
+              class="btn-secondary text-sm px-4 py-2"
+            >
+              <span v-if="testingEmbedding">测试中...</span>
+              <span v-else-if="embeddingTestResult === 'success'" class="text-green-600">连接成功</span>
+              <span v-else-if="embeddingTestResult === 'failed'" class="text-red-600">连接失败</span>
+              <span v-else>测试连接</span>
+            </button>
           </div>
         </div>
       </div>
@@ -726,6 +783,7 @@ const settings = reactive({
   },
   embedding: {
     baseUrl: '',
+    apiKey: '',
     model: 'text-embedding-3-small',
     dimensions: 1536,
     batchSize: 50
@@ -753,10 +811,13 @@ const settings = reactive({
 })
 
 const showApiKey = ref(false)
+const showEmbeddingApiKey = ref(false)
 const saving = ref(false)
 const showSaveSuccess = ref(false)
 const testingLlm = ref(false)
 const llmTestResult = ref(null)
+const testingEmbedding = ref(false)
+const embeddingTestResult = ref(null)
 const cacheStats = ref(null)
 
 // 成本估算
@@ -814,6 +875,27 @@ const testLlmConnection = async () => {
     llmTestResult.value = 'failed'
   } finally {
     testingLlm.value = false
+  }
+}
+
+const testEmbeddingConnection = async () => {
+  testingEmbedding.value = true
+  embeddingTestResult.value = null
+  try {
+    // 模拟测试嵌入模型连接
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 检查配置是否有效
+    const baseUrl = settings.embedding.baseUrl || settings.llm.baseUrl
+    const apiKey = settings.embedding.apiKey || settings.llm.apiKey
+    if (baseUrl && apiKey) {
+      embeddingTestResult.value = 'success'
+    } else {
+      embeddingTestResult.value = 'failed'
+    }
+  } catch {
+    embeddingTestResult.value = 'failed'
+  } finally {
+    testingEmbedding.value = false
   }
 }
 

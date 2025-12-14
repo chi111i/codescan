@@ -46,6 +46,11 @@ class LLMConfig:
     timeout: int = 60
     max_retries: int = 3
 
+    # 嵌入模型独立配置（如果不设置则使用 LLM 的配置）
+    embedding_base_url: str = ""          # 嵌入模型 API 地址，为空则使用 base_url
+    embedding_api_key: str = ""           # 嵌入模型 API Key，为空则使用 api_key
+    embedding_dim: int = 1536             # 嵌入向量维度
+
     # Token 预算控制
     max_code_tokens_per_call: int = 3000  # 每次 LLM 调用的最大代码 token 数
     max_context_tokens: int = 6000        # 最大上下文 token 数
@@ -62,7 +67,6 @@ class VectorStoreConfig:
     host: str = "localhost"
     port: int = 6333
     collection_name: str = "code_audit"
-    embedding_dim: int = 1536
     # Qdrant 特定配置
     api_key: Optional[str] = None
     https: bool = False
@@ -255,6 +259,9 @@ def _apply_env_overrides(config_dict: Dict[str, Any]) -> Dict[str, Any]:
         "AUDIT_LLM_API_KEY": ("llm", "api_key"),
         "AUDIT_LLM_MODEL": ("llm", "model"),
         "AUDIT_LLM_EMBEDDING_MODEL": ("llm", "embedding_model"),
+        "AUDIT_LLM_EMBEDDING_BASE_URL": ("llm", "embedding_base_url"),
+        "AUDIT_LLM_EMBEDDING_API_KEY": ("llm", "embedding_api_key"),
+        "AUDIT_LLM_EMBEDDING_DIM": ("llm", "embedding_dim"),
         "AUDIT_VECTOR_HOST": ("vector_store", "host"),
         "AUDIT_VECTOR_PORT": ("vector_store", "port"),
         "AUDIT_VECTOR_API_KEY": ("vector_store", "api_key"),
@@ -268,6 +275,8 @@ def _apply_env_overrides(config_dict: Dict[str, Any]) -> Dict[str, Any]:
         if value is not None:
             # 类型转换
             if env_var == "AUDIT_VECTOR_PORT":
+                value = int(value)
+            elif env_var == "AUDIT_LLM_EMBEDDING_DIM":
                 value = int(value)
             elif env_var == "AUDIT_DEBUG":
                 value = value.lower() in ("true", "1", "yes")

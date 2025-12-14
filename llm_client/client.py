@@ -80,9 +80,18 @@ class BaseLLMClient(ABC):
     def embed(
         self,
         texts: List[str],
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        dimensions: Optional[int] = None,
+        encoding_format: Optional[str] = None
     ) -> EmbeddingResponse:
-        """生成文本嵌入向量"""
+        """生成文本嵌入向量
+
+        Args:
+            texts: 文本列表
+            model: 嵌入模型名称
+            dimensions: 向量维度（OpenAI text-embedding-3 系列支持）
+            encoding_format: 编码格式，"float" 或 "base64"
+        """
         pass
 
 
@@ -98,16 +107,37 @@ class OpenAICompatibleClient(BaseLLMClient):
         self.timeout = config.timeout
         self.max_retries = config.max_retries
 
+        # 嵌入模型独立配置（如果设置了则使用，否则使用 LLM 配置）
+        self.embedding_base_url = (config.embedding_base_url or self.base_url).rstrip("/")
+        self.embedding_api_key = config.embedding_api_key or self.api_key
+        self.embedding_dim = config.embedding_dim
+
         # HTTP 客户端
         self._client = httpx.Client(
             timeout=httpx.Timeout(self.timeout, connect=10.0),
             headers=self._get_headers(),
         )
 
+        # 嵌入模型的 HTTP 客户端（如果配置不同则单独创建）
+        if self.embedding_base_url != self.base_url or self.embedding_api_key != self.api_key:
+            self._embedding_client = httpx.Client(
+                timeout=httpx.Timeout(self.timeout, connect=10.0),
+                headers=self._get_embedding_headers(),
+            )
+        else:
+            self._embedding_client = self._client
+
     def _get_headers(self) -> Dict[str, str]:
         """获取请求头"""
         return {
             "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+    def _get_embedding_headers(self) -> Dict[str, str]:
+        """获取嵌入模型请求头"""
+        return {
+            "Authorization": f"Bearer {self.embedding_api_key}",
             "Content-Type": "application/json",
         }
 
@@ -144,15 +174,27 @@ class OpenAICompatibleClient(BaseLLMClient):
         self,
         method: str,
         endpoint: str,
-        json_data: Dict[str, Any]
+        json_data: Dict[str, Any],
+        client: Optional[httpx.Client] = None,
+        base_url: Optional[str] = None
     ) -> Dict[str, Any]:
-        """带重试的请求"""
-        url = f"{self.base_url}{endpoint}"
+        """带重试的请求
+
+        Args:
+            method: HTTP 方法
+            endpoint: API 端点
+            json_data: 请求数据
+            client: HTTP 客户端，默认使用 self._client
+            base_url: API 基础 URL，默认使用 self.base_url
+        """
+        use_client = client or self._client
+        use_base_url = base_url or self.base_url
+        url = f"{use_base_url}{endpoint}"
         last_exception = None
 
         for attempt in range(1, self.max_retries + 1):
             try:
-                response = self._client.request(method, url, json=json_data)
+                response = use_client.request(method, url, json=json_data)
 
                 if response.status_code == 200:
                     return response.json()
@@ -250,27 +292,47 @@ class OpenAICompatibleClient(BaseLLMClient):
     def embed(
         self,
         texts: List[str],
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        dimensions: Optional[int] = None,
+        encoding_format: Optional[str] = None
     ) -> EmbeddingResponse:
         """生成文本嵌入向量
 
         Args:
             texts: 文本列表
             model: 嵌入模型名称
+            dimensions: 向量维度（OpenAI text-embedding-3 系列支持自定义维度）
+            encoding_format: 编码格式，可选 "float" 或 "base64"，默认 "float"
 
         Returns:
             EmbeddingResponse 对象
         """
         use_model = model or self.embedding_model
+        use_dimensions = dimensions or self.embedding_dim
 
         payload = {
             "model": use_model,
             "input": texts,
         }
 
+        # 如果指定了维度，添加到请求中（OpenAI text-embedding-3 系列支持）
+        if use_dimensions:
+            payload["dimensions"] = use_dimensions
+
+        # 编码格式（OpenAI 支持 "float" 或 "base64"）
+        if encoding_format:
+            payload["encoding_format"] = encoding_format
+
         self._log_request("/v1/embeddings", use_model, len(texts))
 
-        result = self._request_with_retry("POST", "/v1/embeddings", payload)
+        # 使用嵌入模型专用的客户端和 base_url
+        result = self._request_with_retry(
+            "POST",
+            "/v1/embeddings",
+            payload,
+            client=self._embedding_client,
+            base_url=self.embedding_base_url
+        )
 
         # 解析嵌入向量
         embeddings = [item["embedding"] for item in result["data"]]
@@ -288,6 +350,9 @@ class OpenAICompatibleClient(BaseLLMClient):
     def close(self):
         """关闭客户端"""
         self._client.close()
+        # 如果嵌入模型客户端是独立创建的，也需要关闭
+        if self._embedding_client is not self._client:
+            self._embedding_client.close()
 
     def __enter__(self):
         return self
@@ -335,17 +400,21 @@ class MockLLMClient(BaseLLMClient):
     def embed(
         self,
         texts: List[str],
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        dimensions: Optional[int] = None,
+        encoding_format: Optional[str] = None
     ) -> EmbeddingResponse:
         """模拟嵌入响应"""
         self.call_history.append({
             "type": "embed",
             "texts": texts,
             "model": model,
+            "dimensions": dimensions,
+            "encoding_format": encoding_format,
         })
 
-        # 返回模拟嵌入（零向量）
-        dim = 1536
+        # 返回模拟嵌入（零向量），使用指定的维度或默认 1536
+        dim = dimensions or 1536
         embeddings = [[0.0] * dim for _ in texts]
 
         return EmbeddingResponse(
