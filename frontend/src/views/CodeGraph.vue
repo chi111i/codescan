@@ -160,23 +160,32 @@
 
           <!-- 图可视化区域 -->
           <div v-if="viewMode === 'graph'" class="bg-gray-900 rounded-lg p-4 min-h-96">
-            <div ref="graphContainer" class="w-full h-96">
+            <div ref="graphContainer" class="w-full h-96 overflow-auto">
               <!-- SVG 图可视化 -->
-              <svg width="100%" height="100%" class="graph-svg">
-                <!-- 边 -->
+              <svg :width="svgWidth" :height="svgHeight" class="graph-svg">
+                <!-- 边 - 使用贝塞尔曲线 -->
                 <g class="edges">
-                  <line
-                    v-for="(edge, idx) in graphEdges"
-                    :key="'edge-' + idx"
-                    :x1="edge.x1"
-                    :y1="edge.y1"
-                    :x2="edge.x2"
-                    :y2="edge.y2"
-                    :stroke="getEdgeColor(edge.type)"
-                    stroke-width="2"
-                    :stroke-dasharray="edge.type.includes('data') ? '5,5' : 'none'"
-                    marker-end="url(#arrowhead)"
-                  />
+                  <g v-for="(edge, idx) in graphEdges" :key="'edge-' + idx">
+                    <path
+                      :d="edge.path"
+                      :stroke="getEdgeColor(edge.type)"
+                      stroke-width="2"
+                      fill="none"
+                      :stroke-dasharray="edge.type.includes('data') ? '5,5' : 'none'"
+                      marker-end="url(#arrowhead)"
+                    />
+                    <!-- 数据流边的标签 -->
+                    <text
+                      v-if="edge.label && edge.type.includes('data')"
+                      :x="(edge.x1 + edge.x2) / 2"
+                      :y="(edge.y1 + edge.y2) / 2 - 5"
+                      fill="#60a5fa"
+                      font-size="10"
+                      text-anchor="middle"
+                    >
+                      {{ edge.label }}
+                    </text>
+                  </g>
                 </g>
                 <!-- 节点 -->
                 <g class="nodes">
@@ -185,7 +194,7 @@
                     :key="node.id"
                     :transform="`translate(${node.x}, ${node.y})`"
                     @click="selectNode(node)"
-                    class="cursor-pointer"
+                    class="cursor-pointer hover:opacity-80"
                   >
                     <rect
                       :width="node.width"
@@ -194,16 +203,26 @@
                       y="-15"
                       rx="5"
                       :fill="getNodeColor(node.type)"
-                      :stroke="selectedNode?.id === node.id ? '#3b82f6' : 'transparent'"
-                      stroke-width="3"
+                      :stroke="selectedNode?.id === node.id ? '#3b82f6' : 'rgba(255,255,255,0.2)'"
+                      stroke-width="2"
                     />
                     <text
                       text-anchor="middle"
                       dominant-baseline="middle"
                       fill="white"
-                      font-size="12"
+                      font-size="11"
+                      font-weight="500"
                     >
                       {{ node.label }}
+                    </text>
+                    <!-- 节点类型标签 -->
+                    <text
+                      text-anchor="middle"
+                      y="22"
+                      fill="rgba(255,255,255,0.5)"
+                      font-size="8"
+                    >
+                      {{ node.type }}
                     </text>
                   </g>
                 </g>
@@ -414,34 +433,145 @@ const graphNodes = computed(() => {
   if (!selectedGraph.value?.nodes) return []
 
   const nodes = Object.values(selectedGraph.value.nodes)
-  const width = 800
-  const height = 400
+  const edges = selectedGraph.value.edges || []
 
-  // 简单的层次布局
-  const levels = {}
-  nodes.forEach((node, idx) => {
-    const level = Math.floor(idx / 4)
-    if (!levels[level]) levels[level] = []
-    levels[level].push(node)
+  if (nodes.length === 0) return []
+
+  // 使用层次布局算法
+  const layoutNodes = layoutHierarchical(nodes, edges)
+  return layoutNodes
+})
+
+// 层次布局算法
+const layoutHierarchical = (nodes, edges) => {
+  const nodeWidth = 120
+  const nodeHeight = 40
+  const levelHeight = 70
+  const horizontalSpacing = 30
+
+  // 构建邻接表
+  const outgoing = {}  // 节点 -> 后继节点列表
+  const incoming = {}  // 节点 -> 前驱节点列表
+
+  nodes.forEach(n => {
+    outgoing[n.id] = []
+    incoming[n.id] = []
   })
 
+  edges.forEach(e => {
+    if (outgoing[e.source_id] && incoming[e.target_id]) {
+      // 只考虑控制流边进行层次布局
+      if (e.edge_type.includes('control') || e.edge_type === 'ast_child') {
+        outgoing[e.source_id].push(e.target_id)
+        incoming[e.target_id].push(e.source_id)
+      }
+    }
+  })
+
+  // 计算每个节点的层级（使用拓扑排序）
+  const levels = {}
+  const visited = new Set()
+  const nodeMap = {}
+  nodes.forEach(n => { nodeMap[n.id] = n })
+
+  // 找到根节点（入度为0或是函数/类节点）
+  const roots = nodes.filter(n =>
+    incoming[n.id].length === 0 ||
+    n.node_type === 'function' ||
+    n.node_type === 'class'
+  )
+
+  // BFS 计算层级
+  const queue = []
+  roots.forEach(n => {
+    levels[n.id] = 0
+    queue.push(n.id)
+    visited.add(n.id)
+  })
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift()
+    const currentLevel = levels[nodeId]
+
+    outgoing[nodeId].forEach(childId => {
+      if (!visited.has(childId)) {
+        levels[childId] = currentLevel + 1
+        visited.add(childId)
+        queue.push(childId)
+      } else {
+        // 已访问的节点，更新层级为更大值
+        levels[childId] = Math.max(levels[childId], currentLevel + 1)
+      }
+    })
+  }
+
+  // 对未访问的节点分配层级
+  nodes.forEach(n => {
+    if (!(n.id in levels)) {
+      // 根据行号分配层级
+      levels[n.id] = Math.floor(n.line / 5)
+    }
+  })
+
+  // 按层级分组
+  const levelGroups = {}
+  Object.entries(levels).forEach(([nodeId, level]) => {
+    if (!levelGroups[level]) levelGroups[level] = []
+    levelGroups[level].push(nodeId)
+  })
+
+  // 计算每个节点的位置
   const result = []
-  Object.entries(levels).forEach(([level, levelNodes]) => {
-    const y = 50 + parseInt(level) * 80
-    levelNodes.forEach((node, idx) => {
-      const x = 100 + idx * (width / (levelNodes.length + 1))
+  const sortedLevels = Object.keys(levelGroups).map(Number).sort((a, b) => a - b)
+
+  // 计算所需的宽度和高度
+  let maxNodesPerLevel = 0
+  sortedLevels.forEach(level => {
+    maxNodesPerLevel = Math.max(maxNodesPerLevel, levelGroups[level].length)
+  })
+
+  const width = Math.max(800, maxNodesPerLevel * (nodeWidth + horizontalSpacing))
+  const height = Math.max(400, (sortedLevels.length + 1) * levelHeight)
+
+  sortedLevels.forEach(level => {
+    const levelNodes = levelGroups[level]
+    const levelNodeCount = levelNodes.length
+    const totalWidth = levelNodeCount * (nodeWidth + horizontalSpacing) - horizontalSpacing
+    const startX = (width - totalWidth) / 2 + nodeWidth / 2
+
+    levelNodes.forEach((nodeId, idx) => {
+      const node = nodeMap[nodeId]
+      if (!node) return
+
+      const x = startX + idx * (nodeWidth + horizontalSpacing)
+      const y = 40 + level * levelHeight
+
       result.push({
         ...node,
-        x,
-        y,
-        width: Math.max(80, node.name.length * 8 + 20),
-        label: node.name.slice(0, 15),
+        x: Math.max(60, Math.min(x, width - 60)),
+        y: Math.min(y, height - 30),
+        width: Math.max(nodeWidth, (node.name || '').length * 7 + 20),
+        label: (node.name || 'unknown').slice(0, 15),
         type: node.node_type,
+        level: level,
       })
     })
   })
 
   return result
+}
+
+// SVG 尺寸计算
+const svgWidth = computed(() => {
+  if (graphNodes.value.length === 0) return 800
+  const maxX = Math.max(...graphNodes.value.map(n => n.x + n.width / 2))
+  return Math.max(800, maxX + 60)
+})
+
+const svgHeight = computed(() => {
+  if (graphNodes.value.length === 0) return 400
+  const maxY = Math.max(...graphNodes.value.map(n => n.y + 30))
+  return Math.max(400, maxY + 60)
 })
 
 const graphEdges = computed(() => {
@@ -452,13 +582,38 @@ const graphEdges = computed(() => {
 
   return selectedGraph.value.edges
     .filter(e => nodeMap[e.source_id] && nodeMap[e.target_id])
-    .map(e => ({
-      x1: nodeMap[e.source_id].x,
-      y1: nodeMap[e.source_id].y + 15,
-      x2: nodeMap[e.target_id].x,
-      y2: nodeMap[e.target_id].y - 15,
-      type: e.edge_type,
-    }))
+    .map(e => {
+      const source = nodeMap[e.source_id]
+      const target = nodeMap[e.target_id]
+
+      // 计算边的起点和终点
+      let x1 = source.x
+      let y1 = source.y + 15  // 从节点底部出发
+      let x2 = target.x
+      let y2 = target.y - 15  // 到节点顶部
+
+      // 如果目标在源的上方，调整方向
+      if (target.y < source.y) {
+        y1 = source.y - 15
+        y2 = target.y + 15
+      }
+
+      // 计算曲线控制点（用于贝塞尔曲线）
+      const midY = (y1 + y2) / 2
+      const dx = Math.abs(x2 - x1)
+      const curveOffset = Math.min(dx * 0.3, 50)
+
+      return {
+        x1,
+        y1,
+        x2,
+        y2,
+        // 贝塞尔曲线路径
+        path: `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`,
+        type: e.edge_type,
+        label: e.label || '',
+      }
+    })
 })
 
 const sourceNodes = computed(() => {

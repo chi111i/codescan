@@ -89,13 +89,13 @@ class SearchSimilarGraphRequest(BaseModel):
 
 # ==================== 全局状态（实际应用中应使用依赖注入） ====================
 
-# 懒加载的服务实例
+# 懒加载的服务实例（全局单例）
 _variant_analyzer = None
 _graph_manager = None
 
 
 def get_variant_analyzer():
-    """获取变体分析器实例"""
+    """获取变体分析器实例（单例）"""
     global _variant_analyzer
     if _variant_analyzer is None:
         from analyzer.variant_analysis import VariantAnalyzer
@@ -106,12 +106,22 @@ def get_variant_analyzer():
 
 
 def get_graph_manager():
-    """获取代码图管理器实例"""
+    """获取代码图管理器实例（单例）
+
+    使用全局单例确保图数据在请求之间持久化
+    """
     global _graph_manager
     if _graph_manager is None:
         from indexer.code_graph import CodeGraphManager
         _graph_manager = CodeGraphManager()
+        logger.info("Initialized global CodeGraphManager singleton")
     return _graph_manager
+
+
+def reset_graph_manager():
+    """重置图管理器（用于测试）"""
+    global _graph_manager
+    _graph_manager = None
 
 
 class MockVariantAnalyzer:

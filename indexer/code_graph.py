@@ -365,11 +365,45 @@ class CodeGraphBuilder:
     def __init__(self, language: str = "python"):
         self.language = language
         self._node_counter = 0
+        # 变量定义追踪：变量名 -> 定义节点ID
+        self._var_definitions: Dict[str, str] = {}
+        # 变量使用追踪：变量名 -> [使用节点ID列表]
+        self._var_uses: Dict[str, List[str]] = defaultdict(list)
+        # 前一个语句节点（用于控制流）
+        self._prev_stmt_node: Optional[str] = None
+        # 作用域栈（用于处理嵌套作用域）
+        self._scope_stack: List[Dict[str, str]] = [{}]
 
     def _new_node_id(self) -> str:
         """生成新节点ID"""
         self._node_counter += 1
         return f"n{self._node_counter}"
+
+    def _reset_state(self):
+        """重置构建状态"""
+        self._node_counter = 0
+        self._var_definitions = {}
+        self._var_uses = defaultdict(list)
+        self._prev_stmt_node = None
+        self._scope_stack = [{}]
+
+    def _define_var(self, var_name: str, node_id: str):
+        """记录变量定义"""
+        self._var_definitions[var_name] = node_id
+        if self._scope_stack:
+            self._scope_stack[-1][var_name] = node_id
+
+    def _use_var(self, var_name: str, node_id: str):
+        """记录变量使用"""
+        self._var_uses[var_name].append(node_id)
+
+    def _get_var_definition(self, var_name: str) -> Optional[str]:
+        """获取变量定义节点"""
+        # 从内层作用域向外查找
+        for scope in reversed(self._scope_stack):
+            if var_name in scope:
+                return scope[var_name]
+        return self._var_definitions.get(var_name)
 
     def build_from_ast(
         self,
@@ -404,6 +438,9 @@ class CodeGraphBuilder:
         """构建 Python 代码图"""
         import ast as python_ast
 
+        # 重置状态
+        self._reset_state()
+
         graph_id = hashlib.md5(f"{file_path}:{code[:100]}".encode()).hexdigest()[:12]
 
         graph = CodePropertyGraph(
@@ -424,11 +461,28 @@ class CodeGraphBuilder:
         # 遍历 AST 构建图
         self._process_python_node(tree, graph, None)
 
+        # 构建数据流边
+        self._build_data_flow_edges(graph)
+
         # 计算复杂度
         graph.complexity = self._calculate_complexity(graph)
         graph.depth = self._calculate_depth(tree)
 
         return graph
+
+    def _build_data_flow_edges(self, graph: CodePropertyGraph):
+        """构建数据流边：从变量定义到变量使用"""
+        for var_name, use_nodes in self._var_uses.items():
+            def_node_id = self._get_var_definition(var_name)
+            if def_node_id and def_node_id in graph.nodes:
+                for use_node_id in use_nodes:
+                    if use_node_id in graph.nodes and use_node_id != def_node_id:
+                        graph.add_edge(GraphEdge(
+                            source_id=def_node_id,
+                            target_id=use_node_id,
+                            edge_type=EdgeType.DATA_FLOW,
+                            label=var_name,
+                        ))
 
     def _process_python_node(
         self,
@@ -456,7 +510,10 @@ class CodeGraphBuilder:
             graph.line_end = node.end_lineno or node.lineno
             graph.entry_node_id = node_id
 
-            # 处理参数
+            # 进入新作用域
+            self._scope_stack.append({})
+
+            # 处理参数 - 作为变量定义
             for arg in node.args.args:
                 arg_id = self._new_node_id()
                 arg_node = GraphNode(
@@ -471,6 +528,36 @@ class CodeGraphBuilder:
                     target_id=arg_id,
                     edge_type=EdgeType.AST_CHILD,
                 ))
+                # 记录参数定义
+                self._define_var(arg.arg, arg_id)
+
+            # 添加节点后处理函数体
+            graph.add_node(gnode)
+
+            # 处理函数体，收集语句节点用于控制流
+            prev_stmt = None
+            for stmt in node.body:
+                stmt_id = self._process_python_node(stmt, graph, node_id)
+                if stmt_id and prev_stmt:
+                    # 添加顺序控制流边
+                    graph.add_edge(GraphEdge(
+                        source_id=prev_stmt,
+                        target_id=stmt_id,
+                        edge_type=EdgeType.CONTROL_FLOW,
+                    ))
+                if stmt_id:
+                    # 从函数入口到第一个语句的控制流
+                    if prev_stmt is None:
+                        graph.add_edge(GraphEdge(
+                            source_id=node_id,
+                            target_id=stmt_id,
+                            edge_type=EdgeType.CONTROL_FLOW,
+                        ))
+                    prev_stmt = stmt_id
+
+            # 离开作用域
+            self._scope_stack.pop()
+            return node_id
 
         elif isinstance(node, python_ast.ClassDef):
             gnode = GraphNode(
@@ -481,14 +568,29 @@ class CodeGraphBuilder:
             )
 
         elif isinstance(node, python_ast.Assign):
-            targets = [t.id if isinstance(t, python_ast.Name) else str(t) for t in node.targets]
+            # 获取赋值目标
+            targets = []
+            for t in node.targets:
+                if isinstance(t, python_ast.Name):
+                    targets.append(t.id)
+                    # 记录变量定义
+                    self._define_var(t.id, node_id)
+                elif isinstance(t, python_ast.Tuple):
+                    for elt in t.elts:
+                        if isinstance(elt, python_ast.Name):
+                            targets.append(elt.id)
+                            self._define_var(elt.id, node_id)
+
             gnode = GraphNode(
                 id=node_id,
                 node_type=NodeType.ASSIGNMENT,
-                name=", ".join(targets),
+                name=", ".join(targets) if targets else "assign",
                 line=node.lineno,
                 code=python_ast.unparse(node) if hasattr(python_ast, 'unparse') else "",
             )
+
+            # 检查赋值右侧的变量使用
+            self._extract_var_uses(node.value, node_id)
 
         elif isinstance(node, python_ast.If):
             gnode = GraphNode(
@@ -498,6 +600,57 @@ class CodeGraphBuilder:
                 line=node.lineno,
                 code=python_ast.unparse(node.test) if hasattr(python_ast, 'unparse') else "",
             )
+            # 检查条件中的变量使用
+            self._extract_var_uses(node.test, node_id)
+
+            # 处理 if 分支
+            graph.add_node(gnode)
+
+            # 处理 then 分支
+            if node.body:
+                first_then = None
+                prev_then = None
+                for stmt in node.body:
+                    stmt_id = self._process_python_node(stmt, graph, node_id)
+                    if stmt_id:
+                        if first_then is None:
+                            first_then = stmt_id
+                            graph.add_edge(GraphEdge(
+                                source_id=node_id,
+                                target_id=stmt_id,
+                                edge_type=EdgeType.CONTROL_TRUE,
+                            ))
+                        if prev_then:
+                            graph.add_edge(GraphEdge(
+                                source_id=prev_then,
+                                target_id=stmt_id,
+                                edge_type=EdgeType.CONTROL_FLOW,
+                            ))
+                        prev_then = stmt_id
+
+            # 处理 else 分支
+            if node.orelse:
+                first_else = None
+                prev_else = None
+                for stmt in node.orelse:
+                    stmt_id = self._process_python_node(stmt, graph, node_id)
+                    if stmt_id:
+                        if first_else is None:
+                            first_else = stmt_id
+                            graph.add_edge(GraphEdge(
+                                source_id=node_id,
+                                target_id=stmt_id,
+                                edge_type=EdgeType.CONTROL_FALSE,
+                            ))
+                        if prev_else:
+                            graph.add_edge(GraphEdge(
+                                source_id=prev_else,
+                                target_id=stmt_id,
+                                edge_type=EdgeType.CONTROL_FLOW,
+                            ))
+                        prev_else = stmt_id
+
+            return node_id
 
         elif isinstance(node, (python_ast.For, python_ast.While)):
             gnode = GraphNode(
@@ -505,7 +658,40 @@ class CodeGraphBuilder:
                 node_type=NodeType.LOOP,
                 name="for" if isinstance(node, python_ast.For) else "while",
                 line=node.lineno,
+                code=python_ast.unparse(node.iter if isinstance(node, python_ast.For) else node.test)
+                     if hasattr(python_ast, 'unparse') else "",
             )
+
+            # 对于 for 循环，记录循环变量定义
+            if isinstance(node, python_ast.For):
+                if isinstance(node.target, python_ast.Name):
+                    self._define_var(node.target.id, node_id)
+                self._extract_var_uses(node.iter, node_id)
+            else:
+                self._extract_var_uses(node.test, node_id)
+
+            graph.add_node(gnode)
+
+            # 处理循环体
+            prev_body = None
+            for stmt in node.body:
+                stmt_id = self._process_python_node(stmt, graph, node_id)
+                if stmt_id:
+                    if prev_body is None:
+                        graph.add_edge(GraphEdge(
+                            source_id=node_id,
+                            target_id=stmt_id,
+                            edge_type=EdgeType.CONTROL_TRUE,
+                        ))
+                    else:
+                        graph.add_edge(GraphEdge(
+                            source_id=prev_body,
+                            target_id=stmt_id,
+                            edge_type=EdgeType.CONTROL_FLOW,
+                        ))
+                    prev_body = stmt_id
+
+            return node_id
 
         elif isinstance(node, python_ast.Try):
             gnode = GraphNode(
@@ -525,12 +711,34 @@ class CodeGraphBuilder:
             )
             graph.exit_node_ids.append(node_id)
 
+            # 检查返回值中的变量使用
+            if node.value:
+                self._extract_var_uses(node.value, node_id)
+
+        elif isinstance(node, python_ast.Expr):
+            # 表达式语句（如函数调用）
+            if isinstance(node.value, python_ast.Call):
+                return self._process_python_node(node.value, graph, parent_id)
+            else:
+                gnode = GraphNode(
+                    id=node_id,
+                    node_type=NodeType.UNKNOWN,
+                    name="expr",
+                    line=node.lineno,
+                )
+
         elif isinstance(node, python_ast.Call):
             callee = ""
             if isinstance(node.func, python_ast.Name):
                 callee = node.func.id
             elif isinstance(node.func, python_ast.Attribute):
-                callee = node.func.attr
+                # 处理 obj.method() 形式
+                if isinstance(node.func.value, python_ast.Name):
+                    callee = f"{node.func.value.id}.{node.func.attr}"
+                    # 记录对象的使用
+                    self._use_var(node.func.value.id, node_id)
+                else:
+                    callee = node.func.attr
 
             gnode = GraphNode(
                 id=node_id,
@@ -541,13 +749,37 @@ class CodeGraphBuilder:
                 properties={"callee": callee}
             )
 
+            # 检查参数中的变量使用
+            for arg in node.args:
+                self._extract_var_uses(arg, node_id)
+            for kw in node.keywords:
+                self._extract_var_uses(kw.value, node_id)
+
         elif isinstance(node, python_ast.Name):
+            # 变量引用
             gnode = GraphNode(
                 id=node_id,
                 node_type=NodeType.VARIABLE,
                 name=node.id,
                 line=node.lineno if hasattr(node, 'lineno') else 0,
             )
+            # 记录变量使用
+            if isinstance(node.ctx, python_ast.Load):
+                self._use_var(node.id, node_id)
+
+        elif isinstance(node, python_ast.Module):
+            # 模块节点，直接处理子节点
+            prev_stmt = None
+            for stmt in node.body:
+                stmt_id = self._process_python_node(stmt, graph, None)
+                if stmt_id and prev_stmt:
+                    graph.add_edge(GraphEdge(
+                        source_id=prev_stmt,
+                        target_id=stmt_id,
+                        edge_type=EdgeType.CONTROL_FLOW,
+                    ))
+                prev_stmt = stmt_id
+            return None
 
         else:
             gnode = GraphNode(
@@ -567,21 +799,56 @@ class CodeGraphBuilder:
                 edge_type=EdgeType.AST_CHILD,
             ))
 
-        # 递归处理子节点
-        prev_child_id = None
-        for child in python_ast.iter_child_nodes(node):
-            child_id = self._process_python_node(child, graph, node_id)
-
-            # 添加控制流边（顺序执行）
-            if prev_child_id and child_id:
-                graph.add_edge(GraphEdge(
-                    source_id=prev_child_id,
-                    target_id=child_id,
-                    edge_type=EdgeType.CONTROL_FLOW,
-                ))
-            prev_child_id = child_id
-
         return node_id
+
+    def _extract_var_uses(self, node: Any, use_node_id: str):
+        """从 AST 节点中提取变量使用"""
+        import ast as python_ast
+
+        if isinstance(node, python_ast.Name):
+            if isinstance(node.ctx, python_ast.Load):
+                self._use_var(node.id, use_node_id)
+        elif isinstance(node, python_ast.BinOp):
+            self._extract_var_uses(node.left, use_node_id)
+            self._extract_var_uses(node.right, use_node_id)
+        elif isinstance(node, python_ast.Compare):
+            self._extract_var_uses(node.left, use_node_id)
+            for comp in node.comparators:
+                self._extract_var_uses(comp, use_node_id)
+        elif isinstance(node, python_ast.Call):
+            if isinstance(node.func, python_ast.Name):
+                pass  # 函数名不算变量使用
+            elif isinstance(node.func, python_ast.Attribute):
+                if isinstance(node.func.value, python_ast.Name):
+                    self._use_var(node.func.value.id, use_node_id)
+            for arg in node.args:
+                self._extract_var_uses(arg, use_node_id)
+            for kw in node.keywords:
+                self._extract_var_uses(kw.value, use_node_id)
+        elif isinstance(node, python_ast.Subscript):
+            self._extract_var_uses(node.value, use_node_id)
+            self._extract_var_uses(node.slice, use_node_id)
+        elif isinstance(node, python_ast.Attribute):
+            self._extract_var_uses(node.value, use_node_id)
+        elif isinstance(node, (python_ast.List, python_ast.Tuple, python_ast.Set)):
+            for elt in node.elts:
+                self._extract_var_uses(elt, use_node_id)
+        elif isinstance(node, python_ast.Dict):
+            for k in node.keys:
+                if k:
+                    self._extract_var_uses(k, use_node_id)
+            for v in node.values:
+                self._extract_var_uses(v, use_node_id)
+        elif isinstance(node, python_ast.JoinedStr):  # f-string
+            for val in node.values:
+                if isinstance(val, python_ast.FormattedValue):
+                    self._extract_var_uses(val.value, use_node_id)
+        elif isinstance(node, python_ast.UnaryOp):
+            self._extract_var_uses(node.operand, use_node_id)
+        elif isinstance(node, python_ast.IfExp):
+            self._extract_var_uses(node.test, use_node_id)
+            self._extract_var_uses(node.body, use_node_id)
+            self._extract_var_uses(node.orelse, use_node_id)
 
     def _build_js_graph(
         self,
