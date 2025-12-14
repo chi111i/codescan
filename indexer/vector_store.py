@@ -254,6 +254,16 @@ class QdrantVectorStore(BaseVectorStore):
 
         return self._client
 
+    @staticmethod
+    def _hex_to_int(hex_id: str) -> int:
+        """将十六进制字符串 ID 转换为整数（Qdrant 要求 point ID 必须是整数或 UUID）"""
+        return int(hex_id, 16)
+
+    @staticmethod
+    def _int_to_hex(int_id: int) -> str:
+        """将整数 ID 转换回十六进制字符串"""
+        return format(int_id, 'x')
+
     def initialize(self) -> None:
         """初始化集合"""
         client = self._get_client()
@@ -325,7 +335,7 @@ class QdrantVectorStore(BaseVectorStore):
             payload = unit.to_dict()
             points.append(
                 qmodels.PointStruct(
-                    id=unit.id,
+                    id=self._hex_to_int(unit.id),  # 转换为整数 ID
                     vector=embedding,
                     payload=payload,
                 )
@@ -405,7 +415,7 @@ class QdrantVectorStore(BaseVectorStore):
         try:
             results = client.retrieve(
                 collection_name=self.collection_name,
-                ids=[unit_id],
+                ids=[self._hex_to_int(unit_id)],  # 转换为整数 ID
                 with_payload=True,
             )
             if results:
@@ -420,9 +430,11 @@ class QdrantVectorStore(BaseVectorStore):
         client = self._get_client()
         qmodels = self._qmodels
 
+        # 转换所有 ID 为整数
+        int_ids = [self._hex_to_int(uid) for uid in unit_ids]
         client.delete(
             collection_name=self.collection_name,
-            points_selector=qmodels.PointIdsList(points=unit_ids),
+            points_selector=qmodels.PointIdsList(points=int_ids),
         )
 
     def clear(self) -> None:
