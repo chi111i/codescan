@@ -9,6 +9,7 @@
 
 import re
 import json
+import hashlib
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -255,14 +256,17 @@ class QdrantVectorStore(BaseVectorStore):
         return self._client
 
     @staticmethod
-    def _hex_to_int(hex_id: str) -> int:
-        """将十六进制字符串 ID 转换为整数（Qdrant 要求 point ID 必须是整数或 UUID）"""
-        return int(hex_id, 16)
+    def _str_to_int(str_id: str) -> int:
+        """将任意字符串 ID 转换为整数（Qdrant 要求 point ID 必须是整数或 UUID）
 
-    @staticmethod
-    def _int_to_hex(int_id: int) -> str:
-        """将整数 ID 转换回十六进制字符串"""
-        return format(int_id, 'x')
+        使用 SHA256 哈希生成确定性的整数 ID，支持任意格式的字符串：
+        - 纯十六进制: '6eac13281cfe648a'
+        - 带 chunk 后缀: '6eac13281cfe648a_chunk0'
+        - 其他任意字符串
+        """
+        hash_bytes = hashlib.sha256(str_id.encode()).digest()
+        # 取前 8 字节转换为无符号整数（64 位），确保唯一性
+        return int.from_bytes(hash_bytes[:8], byteorder='big', signed=False)
 
     def initialize(self) -> None:
         """初始化集合"""
@@ -335,7 +339,7 @@ class QdrantVectorStore(BaseVectorStore):
             payload = unit.to_dict()
             points.append(
                 qmodels.PointStruct(
-                    id=self._hex_to_int(unit.id),  # 转换为整数 ID
+                    id=self._str_to_int(unit.id),  # 转换为整数 ID
                     vector=embedding,
                     payload=payload,
                 )
@@ -415,7 +419,7 @@ class QdrantVectorStore(BaseVectorStore):
         try:
             results = client.retrieve(
                 collection_name=self.collection_name,
-                ids=[self._hex_to_int(unit_id)],  # 转换为整数 ID
+                ids=[self._str_to_int(unit_id)],  # 转换为整数 ID
                 with_payload=True,
             )
             if results:
@@ -431,7 +435,7 @@ class QdrantVectorStore(BaseVectorStore):
         qmodels = self._qmodels
 
         # 转换所有 ID 为整数
-        int_ids = [self._hex_to_int(uid) for uid in unit_ids]
+        int_ids = [self._str_to_int(uid) for uid in unit_ids]
         client.delete(
             collection_name=self.collection_name,
             points_selector=qmodels.PointIdsList(points=int_ids),
