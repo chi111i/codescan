@@ -4,16 +4,20 @@
 功能:
 - 基于文件/代码内容的 SHA256 哈希作为缓存键
 - 支持本地文件缓存和 SQLite 缓存
-- 自动过期清理
+- 自动过期清理 (TTL)
+- LRU 淘汰策略 (基于访问时间)
+- 压缩存储 (减少磁盘占用)
+- 持久化统计信息
 - 相似代码去重 (可选)
 """
 
 import hashlib
 import json
 import logging
-import os
 import sqlite3
+import struct
 import time
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
@@ -27,6 +31,7 @@ class CacheEntry:
     content_hash: str
     embedding: List[float]
     created_at: float
+    accessed_at: float  # LRU 追踪
     metadata: Dict[str, Any]
 
 
@@ -36,14 +41,19 @@ class EmbeddingCache:
     特点:
     - 内容不变则不重算 embedding
     - 支持批量查询和存储
-    - 自动过期清理
+    - TTL 过期清理
+    - LRU 淘汰策略
+    - 压缩存储 (可选)
+    - 持久化统计信息
     """
 
     def __init__(
         self,
         cache_dir: str = ".audit_cache",
         ttl_days: int = 30,
-        use_sqlite: bool = True
+        use_sqlite: bool = True,
+        max_entries: int = 100000,
+        use_compression: bool = True
     ):
         """初始化缓存
 
@@ -51,10 +61,14 @@ class EmbeddingCache:
             cache_dir: 缓存目录
             ttl_days: 缓存过期天数
             use_sqlite: 使用 SQLite (推荐) 还是 JSON 文件
+            max_entries: 最大缓存条目数 (用于 LRU 淘汰)
+            use_compression: 是否压缩嵌入向量
         """
         self.cache_dir = Path(cache_dir)
         self.ttl_days = ttl_days
         self.use_sqlite = use_sqlite
+        self.max_entries = max_entries
+        self.use_compression = use_compression
         self._db_conn = None
 
         # 确保缓存目录存在
@@ -68,27 +82,132 @@ class EmbeddingCache:
         db_path = self.cache_dir / "embeddings.db"
         self._db_conn = sqlite3.connect(str(db_path), check_same_thread=False)
 
+        # 主缓存表 (增加 accessed_at 列用于 LRU)
         self._db_conn.execute("""
             CREATE TABLE IF NOT EXISTS embeddings (
                 content_hash TEXT PRIMARY KEY,
                 embedding BLOB,
                 created_at REAL,
-                metadata TEXT
+                accessed_at REAL,
+                metadata TEXT,
+                compressed INTEGER DEFAULT 0
             )
         """)
 
-        # 创建索引
+        # 统计信息表 (持久化)
         self._db_conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_created_at ON embeddings(created_at)
+            CREATE TABLE IF NOT EXISTS cache_stats (
+                key TEXT PRIMARY KEY,
+                value INTEGER DEFAULT 0
+            )
         """)
+
+        # 初始化统计计数器
+        for key in ['total_hits', 'total_misses', 'total_evictions']:
+            self._db_conn.execute("""
+                INSERT OR IGNORE INTO cache_stats (key, value) VALUES (?, 0)
+            """, (key,))
 
         self._db_conn.commit()
         logger.info(f"Initialized embedding cache: {db_path}")
+
+        # 迁移旧数据库 (添加新列如果不存在)
+        self._migrate_schema()
+
+        # 在迁移完成后创建索引（确保列存在）
+        self._create_indexes()
+
+    def _migrate_schema(self) -> None:
+        """迁移数据库 schema
+
+        添加新版本需要的列，确保向后兼容
+        """
+        if not self._db_conn:
+            return
+
+        # 检查并添加 accessed_at 列
+        try:
+            self._db_conn.execute("SELECT accessed_at FROM embeddings LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migrating schema: adding accessed_at column")
+            self._db_conn.execute("""
+                ALTER TABLE embeddings ADD COLUMN accessed_at REAL
+            """)
+            # 用 created_at 初始化 accessed_at
+            self._db_conn.execute("""
+                UPDATE embeddings SET accessed_at = created_at WHERE accessed_at IS NULL
+            """)
+            self._db_conn.commit()
+
+        # 检查并添加 compressed 列
+        try:
+            self._db_conn.execute("SELECT compressed FROM embeddings LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migrating schema: adding compressed column")
+            self._db_conn.execute("""
+                ALTER TABLE embeddings ADD COLUMN compressed INTEGER DEFAULT 0
+            """)
+            self._db_conn.commit()
+
+    def _create_indexes(self) -> None:
+        """创建数据库索引（在迁移完成后调用）"""
+        if not self._db_conn:
+            return
+
+        try:
+            self._db_conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_created_at ON embeddings(created_at)
+            """)
+            self._db_conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_accessed_at ON embeddings(accessed_at)
+            """)
+            self._db_conn.commit()
+        except sqlite3.OperationalError as e:
+            logger.warning(f"创建索引失败: {e}")
 
     @staticmethod
     def compute_hash(content: str) -> str:
         """计算内容哈希"""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    def _compress_embedding(self, embedding: List[float]) -> bytes:
+        """压缩嵌入向量
+
+        使用 struct 打包为 float32 数组，然后 zlib 压缩
+        """
+        # 打包为二进制 float32 数组
+        packed = struct.pack(f'{len(embedding)}f', *embedding)
+        # zlib 压缩
+        return zlib.compress(packed, level=6)
+
+    def _decompress_embedding(self, data: bytes, is_compressed: bool) -> List[float]:
+        """解压嵌入向量"""
+        if is_compressed:
+            # zlib 解压
+            packed = zlib.decompress(data)
+            # 解包 float32 数组
+            count = len(packed) // 4  # float32 = 4 bytes
+            return list(struct.unpack(f'{count}f', packed))
+        else:
+            # 兼容旧格式 (JSON)
+            return json.loads(data)
+
+    def _increment_stat(self, key: str, count: int = 1) -> None:
+        """增加统计计数"""
+        if self.use_sqlite and self._db_conn:
+            self._db_conn.execute("""
+                UPDATE cache_stats SET value = value + ? WHERE key = ?
+            """, (count, key))
+
+    def _get_stat(self, key: str) -> int:
+        """获取统计值"""
+        if self.use_sqlite and self._db_conn:
+            cursor = self._db_conn.execute(
+                "SELECT value FROM cache_stats WHERE key = ?", (key,)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else 0
+        return 0
 
     def get(self, content_hash: str) -> Optional[List[float]]:
         """获取缓存的嵌入
@@ -107,22 +226,35 @@ class EmbeddingCache:
     def _get_sqlite(self, content_hash: str) -> Optional[List[float]]:
         """从 SQLite 获取"""
         cursor = self._db_conn.execute(
-            "SELECT embedding, created_at FROM embeddings WHERE content_hash = ?",
+            "SELECT embedding, created_at, compressed FROM embeddings WHERE content_hash = ?",
             (content_hash,)
         )
         row = cursor.fetchone()
 
         if not row:
+            self._increment_stat('total_misses')
             return None
 
-        embedding_bytes, created_at = row
+        embedding_bytes, created_at, is_compressed = row
 
         # 检查是否过期
         if self._is_expired(created_at):
             self._delete_sqlite(content_hash)
+            self._increment_stat('total_misses')
             return None
 
-        return json.loads(embedding_bytes)
+        # 更新访问时间 (LRU)
+        self._db_conn.execute(
+            "UPDATE embeddings SET accessed_at = ? WHERE content_hash = ?",
+            (time.time(), content_hash)
+        )
+        self._db_conn.commit()
+
+        # 统计命中
+        self._increment_stat('total_hits')
+
+        # 解压/解析嵌入
+        return self._decompress_embedding(embedding_bytes, bool(is_compressed))
 
     def _get_file(self, content_hash: str) -> Optional[List[float]]:
         """从文件获取"""
@@ -169,19 +301,35 @@ class EmbeddingCache:
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """存储到 SQLite"""
+        now = time.time()
+
+        # 压缩嵌入向量
+        if self.use_compression:
+            embedding_data = self._compress_embedding(embedding)
+            compressed = 1
+        else:
+            embedding_data = json.dumps(embedding)
+            compressed = 0
+
         self._db_conn.execute(
             """
-            INSERT OR REPLACE INTO embeddings (content_hash, embedding, created_at, metadata)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO embeddings
+            (content_hash, embedding, created_at, accessed_at, metadata, compressed)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 content_hash,
-                json.dumps(embedding),
-                time.time(),
-                json.dumps(metadata or {})
+                embedding_data,
+                now,
+                now,  # 初始访问时间
+                json.dumps(metadata or {}),
+                compressed
             )
         )
         self._db_conn.commit()
+
+        # 检查是否需要 LRU 淘汰
+        self._maybe_evict_lru()
 
     def _set_file(
         self,
@@ -228,20 +376,35 @@ class EmbeddingCache:
             items: [(content_hash, embedding, metadata), ...]
         """
         if self.use_sqlite:
+            now = time.time()
             for content_hash, embedding, metadata in items:
+                # 压缩嵌入向量
+                if self.use_compression:
+                    embedding_data = self._compress_embedding(embedding)
+                    compressed = 1
+                else:
+                    embedding_data = json.dumps(embedding)
+                    compressed = 0
+
                 self._db_conn.execute(
                     """
-                    INSERT OR REPLACE INTO embeddings (content_hash, embedding, created_at, metadata)
-                    VALUES (?, ?, ?, ?)
+                    INSERT OR REPLACE INTO embeddings
+                    (content_hash, embedding, created_at, accessed_at, metadata, compressed)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
                         content_hash,
-                        json.dumps(embedding),
-                        time.time(),
-                        json.dumps(metadata or {})
+                        embedding_data,
+                        now,
+                        now,
+                        json.dumps(metadata or {}),
+                        compressed
                     )
                 )
             self._db_conn.commit()
+
+            # 批量插入后检查 LRU 淘汰
+            self._maybe_evict_lru()
         else:
             for content_hash, embedding, metadata in items:
                 self._set_file(content_hash, embedding, metadata)
@@ -258,6 +421,38 @@ class EmbeddingCache:
             (content_hash,)
         )
         self._db_conn.commit()
+
+    def _maybe_evict_lru(self) -> None:
+        """检查并执行 LRU 淘汰
+
+        当缓存条目数超过 max_entries 时，删除最久未访问的 10% 条目
+        """
+        if not self.use_sqlite or not self._db_conn:
+            return
+
+        cursor = self._db_conn.execute("SELECT COUNT(*) FROM embeddings")
+        current_count = cursor.fetchone()[0]
+
+        if current_count <= self.max_entries:
+            return
+
+        # 计算需要删除的数量 (超出部分 + 10% 缓冲)
+        excess = current_count - self.max_entries
+        to_evict = max(excess, int(self.max_entries * 0.1))
+
+        # 删除访问时间最早的条目
+        self._db_conn.execute("""
+            DELETE FROM embeddings
+            WHERE content_hash IN (
+                SELECT content_hash FROM embeddings
+                ORDER BY accessed_at ASC
+                LIMIT ?
+            )
+        """, (to_evict,))
+        self._db_conn.commit()
+
+        self._increment_stat('total_evictions', to_evict)
+        logger.info(f"LRU eviction: removed {to_evict} entries, cache now at {current_count - to_evict}")
 
     def cleanup_expired(self) -> int:
         """清理过期缓存
@@ -292,7 +487,21 @@ class EmbeddingCache:
         return count
 
     def get_stats(self) -> Dict[str, Any]:
-        """获取缓存统计信息"""
+        """获取缓存统计信息
+
+        Returns:
+            包含以下字段的字典:
+            - total_entries: 总条目数
+            - expired_entries: 过期条目数
+            - cache_size_mb: 缓存大小 (MB)
+            - ttl_days: TTL 天数
+            - max_entries: 最大条目限制
+            - total_hits: 总命中次数 (持久化)
+            - total_misses: 总未命中次数 (持久化)
+            - total_evictions: 总淘汰次数 (持久化)
+            - hit_rate: 总命中率
+            - compression_enabled: 是否启用压缩
+        """
         if self.use_sqlite:
             cursor = self._db_conn.execute("SELECT COUNT(*) FROM embeddings")
             total = cursor.fetchone()[0]
@@ -304,15 +513,38 @@ class EmbeddingCache:
             )
             expired = cursor.fetchone()[0]
 
+            # 计算压缩条目数
+            cursor = self._db_conn.execute(
+                "SELECT COUNT(*) FROM embeddings WHERE compressed = 1"
+            )
+            compressed_count = cursor.fetchone()[0]
+
             # 计算缓存大小
             db_path = self.cache_dir / "embeddings.db"
             size_mb = db_path.stat().st_size / (1024 * 1024) if db_path.exists() else 0
 
+            # 获取持久化统计
+            total_hits = self._get_stat('total_hits')
+            total_misses = self._get_stat('total_misses')
+            total_evictions = self._get_stat('total_evictions')
+
+            # 计算命中率
+            total_requests = total_hits + total_misses
+            hit_rate = total_hits / max(1, total_requests)
+
             return {
                 "total_entries": total,
                 "expired_entries": expired,
+                "compressed_entries": compressed_count,
                 "cache_size_mb": round(size_mb, 2),
-                "ttl_days": self.ttl_days
+                "ttl_days": self.ttl_days,
+                "max_entries": self.max_entries,
+                "total_hits": total_hits,
+                "total_misses": total_misses,
+                "total_evictions": total_evictions,
+                "hit_rate": round(hit_rate, 4),
+                "compression_enabled": self.use_compression,
+                "cache_enabled": True,
             }
         else:
             total = 0

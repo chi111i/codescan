@@ -28,6 +28,14 @@ from analyzer import (
     HighRiskVulnDetector,
     VulnType,
 )
+from storage import (
+    DatabaseManager,
+    ScanRepository,
+    FindingRepository,
+    InteractionRepository,
+    ScanTask,
+    ScanFinding,
+)
 from .schemas import (
     ScanRequest, IndexRequest, SearchRequest, CallGraphRequest,
     ScanResultSchema, IndexResultSchema, SearchResultSchema,
@@ -52,7 +60,13 @@ class AppState:
         self.indexer: Optional[CodeIndexer] = None
         self.rule_manager: Optional[RuleManager] = None
 
-        # 扫描任务状态
+        # 数据库与仓库
+        self.db: Optional[DatabaseManager] = None
+        self.scan_repo: Optional[ScanRepository] = None
+        self.finding_repo: Optional[FindingRepository] = None
+        self.interaction_repo: Optional[InteractionRepository] = None
+
+        # 内存中的扫描任务状态（用于实时进度追踪）
         self.scan_tasks: Dict[str, ScanResultSchema] = {}
 
         # WebSocket 连接
@@ -69,7 +83,17 @@ class AppState:
         )
         self.indexer = CodeIndexer(self.config, self.llm_client, self.vector_store)
         self.rule_manager = create_rule_manager(self.config.rules)
-        logger.info("API 组件初始化完成")
+
+        # 初始化数据库和仓库
+        self.db = DatabaseManager()
+        self.scan_repo = ScanRepository(self.db)
+        self.finding_repo = FindingRepository(self.db)
+        self.interaction_repo = InteractionRepository(self.db)
+
+        # 注册交互日志回调（用于 WebSocket 实时推送）
+        self.interaction_repo.add_callback(queue_interaction_broadcast)
+
+        logger.info("API 组件初始化完成（含数据库）")
 
 
 app_state = AppState()
@@ -94,9 +118,17 @@ async def lifespan(app: FastAPI):
         print(f"[INIT ERROR] 堆栈: {traceback.format_exc()}")
         # 不要 re-raise，让服务器继续运行但记录错误
 
+    # 启动后台任务处理交互日志广播队列
+    broadcast_task = asyncio.create_task(process_interaction_broadcast_queue())
+
     yield
 
     # 关闭时清理
+    broadcast_task.cancel()
+    try:
+        await broadcast_task
+    except asyncio.CancelledError:
+        pass
     logger.info("API 服务关闭")
 
 
@@ -450,6 +482,13 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
 
         task.progress = 0.2
         await broadcast_scan_progress(scan_id, task)
+
+        # 广播代码解析完成的详细信息
+        await broadcast_analysis_detail(scan_id, "parse_complete", {
+            "total_units": len(code_units),
+            "message": f"代码解析完成，共 {len(code_units)} 个代码单元"
+        })
+
         print(f"[SCAN] 代码解析完成，共 {len(code_units)} 个代码单元")
         logger.warning(f"扫描任务 {scan_id}: 代码解析完成，共 {len(code_units)} 个代码单元")
 
@@ -469,6 +508,12 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         print(f"[SCAN] 开始安全规则扫描，代码单元数: {len(code_units)}")
         logger.warning(f"扫描任务 {scan_id}: 开始安全规则扫描，代码单元数: {len(code_units)}")
 
+        # 记录分析开始
+        if app_state.interaction_repo:
+            app_state.interaction_repo.log_thinking(
+                scan_id, f"开始安全规则扫描，共 {len(code_units)} 个代码单元"
+            )
+
         # 检查 rule_manager 是否已初始化
         if app_state.rule_manager is None:
             logger.error("rule_manager 未初始化！请检查启动日志")
@@ -486,6 +531,8 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             app_state.llm_client,
             app_state.indexer,
             app_state.rule_manager,
+            interaction_repo=app_state.interaction_repo,
+            scan_id=scan_id,
         )
 
         print(f"[SCAN] 调用 SecurityAnalyzer.analyze()")
@@ -494,6 +541,12 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         # 根据配置选择分析模式
         analysis_mode = "链级分析" if request.use_chain_analysis else "简单分析"
         logger.info(f"扫描任务 {scan_id}: 使用 {analysis_mode} 模式")
+
+        # 记录分析模式
+        if app_state.interaction_repo:
+            app_state.interaction_repo.log_thinking(
+                scan_id, f"使用 {analysis_mode} 模式进行安全分析"
+            )
 
         # 使用线程池执行同步的分析操作（可能调用 LLM）
         # 始终传递 code_units 使用直接分析模式，避免依赖不可靠的向量搜索
@@ -509,6 +562,20 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             request.max_chain_depth,  # max_chain_depth - 最大调用链深度
         )
         logger.info(f"扫描任务 {scan_id}: 安全规则扫描完成，发现 {len(findings)} 个问题")
+
+        # 记录分析结果
+        if app_state.interaction_repo:
+            app_state.interaction_repo.log_analysis(
+                scan_id,
+                f"安全规则扫描完成，发现 {len(findings)} 个安全问题",
+            )
+
+        # 广播发现的问题数量
+        await broadcast_analysis_detail(scan_id, "scan_progress", {
+            "phase": "security_scan_complete",
+            "findings_count": len(findings),
+            "message": f"安全规则扫描完成，发现 {len(findings)} 个问题"
+        })
 
         for f in findings:
             # 从证据中提取代码片段
@@ -689,6 +756,9 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         task.current_step = "扫描完成"
         await broadcast_scan_progress(scan_id, task)
 
+        # 保存扫描结果到数据库
+        await save_scan_results_to_db(scan_id, task, all_findings, all_vuln_findings)
+
     except Exception as e:
         logger.error(f"扫描任务失败: {e}")
         task.status = ScanStatus.FAILED
@@ -696,9 +766,22 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         task.current_step = f"错误: {e}"
         await broadcast_scan_progress(scan_id, task)
 
+        # 更新数据库中的失败状态
+        if app_state.scan_repo:
+            try:
+                app_state.scan_repo.update_status(
+                    scan_id, "failed",
+                    error_message=str(e)
+                )
+            except Exception as db_err:
+                logger.error(f"更新数据库状态失败: {db_err}")
+
 
 async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
-    """广播扫描进度"""
+    """广播扫描进度
+
+    发送详细的进度信息到前端，支持大型项目的实时反馈。
+    """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
         try:
@@ -710,9 +793,202 @@ async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
                 "current_step": task.current_step,
                 "findings_count": len(task.findings),
                 "vuln_count": len(task.vuln_findings),
+                "total_units": task.total_units,
+                "timestamp": datetime.now().isoformat(),
             })
         except Exception as e:
             logger.warning(f"WebSocket 发送失败: {e}")
+
+
+async def broadcast_llm_stream(scan_id: str, content: str, is_done: bool = False):
+    """广播 LLM 流式响应
+
+    实时发送 LLM 生成的内容到前端。
+
+    Args:
+        scan_id: 扫描 ID
+        content: LLM 生成的内容（增量）
+        is_done: 是否完成
+    """
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "llm_stream",
+                "scan_id": scan_id,
+                "content": content,
+                "is_done": is_done,
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket LLM 流发送失败: {e}")
+
+
+async def broadcast_analysis_detail(scan_id: str, detail_type: str, data: dict):
+    """广播分析详情
+
+    发送分析过程中的详细信息，如正在分析的文件、发现的问题等。
+
+    Args:
+        scan_id: 扫描 ID
+        detail_type: 详情类型 (analyzing_file, found_issue, chain_analysis, etc.)
+        data: 详情数据
+    """
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "analysis_detail",
+                "scan_id": scan_id,
+                "detail_type": detail_type,
+                "data": data,
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket 分析详情发送失败: {e}")
+
+
+# 用于存储待广播的交互日志
+_pending_interactions = []
+
+
+def queue_interaction_broadcast(interaction):
+    """将交互日志加入广播队列
+
+    这是一个同步函数，作为 InteractionRepository 的回调。
+    交互日志会被加入队列，由异步任务进行广播。
+
+    Args:
+        interaction: LLMInteraction 对象
+    """
+    _pending_interactions.append(interaction)
+
+
+async def broadcast_interaction(interaction):
+    """广播交互日志到 WebSocket
+
+    Args:
+        interaction: LLMInteraction 对象
+    """
+    scan_id = interaction.scan_id
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "interaction",
+                "scan_id": scan_id,
+                "data": interaction.to_timeline_event(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket 广播交互日志失败: {e}")
+
+
+async def process_interaction_broadcast_queue():
+    """后台任务：处理交互日志广播队列
+
+    该任务在应用启动时创建，持续运行直到应用关闭。
+    从 _pending_interactions 队列中取出交互日志并广播到 WebSocket。
+    """
+    global _pending_interactions
+
+    logger.info("交互日志广播队列处理任务已启动")
+
+    while True:
+        try:
+            # 检查队列中是否有待处理的交互日志
+            if _pending_interactions:
+                # 取出所有待处理的交互日志
+                interactions_to_broadcast = _pending_interactions[:]
+                _pending_interactions = []
+
+                # 广播每个交互日志
+                for interaction in interactions_to_broadcast:
+                    await broadcast_interaction(interaction)
+
+            # 短暂休眠，避免 CPU 空转
+            await asyncio.sleep(0.1)
+
+        except asyncio.CancelledError:
+            logger.info("交互日志广播队列处理任务已停止")
+            raise
+        except Exception as e:
+            logger.error(f"处理交互日志广播队列时出错: {e}")
+            await asyncio.sleep(1)  # 出错后稍长休眠
+
+
+async def save_scan_results_to_db(
+    scan_id: str,
+    task: ScanResultSchema,
+    findings: List[FindingSchema],
+    vuln_findings: List[VulnFindingSchema]
+):
+    """将扫描结果保存到数据库"""
+    if not app_state.scan_repo or not app_state.finding_repo:
+        logger.warning("数据库仓库未初始化，跳过保存")
+        return
+
+    try:
+        # 更新扫描任务状态
+        app_state.scan_repo.update_status(
+            scan_id,
+            status="completed",
+            progress=1.0,
+            current_step="扫描完成"
+        )
+
+        # 保存安全发现
+        db_findings = []
+        for f in findings:
+            db_findings.append(ScanFinding(
+                id=f.id,
+                scan_id=scan_id,
+                finding_type="security",
+                title=f.title,
+                file_path=f.file_path,
+                line_start=f.line_start,
+                line_end=f.line_end,
+                symbol=f.symbol,
+                severity=f.severity.value if hasattr(f.severity, 'value') else str(f.severity),
+                confidence=f.confidence,
+                category=f.category,
+                summary=f.summary,
+                details=f.details,
+                evidence=f.evidence,
+                attack_scenario=f.attack_scenario,
+                fix_suggestion=f.fix_suggestion,
+                code_snippet=f.code_snippet,
+                cwe_ids=f.cwe_ids,
+                notes=f.notes,
+            ))
+
+        # 保存漏洞发现
+        for vf in vuln_findings:
+            db_findings.append(ScanFinding(
+                id=vf.id,
+                scan_id=scan_id,
+                finding_type="vuln",
+                name=vf.name,
+                vuln_type=vf.vuln_type.value if hasattr(vf.vuln_type, 'value') else str(vf.vuln_type),
+                file_path=vf.file_path,
+                line_start=vf.line_start,
+                line_end=vf.line_end,
+                symbol=vf.function_name,
+                severity=vf.severity.value if hasattr(vf.severity, 'value') else str(vf.severity),
+                confidence=vf.confidence,
+                description=vf.description,
+                attack_scenario=vf.attack_scenario,
+                fix_suggestion=vf.fix_suggestion,
+                code_snippet=vf.code_snippet,
+                needs_manual_review=vf.needs_manual_review,
+                notes=vf.review_notes,
+            ))
+
+        if db_findings:
+            app_state.finding_repo.create_many(db_findings)
+            logger.info(f"扫描 {scan_id} 的 {len(db_findings)} 个发现已保存到数据库")
+
+    except Exception as e:
+        logger.error(f"保存扫描结果到数据库失败: {e}")
 
 
 @app.post("/api/scan", response_model=APIResponse)
@@ -738,6 +1014,28 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     )
     app_state.scan_tasks[scan_id] = task
 
+    # 在数据库中创建扫描任务记录
+    if app_state.scan_repo:
+        try:
+            db_task = ScanTask(
+                scan_id=scan_id,
+                target_path=str(target_path),
+                status="pending",
+                progress=0.0,
+                current_step="准备中...",
+                started_at=datetime.now().isoformat(),
+                config={
+                    "languages": request.languages,
+                    "use_llm": request.use_llm,
+                    "skip_index": request.skip_index,
+                    "use_chain_analysis": request.use_chain_analysis,
+                }
+            )
+            app_state.scan_repo.create(db_task)
+            logger.info(f"扫描任务 {scan_id} 已保存到数据库")
+        except Exception as e:
+            logger.error(f"保存扫描任务到数据库失败: {e}")
+
     # 启动后台任务 - 使用 asyncio.create_task 替代 background_tasks
     # BackgroundTasks 对异步函数支持有问题
     print(f"[API] 创建扫描任务 {scan_id}")
@@ -753,54 +1051,273 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
 @app.get("/api/scan/{scan_id}", response_model=APIResponse)
 async def get_scan_result(scan_id: str):
     """获取扫描结果"""
-    if scan_id not in app_state.scan_tasks:
-        raise HTTPException(status_code=404, detail="扫描任务不存在")
+    # 先从内存中查找（正在进行的任务）
+    if scan_id in app_state.scan_tasks:
+        task = app_state.scan_tasks[scan_id]
+        return APIResponse(
+            success=True,
+            message="获取成功",
+            data=task.model_dump(),
+        )
 
-    task = app_state.scan_tasks[scan_id]
-    return APIResponse(
-        success=True,
-        message="获取成功",
-        data=task.model_dump(),
-    )
+    # 从数据库中查找历史记录
+    if app_state.scan_repo:
+        db_task = app_state.scan_repo.get_by_id(scan_id)
+        if db_task:
+            # 获取发现统计
+            finding_stats = {}
+            if app_state.finding_repo:
+                finding_stats = app_state.finding_repo.get_stats(scan_id)
+
+            return APIResponse(
+                success=True,
+                message="获取成功（历史记录）",
+                data={
+                    "scan_id": db_task.scan_id,
+                    "status": db_task.status,
+                    "target_path": db_task.target_path,
+                    "progress": db_task.progress,
+                    "current_step": db_task.current_step,
+                    "started_at": db_task.started_at,
+                    "completed_at": db_task.completed_at,
+                    "total_units": db_task.total_units,
+                    "error_message": db_task.error_message,
+                    "findings_count": finding_stats.get("total", 0),
+                    "findings_stats": finding_stats,
+                },
+            )
+
+    raise HTTPException(status_code=404, detail="扫描任务不存在")
 
 
 @app.get("/api/scan/{scan_id}/findings", response_model=APIResponse)
-async def get_scan_findings(scan_id: str):
-    """获取扫描发现"""
-    if scan_id not in app_state.scan_tasks:
-        raise HTTPException(status_code=404, detail="扫描任务不存在")
+async def get_scan_findings(
+    scan_id: str,
+    severity: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """获取扫描发现（支持分页和过滤）"""
+    # 先从内存中查找（正在进行的任务）
+    if scan_id in app_state.scan_tasks:
+        task = app_state.scan_tasks[scan_id]
+        findings = [f.model_dump() for f in task.findings]
+        vuln_findings = [f.model_dump() for f in task.vuln_findings]
 
-    task = app_state.scan_tasks[scan_id]
-    return APIResponse(
-        success=True,
-        message=f"共 {len(task.findings) + len(task.vuln_findings)} 个发现",
-        data={
-            "findings": [f.model_dump() for f in task.findings],
-            "vuln_findings": [f.model_dump() for f in task.vuln_findings],
-        },
-    )
+        # 简单过滤（内存中的数据）
+        if severity:
+            findings = [f for f in findings if f.get("severity") == severity]
+            vuln_findings = [vf for vf in vuln_findings if vf.get("severity") == severity]
+
+        return APIResponse(
+            success=True,
+            message=f"共 {len(findings) + len(vuln_findings)} 个发现",
+            data={
+                "findings": findings[offset:offset+limit],
+                "vuln_findings": vuln_findings[offset:offset+limit],
+                "total": len(findings) + len(vuln_findings),
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+
+    # 从数据库中查找
+    if app_state.finding_repo:
+        db_findings = app_state.finding_repo.get_by_scan_id(
+            scan_id,
+            severity=severity,
+            category=category,
+            limit=limit,
+            offset=offset,
+        )
+        if db_findings or app_state.scan_repo.get_by_id(scan_id):
+            # 分离 security 和 vuln 类型
+            findings = [f.to_dict() for f in db_findings if f.finding_type == "security"]
+            vuln_findings = [f.to_dict() for f in db_findings if f.finding_type == "vuln"]
+            total = app_state.finding_repo.count(scan_id=scan_id)
+
+            return APIResponse(
+                success=True,
+                message=f"共 {total} 个发现（数据库）",
+                data={
+                    "findings": findings,
+                    "vuln_findings": vuln_findings,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+
+    raise HTTPException(status_code=404, detail="扫描任务不存在")
 
 
 @app.get("/api/scans", response_model=APIResponse)
-async def list_scans():
-    """列出所有扫描任务"""
+async def list_scans(
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """列出所有扫描任务（内存 + 数据库）"""
     tasks = []
+    seen_ids = set()
+
+    # 先添加内存中的任务（正在进行的）
     for scan_id, task in app_state.scan_tasks.items():
+        if status and task.status.value != status:
+            continue
         tasks.append({
             "scan_id": scan_id,
             "status": task.status.value,
             "target_path": task.target_path,
-            "started_at": task.started_at.isoformat(),
+            "started_at": task.started_at.isoformat() if task.started_at else None,
             "completed_at": task.completed_at.isoformat() if task.completed_at else None,
             "findings_count": len(task.findings),
             "vuln_count": len(task.vuln_findings),
             "progress": task.progress,
+            "source": "memory",
         })
+        seen_ids.add(scan_id)
+
+    # 添加数据库中的历史记录
+    if app_state.scan_repo:
+        db_tasks = app_state.scan_repo.list_all(status=status, limit=limit, offset=offset)
+        for db_task in db_tasks:
+            if db_task.scan_id not in seen_ids:
+                # 获取发现数量
+                finding_count = 0
+                if app_state.finding_repo:
+                    finding_count = app_state.finding_repo.count(scan_id=db_task.scan_id)
+
+                tasks.append({
+                    "scan_id": db_task.scan_id,
+                    "status": db_task.status,
+                    "target_path": db_task.target_path,
+                    "started_at": db_task.started_at,
+                    "completed_at": db_task.completed_at,
+                    "findings_count": finding_count,
+                    "vuln_count": 0,  # 数据库中合并存储
+                    "progress": db_task.progress,
+                    "source": "database",
+                })
+
+    # 按创建时间排序（最新的在前）
+    tasks.sort(key=lambda x: x.get("started_at") or "", reverse=True)
 
     return APIResponse(
         success=True,
         message=f"共 {len(tasks)} 个扫描任务",
-        data=tasks,
+        data={
+            "tasks": tasks[offset:offset+limit] if offset > 0 else tasks[:limit],
+            "total": len(tasks),
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+
+
+# ============ 交互日志接口 ============
+
+@app.get("/api/scan/{scan_id}/interactions", response_model=APIResponse)
+async def get_scan_interactions(
+    scan_id: str,
+    interaction_type: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """获取扫描任务的 LLM 交互日志
+
+    用于实时展示 LLM 分析过程
+    """
+    if not app_state.interaction_repo:
+        raise HTTPException(status_code=500, detail="交互日志仓库未初始化")
+
+    interactions = app_state.interaction_repo.get_by_scan_id(
+        scan_id,
+        interaction_type=interaction_type,
+        limit=limit,
+        offset=offset,
+    )
+
+    return APIResponse(
+        success=True,
+        message=f"共 {len(interactions)} 条交互记录",
+        data={
+            "interactions": [i.to_dict() for i in interactions],
+            "total": len(interactions),
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+
+
+@app.get("/api/scan/{scan_id}/timeline", response_model=APIResponse)
+async def get_scan_timeline(scan_id: str, limit: int = 100):
+    """获取扫描任务的时间线（用于前端展示）"""
+    if not app_state.interaction_repo:
+        raise HTTPException(status_code=500, detail="交互日志仓库未初始化")
+
+    timeline = app_state.interaction_repo.get_timeline(scan_id, limit)
+
+    return APIResponse(
+        success=True,
+        message=f"共 {len(timeline)} 条时间线记录",
+        data={
+            "timeline": timeline,
+            "total": len(timeline),
+        },
+    )
+
+
+@app.get("/api/scan/{scan_id}/interactions/latest", response_model=APIResponse)
+async def get_latest_interactions(
+    scan_id: str,
+    since_id: Optional[int] = None,
+    limit: int = 50,
+):
+    """获取最新交互记录（用于实时更新）
+
+    Args:
+        scan_id: 扫描任务 ID
+        since_id: 上次获取的最后一个 ID，获取该 ID 之后的记录
+        limit: 返回数量限制
+    """
+    if not app_state.interaction_repo:
+        raise HTTPException(status_code=500, detail="交互日志仓库未初始化")
+
+    interactions = app_state.interaction_repo.get_latest(
+        scan_id,
+        since_id=since_id,
+        limit=limit,
+    )
+
+    return APIResponse(
+        success=True,
+        message=f"获取到 {len(interactions)} 条新记录",
+        data={
+            "interactions": [i.to_dict() for i in interactions],
+            "last_id": interactions[-1].id if interactions else since_id,
+        },
+    )
+
+
+@app.get("/api/scan/{scan_id}/stats", response_model=APIResponse)
+async def get_scan_stats(scan_id: str):
+    """获取扫描任务的统计信息"""
+    stats = {}
+
+    # 获取交互统计
+    if app_state.interaction_repo:
+        stats["interactions"] = app_state.interaction_repo.get_stats(scan_id)
+
+    # 获取发现统计
+    if app_state.finding_repo:
+        stats["findings"] = app_state.finding_repo.get_stats(scan_id)
+
+    return APIResponse(
+        success=True,
+        message="获取统计成功",
+        data=stats,
     )
 
 

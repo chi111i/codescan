@@ -5,13 +5,16 @@
 - 多语言代码解析
 - 嵌入缓存 (基于内容哈希)
 - Hybrid 混合检索
-- 增量索引
+- 增量索引 (仅处理变更文件)
 """
 
 import fnmatch
+import hashlib
 import logging
+import sqlite3
+import time
 from pathlib import Path
-from typing import List, Optional, Set, Iterator, Callable, Dict, Any
+from typing import List, Optional, Set, Iterator, Callable, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import AuditConfig, ScanConfig
@@ -75,6 +78,155 @@ class GitIgnoreParser:
         return False
 
 
+class FileTracker:
+    """文件变更追踪器
+
+    用于增量索引，追踪文件的修改时间和内容哈希
+    """
+
+    def __init__(self, db_path: str = ".audit_cache/file_tracker.db"):
+        """初始化追踪器
+
+        Args:
+            db_path: SQLite 数据库路径
+        """
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self._init_schema()
+
+    def _init_schema(self) -> None:
+        """初始化数据库 schema"""
+        self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS file_index (
+                file_path TEXT PRIMARY KEY,
+                mtime REAL,
+                content_hash TEXT,
+                unit_ids TEXT,
+                indexed_at REAL
+            )
+        """)
+        self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_mtime ON file_index(mtime)
+        """)
+        self._conn.commit()
+
+    @staticmethod
+    def compute_file_hash(file_path: Path) -> str:
+        """计算文件内容哈希"""
+        content = file_path.read_bytes()
+        return hashlib.sha256(content).hexdigest()
+
+    def get_file_state(self, file_path: str) -> Optional[Tuple[float, str]]:
+        """获取文件的已记录状态
+
+        Returns:
+            (mtime, content_hash) 或 None
+        """
+        cursor = self._conn.execute(
+            "SELECT mtime, content_hash FROM file_index WHERE file_path = ?",
+            (file_path,)
+        )
+        row = cursor.fetchone()
+        return (row[0], row[1]) if row else None
+
+    def update_file_state(
+        self,
+        file_path: str,
+        mtime: float,
+        content_hash: str,
+        unit_ids: List[str]
+    ) -> None:
+        """更新文件状态"""
+        self._conn.execute("""
+            INSERT OR REPLACE INTO file_index
+            (file_path, mtime, content_hash, unit_ids, indexed_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            file_path,
+            mtime,
+            content_hash,
+            ",".join(unit_ids),
+            time.time()
+        ))
+        self._conn.commit()
+
+    def get_unit_ids(self, file_path: str) -> List[str]:
+        """获取文件关联的代码单元 ID 列表"""
+        cursor = self._conn.execute(
+            "SELECT unit_ids FROM file_index WHERE file_path = ?",
+            (file_path,)
+        )
+        row = cursor.fetchone()
+        if row and row[0]:
+            return row[0].split(",")
+        return []
+
+    def remove_file(self, file_path: str) -> List[str]:
+        """移除文件记录，返回其关联的代码单元 ID"""
+        unit_ids = self.get_unit_ids(file_path)
+        self._conn.execute(
+            "DELETE FROM file_index WHERE file_path = ?",
+            (file_path,)
+        )
+        self._conn.commit()
+        return unit_ids
+
+    def get_all_tracked_files(self) -> Set[str]:
+        """获取所有已追踪的文件路径"""
+        cursor = self._conn.execute("SELECT file_path FROM file_index")
+        return {row[0] for row in cursor.fetchall()}
+
+    def check_file_changed(self, file_path: Path) -> bool:
+        """检查文件是否已变更
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            True 如果文件是新的或已修改
+        """
+        if not file_path.exists():
+            return False
+
+        path_str = str(file_path)
+        current_mtime = file_path.stat().st_mtime
+
+        state = self.get_file_state(path_str)
+        if state is None:
+            # 新文件
+            return True
+
+        old_mtime, old_hash = state
+        if current_mtime != old_mtime:
+            # mtime 变了，检查内容是否真的变了
+            current_hash = self.compute_file_hash(file_path)
+            return current_hash != old_hash
+
+        return False
+
+    def get_stats(self) -> Dict[str, Any]:
+        """获取追踪统计"""
+        cursor = self._conn.execute("SELECT COUNT(*) FROM file_index")
+        total = cursor.fetchone()[0]
+
+        return {
+            "tracked_files": total,
+            "db_path": str(self.db_path),
+        }
+
+    def clear(self) -> None:
+        """清空所有追踪记录"""
+        self._conn.execute("DELETE FROM file_index")
+        self._conn.commit()
+
+    def close(self) -> None:
+        """关闭数据库连接"""
+        if self._conn:
+            self._conn.close()
+            self._conn = None
+
+
 class CodeIndexer:
     """代码索引器
 
@@ -84,6 +236,7 @@ class CodeIndexer:
     3. 生成嵌入向量 (带缓存)
     4. 存储到向量数据库
     5. 支持 Hybrid 混合检索
+    6. 增量索引 (仅处理变更文件)
     """
 
     def __init__(
@@ -91,7 +244,8 @@ class CodeIndexer:
         config: AuditConfig,
         llm_client: BaseLLMClient,
         vector_store: Optional[BaseVectorStore] = None,
-        embedding_cache: Optional[EmbeddingCache] = None
+        embedding_cache: Optional[EmbeddingCache] = None,
+        file_tracker: Optional[FileTracker] = None
     ):
         self.config = config
         self.scan_config = config.scan
@@ -115,11 +269,26 @@ class CodeIndexer:
             self.embedding_cache = None
             self.cached_generator = None
 
-        # Hybrid 检索配置
+        # 初始化文件追踪器 (增量索引)
+        tracker_path = f"{config.vector_store.cache_dir}/file_tracker.db"
+        self.file_tracker = file_tracker or FileTracker(db_path=tracker_path)
+
+        # Hybrid 检索配置 (包含重排序)
+        from .vector_store import RerankerConfig
+        reranker_config = None
+        if getattr(config.scan, 'enable_reranking', True):
+            reranker_config = RerankerConfig(
+                enable_reranking=True,
+                security_priority_mode=getattr(config.scan, 'rerank_security_priority', True),
+                security_boost_factor=getattr(config.scan, 'rerank_security_boost', 1.5),
+                prefer_entry_points=getattr(config.scan, 'rerank_prefer_entry_points', True),
+            )
+
         self.hybrid_config = HybridSearchConfig(
             enable_keyword_boost=config.scan.enable_hybrid_search,
             keyword_boost_weight=config.scan.keyword_boost,
-            metadata_filter_first=config.scan.metadata_filter_first
+            metadata_filter_first=config.scan.metadata_filter_first,
+            reranker_config=reranker_config
         )
 
         # 初始化向量存储
@@ -301,16 +470,35 @@ class CodeIndexer:
 
         return result
 
-    def _generate_embeddings(self, units: List[CodeUnit]) -> List[List[float]]:
-        """生成嵌入向量 (带缓存支持)"""
+    def _generate_embeddings(
+        self,
+        units: List[CodeUnit],
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
+    ) -> List[List[float]]:
+        """生成嵌入向量 (带缓存支持)
+
+        Args:
+            units: 代码单元列表
+            progress_callback: 进度回调 (current, total, message)
+
+        Returns:
+            嵌入向量列表
+        """
         texts = [unit.to_embedding_text() for unit in units]
+        total = len(texts)
+
+        if progress_callback:
+            progress_callback(0, total, "准备生成嵌入向量...")
 
         # 使用缓存生成器
         if self.cached_generator:
             logger.info("Using cached embedding generator...")
-            return self.cached_generator.generate_embeddings(texts)
+            embeddings = self.cached_generator.generate_embeddings(texts)
+            if progress_callback:
+                progress_callback(total, total, "嵌入向量生成完成")
+            return embeddings
 
-        # 无缓存时直接计算
+        # 无缓存时直接计算（带进度）
         batch_size = 50
         all_embeddings = []
 
@@ -318,6 +506,10 @@ class CodeIndexer:
             batch_texts = texts[i:i + batch_size]
             response = self.llm_client.embed(batch_texts)
             all_embeddings.extend(response.embeddings)
+
+            if progress_callback:
+                processed = min(i + batch_size, total)
+                progress_callback(processed, total, f"生成嵌入: {processed}/{total}")
 
         return all_embeddings
 
@@ -387,6 +579,149 @@ class CodeIndexer:
         logger.info(f"Index complete. Total units in store: {total_count}")
 
         return len(chunked_units)
+
+    def index_directory_incremental(
+        self,
+        target_path: Optional[str] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None
+    ) -> Dict[str, int]:
+        """增量索引目录
+
+        仅处理新增或修改的文件，删除已移除文件的索引。
+
+        Args:
+            target_path: 目标路径，默认使用配置中的路径
+            progress_callback: 进度回调函数 (current, total)
+
+        Returns:
+            包含索引统计的字典:
+            - added: 新增的代码单元数
+            - updated: 更新的代码单元数
+            - deleted: 删除的代码单元数
+            - unchanged: 未变更的文件数
+        """
+        path = Path(target_path or self.scan_config.target_path).resolve()
+
+        if not path.exists():
+            raise FileNotFoundError(f"目标路径不存在: {path}")
+
+        logger.info(f"Starting incremental index of: {path}")
+
+        stats = {
+            "added": 0,
+            "updated": 0,
+            "deleted": 0,
+            "unchanged": 0,
+        }
+
+        # 收集当前所有文件
+        current_files = list(self._scan_files(path))
+        current_file_paths = {str(f) for f in current_files}
+        logger.info(f"Found {len(current_files)} files in directory")
+
+        # 获取已追踪的文件
+        tracked_files = self.file_tracker.get_all_tracked_files()
+
+        # 1. 找出已删除的文件
+        deleted_files = tracked_files - current_file_paths
+        for deleted_file in deleted_files:
+            unit_ids = self.file_tracker.remove_file(deleted_file)
+            if unit_ids:
+                # 从向量存储中删除
+                for unit_id in unit_ids:
+                    try:
+                        self.vector_store.delete(unit_id)
+                        stats["deleted"] += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to delete unit {unit_id}: {e}")
+            logger.debug(f"Removed deleted file from index: {deleted_file}")
+
+        # 2. 找出新增或修改的文件
+        files_to_process = []
+        for file_path in current_files:
+            if self.file_tracker.check_file_changed(file_path):
+                files_to_process.append(file_path)
+            else:
+                stats["unchanged"] += 1
+
+        logger.info(f"Files to process: {len(files_to_process)} (unchanged: {stats['unchanged']})")
+
+        if not files_to_process:
+            logger.info("No files changed, index is up to date")
+            return stats
+
+        # 3. 处理变更的文件
+        total_files = len(files_to_process)
+
+        with ThreadPoolExecutor(max_workers=self.scan_config.max_concurrent) as executor:
+            futures = {
+                executor.submit(self._process_file_incremental, f, path): f
+                for f in files_to_process
+            }
+
+            for i, future in enumerate(as_completed(futures)):
+                file_path = futures[future]
+                try:
+                    result = future.result()
+                    if result["is_new"]:
+                        stats["added"] += result["units_count"]
+                    else:
+                        stats["updated"] += result["units_count"]
+                except Exception as e:
+                    logger.error(f"Error processing {file_path}: {e}")
+
+                if progress_callback:
+                    progress_callback(i + 1, total_files)
+
+        total_count = self.vector_store.count()
+        logger.info(f"Incremental index complete. Total units: {total_count}, Stats: {stats}")
+
+        return stats
+
+    def _process_file_incremental(self, file_path: Path, root_path: Path) -> Dict[str, Any]:
+        """增量处理单个文件
+
+        Args:
+            file_path: 文件路径
+            root_path: 根目录路径
+
+        Returns:
+            处理结果字典
+        """
+        path_str = str(file_path)
+        is_new = self.file_tracker.get_file_state(path_str) is None
+
+        # 如果文件已存在，先删除旧的代码单元
+        if not is_new:
+            old_unit_ids = self.file_tracker.get_unit_ids(path_str)
+            for unit_id in old_unit_ids:
+                try:
+                    self.vector_store.delete(unit_id)
+                except Exception as e:
+                    logger.warning(f"Failed to delete old unit {unit_id}: {e}")
+
+        # 解析文件
+        units = self._parse_file(file_path, root_path)
+
+        if not units:
+            # 如果解析结果为空，清除追踪记录
+            self.file_tracker.remove_file(path_str)
+            return {"is_new": is_new, "units_count": 0}
+
+        # 分块处理
+        chunked_units = self._chunk_units(units, self.scan_config.chunk_size)
+
+        # 生成嵌入并存储
+        embeddings = self._generate_embeddings(chunked_units)
+        self.vector_store.add(chunked_units, embeddings)
+
+        # 更新文件追踪
+        unit_ids = [u.id for u in chunked_units]
+        mtime = file_path.stat().st_mtime
+        content_hash = FileTracker.compute_file_hash(file_path)
+        self.file_tracker.update_file_state(path_str, mtime, content_hash, unit_ids)
+
+        return {"is_new": is_new, "units_count": len(chunked_units)}
 
     def search(
         self,

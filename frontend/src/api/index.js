@@ -29,6 +29,10 @@ export const startScan = (data) => api.post('/scan', data)
 export const getScanResult = (scanId) => api.get(`/scan/${scanId}`)
 export const getScanFindings = (scanId) => api.get(`/scan/${scanId}/findings`)
 export const listScans = () => api.get('/scans')
+export const getScanInteractions = (scanId, params) => api.get(`/scan/${scanId}/interactions`, { params })
+export const getScanTimeline = (scanId) => api.get(`/scan/${scanId}/timeline`)
+export const getLatestInteractions = (scanId, sinceId) => api.get(`/scan/${scanId}/interactions/latest`, { params: { since_id: sinceId } })
+export const getScanStats = (scanId) => api.get(`/scan/${scanId}/stats`)
 
 // 调用图相关
 export const analyzeCallGraph = (data) => api.post('/callgraph', data)

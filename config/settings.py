@@ -110,6 +110,12 @@ class ScanConfig:
     keyword_boost: float = 0.3                   # 关键词匹配权重
     metadata_filter_first: bool = True           # 先元数据过滤再向量检索
 
+    # 高级重排序配置
+    enable_reranking: bool = True                # 启用高级重排序
+    rerank_security_priority: bool = True        # 安全优先模式
+    rerank_security_boost: float = 1.5           # 安全相关代码提升因子
+    rerank_prefer_entry_points: bool = True      # 优先入口点 (handler/controller)
+
 
 @dataclass
 class RulesetConfig:

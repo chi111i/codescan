@@ -513,3 +513,193 @@ class CodeReader:
             logger.warning(f"Find callers failed: {e}")
 
         return callers
+
+    def get_callers(
+        self,
+        symbol_name: str,
+        file_path: Optional[str] = None,
+        max_results: int = 10,
+    ) -> Dict[str, Any]:
+        """查找谁调用了指定函数（向上追溯调用链）
+
+        Args:
+            symbol_name: 要查找调用者的函数名
+            file_path: 限定在特定文件中查找（可选）
+            max_results: 最大返回数量
+
+        Returns:
+            包含调用者列表的字典
+        """
+        try:
+            # 先找到目标符号
+            symbol_result = self.read_symbol(symbol_name, file_path)
+            if not symbol_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"未找到符号: {symbol_name}",
+                    "callers": [],
+                }
+
+            # 搜索所有可能调用此符号的代码
+            all_units = self.indexer.get_all_units(limit=5000)
+            callers = []
+
+            for unit in all_units:
+                # 跳过自身
+                if unit.symbol == symbol_name:
+                    continue
+
+                # 检查代码中是否包含对目标符号的调用
+                symbol_parts = symbol_name.split(".")
+                short_name = symbol_parts[-1]  # 获取最后一部分（方法名）
+
+                # 检查 calls 列表或代码内容
+                is_caller = False
+                if unit.calls:
+                    for call in unit.calls:
+                        if short_name in call or symbol_name in call:
+                            is_caller = True
+                            break
+
+                # 也检查代码文本（更可靠）
+                if not is_caller and (short_name + "(" in unit.code or symbol_name + "(" in unit.code):
+                    is_caller = True
+
+                if is_caller:
+                    # 找到调用位置的具体行号
+                    call_lines = []
+                    lines = unit.code.split("\n")
+                    for i, line in enumerate(lines):
+                        if short_name + "(" in line or symbol_name + "(" in line:
+                            call_lines.append(unit.span.start_line + i)
+
+                    callers.append({
+                        "file_path": unit.file_path,
+                        "caller_symbol": unit.symbol,
+                        "caller_type": unit.unit_type.value,
+                        "start_line": unit.span.start_line,
+                        "end_line": unit.span.end_line,
+                        "call_lines": call_lines[:3],  # 只显示前3个调用位置
+                        "code_preview": unit.code[:200] + "..." if len(unit.code) > 200 else unit.code,
+                    })
+
+                    if len(callers) >= max_results:
+                        break
+
+            return {
+                "success": True,
+                "symbol": symbol_name,
+                "callers": callers,
+                "total": len(callers),
+                "hint": "使用 read_file 查看调用位置的完整上下文" if callers else "未找到调用者，可能是入口函数或未被使用",
+            }
+
+        except Exception as e:
+            logger.error(f"Get callers failed: {e}")
+            return {
+                "success": False,
+                "error": f"查找调用者失败: {str(e)}",
+                "callers": [],
+            }
+
+    def get_callees(
+        self,
+        symbol_name: str,
+        file_path: Optional[str] = None,
+        max_depth: int = 1,
+    ) -> Dict[str, Any]:
+        """查找指定函数调用了哪些其他函数（向下追溯调用链）
+
+        Args:
+            symbol_name: 要分析的函数名
+            file_path: 限定在特定文件中查找（可选）
+            max_depth: 调用链追溯深度
+
+        Returns:
+            包含被调用函数列表的字典
+        """
+        try:
+            # 先找到目标符号
+            symbol_result = self.read_symbol(symbol_name, file_path)
+            if not symbol_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"未找到符号: {symbol_name}",
+                    "callees": [],
+                }
+
+            definitions = symbol_result.get("definitions", [])
+            if not definitions:
+                return {
+                    "success": False,
+                    "error": f"未找到符号定义: {symbol_name}",
+                    "callees": [],
+                }
+
+            # 获取直接调用的函数
+            target_def = definitions[0]
+            direct_calls = symbol_result.get("callees", [])
+
+            # 分析代码中的函数调用
+            callees = []
+            seen_calls = set()
+
+            for call in direct_calls:
+                if call in seen_calls:
+                    continue
+                seen_calls.add(call)
+
+                # 尝试找到被调用函数的定义
+                callee_result = self.read_symbol(call)
+                if callee_result.get("success") and callee_result.get("definitions"):
+                    callee_def = callee_result["definitions"][0]
+                    callees.append({
+                        "symbol": call,
+                        "type": callee_def.get("type", "unknown"),
+                        "file_path": callee_def.get("file_path"),
+                        "line": callee_def.get("start_line"),
+                        "signature": callee_def.get("signature"),
+                        "found": True,
+                    })
+                else:
+                    # 外部库函数或未索引的函数
+                    callees.append({
+                        "symbol": call,
+                        "type": "unknown",
+                        "file_path": None,
+                        "line": None,
+                        "signature": None,
+                        "found": False,
+                        "note": "可能是外部库函数或未索引的函数",
+                    })
+
+            # 如果需要更深层次的调用链
+            if max_depth > 1 and callees:
+                nested_callees = []
+                for callee in callees:
+                    if callee.get("found") and callee.get("file_path"):
+                        nested_result = self.get_callees(
+                            callee["symbol"],
+                            callee.get("file_path"),
+                            max_depth=max_depth - 1,
+                        )
+                        if nested_result.get("success"):
+                            callee["nested_calls"] = nested_result.get("callees", [])[:5]
+
+            return {
+                "success": True,
+                "symbol": symbol_name,
+                "file_path": target_def.get("file_path"),
+                "callees": callees,
+                "total": len(callees),
+                "depth": max_depth,
+                "hint": "标记 found=False 的函数可能是外部库或内置函数",
+            }
+
+        except Exception as e:
+            logger.error(f"Get callees failed: {e}")
+            return {
+                "success": False,
+                "error": f"查找被调用函数失败: {str(e)}",
+                "callees": [],
+            }

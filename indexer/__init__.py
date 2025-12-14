@@ -16,9 +16,11 @@ from .vector_store import (
     InMemoryVectorStore,
     SearchResult,
     HybridSearchConfig,
+    RerankerConfig,
+    CodeReranker,
     create_vector_store,
 )
-from .indexer import CodeIndexer
+from .indexer import CodeIndexer, FileTracker, GitIgnoreParser
 from .code_reader import CodeReader
 from .storage import (
     StorageManager,
@@ -66,9 +68,13 @@ __all__ = [
     "InMemoryVectorStore",
     "SearchResult",
     "HybridSearchConfig",
+    "RerankerConfig",
+    "CodeReranker",
     "create_vector_store",
     # 索引器
     "CodeIndexer",
+    "FileTracker",
+    "GitIgnoreParser",
     # 代码读取器
     "CodeReader",
     # 存储管理器

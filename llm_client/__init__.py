@@ -7,6 +7,7 @@ from .client import (
     ChatMessage,
     ChatResponse,
     EmbeddingResponse,
+    StreamChunk,
     ToolCall,
     LLMClientError,
     RateLimitError,
@@ -26,14 +27,19 @@ from .output_validator import (
     create_validator,
 )
 
+# 为了向后兼容，创建别名
+LLMClient = OpenAICompatibleClient
+
 __all__ = [
     # 客户端
     "BaseLLMClient",
     "OpenAICompatibleClient",
+    "LLMClient",  # 别名
     "MockLLMClient",
     "ChatMessage",
     "ChatResponse",
     "EmbeddingResponse",
+    "StreamChunk",
     "ToolCall",
     "LLMClientError",
     "RateLimitError",

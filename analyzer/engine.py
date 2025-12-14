@@ -37,11 +37,17 @@ class SecurityAnalyzer:
         llm_client: BaseLLMClient,
         indexer: CodeIndexer,
         rule_manager: RuleManager,
+        interaction_repo=None,
+        scan_id: Optional[str] = None,
     ):
         self.config = config
         self.llm_client = llm_client
         self.indexer = indexer
         self.rule_manager = rule_manager
+
+        # 日志仓库（用于记录工具调用和分析过程）
+        self.interaction_repo = interaction_repo
+        self.scan_id = scan_id
 
         # 新增：SinkCallScanner 确定性扫描器
         self.sink_scanner = SinkCallScanner(rule_manager)
@@ -1417,9 +1423,9 @@ class SecurityAnalyzer:
             logger.info(f"Taint analysis complete: {len(self._taint_flows)} flows")
 
     def _analyze_candidate_with_agent(self, candidate: Candidate) -> Optional[Finding]:
-        """使用 Agent 分析候选点"""
+        """使用 Agent 分析候选点（带日志记录）"""
         try:
-            from agent import EnhancedSecurityAgent
+            from agent import LoggedEnhancedSecurityAgent
             from indexer import CodeReader
 
             # 创建 CodeReader
@@ -1428,13 +1434,15 @@ class SecurityAnalyzer:
                 indexer=self.indexer,
             )
 
-            # 创建增强 Agent
-            agent = EnhancedSecurityAgent(
+            # 创建带日志的增强 Agent
+            agent = LoggedEnhancedSecurityAgent(
                 llm_client=self.llm_client,
                 code_reader=code_reader,
                 indexer=self.indexer,
                 call_chain_analyzer=self.call_chain_analyzer,
                 taint_analyzer=self.taint_analyzer,
+                interaction_repo=self.interaction_repo,
+                scan_id=self.scan_id,
                 max_tool_calls=15,
             )
 

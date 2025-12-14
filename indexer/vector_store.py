@@ -30,12 +30,34 @@ class SearchResult:
 
 
 @dataclass
+class RerankerConfig:
+    """重排序配置"""
+    enable_reranking: bool = True          # 启用重排序
+
+    # 各因素权重 (总和应为 1.0)
+    vector_weight: float = 0.4             # 向量相似度权重
+    keyword_weight: float = 0.25           # 关键词匹配权重
+    security_weight: float = 0.2           # 安全相关性权重
+    context_weight: float = 0.15           # 上下文相关性权重
+
+    # 安全优先模式 (强化安全相关结果)
+    security_priority_mode: bool = True
+    security_boost_factor: float = 1.5     # 安全相关代码的提升因子
+
+    # 代码质量因素
+    prefer_entry_points: bool = True       # 优先入口点 (handler, controller)
+    prefer_smaller_units: bool = True      # 优先较小的代码单元 (更聚焦)
+    max_preferred_lines: int = 100         # 偏好的最大行数
+
+
+@dataclass
 class HybridSearchConfig:
     """混合检索配置"""
     enable_keyword_boost: bool = True      # 启用关键词提升
     keyword_boost_weight: float = 0.3      # 关键词匹配权重
     metadata_filter_first: bool = True     # 先元数据过滤
     dangerous_keywords: List[str] = None   # 危险关键词列表 (用于安全相关搜索)
+    reranker_config: RerankerConfig = None # 重排序配置
 
     def __post_init__(self):
         if self.dangerous_keywords is None:
@@ -55,6 +77,256 @@ class HybridSearchConfig:
                 "payment", "money", "transfer", "balance", "order", "price",
                 "delete", "remove", "update", "create", "modify",
             ]
+
+
+class CodeReranker:
+    """代码搜索结果重排序器
+
+    基于多种因素对搜索结果进行重排序:
+    1. 向量相似度 (原始分数)
+    2. 关键词匹配
+    3. 安全相关性 (危险函数、敏感操作等)
+    4. 代码上下文 (入口点优先、代码长度等)
+    """
+
+    # 入口点标识符
+    ENTRY_POINT_PATTERNS = [
+        # Web 框架
+        "handler", "controller", "view", "endpoint", "route", "api",
+        # 函数装饰器常见名
+        "get", "post", "put", "delete", "patch",
+        # RPC/消息处理
+        "rpc", "grpc", "consumer", "subscriber", "listener",
+        # 命令行/任务
+        "command", "task", "job", "cron",
+    ]
+
+    # 高危模式 (额外加分)
+    HIGH_RISK_PATTERNS = [
+        # 命令执行
+        r"exec\s*\(", r"eval\s*\(", r"system\s*\(", r"popen\s*\(",
+        r"subprocess", r"shell\s*=\s*True",
+        # SQL 操作
+        r"execute\s*\(", r"raw\s*\(", r"cursor\.",
+        r"SELECT.*FROM", r"INSERT.*INTO", r"UPDATE.*SET", r"DELETE.*FROM",
+        # 文件操作
+        r"open\s*\(", r"file\s*\(", r"read\s*\(", r"write\s*\(",
+        # 反序列化
+        r"pickle\.load", r"yaml\.load", r"unserialize",
+        # 认证相关
+        r"password", r"token", r"secret", r"credential",
+        r"auth", r"login", r"session",
+    ]
+
+    def __init__(self, config: RerankerConfig = None):
+        """初始化重排序器
+
+        Args:
+            config: 重排序配置
+        """
+        self.config = config or RerankerConfig()
+        self._compile_patterns()
+
+    def _compile_patterns(self):
+        """预编译正则表达式"""
+        self._high_risk_re = [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.HIGH_RISK_PATTERNS
+        ]
+
+    def rerank(
+        self,
+        results: List[SearchResult],
+        query_text: str,
+        dangerous_keywords: List[str] = None,
+        top_k: int = None
+    ) -> List[SearchResult]:
+        """重排序搜索结果
+
+        Args:
+            results: 原始搜索结果
+            query_text: 查询文本
+            dangerous_keywords: 危险关键词列表
+            top_k: 返回数量 (None 表示返回全部)
+
+        Returns:
+            重排序后的结果列表
+        """
+        if not results or not self.config.enable_reranking:
+            return results[:top_k] if top_k else results
+
+        # 提取查询关键词
+        query_keywords = self._extract_keywords(query_text, dangerous_keywords or [])
+
+        # 计算每个结果的综合分数
+        scored_results = []
+        for result in results:
+            scores = self._compute_all_scores(result, query_keywords, dangerous_keywords)
+            final_score = self._combine_scores(scores, result.score)
+            result.score = final_score
+            result.metadata["rerank_scores"] = scores
+            scored_results.append(result)
+
+        # 按综合分数排序
+        scored_results.sort(key=lambda x: x.score, reverse=True)
+
+        return scored_results[:top_k] if top_k else scored_results
+
+    def _extract_keywords(self, text: str, dangerous_keywords: List[str]) -> List[str]:
+        """从查询文本中提取关键词"""
+        words = re.findall(r'\b\w+\b', text.lower())
+        keywords = []
+
+        for word in words:
+            if word in dangerous_keywords:
+                keywords.append(word)
+            for dk in dangerous_keywords:
+                if dk in word or word in dk:
+                    keywords.append(dk)
+
+        return list(set(keywords)) or words[:5]
+
+    def _compute_all_scores(
+        self,
+        result: SearchResult,
+        query_keywords: List[str],
+        dangerous_keywords: List[str] = None
+    ) -> Dict[str, float]:
+        """计算所有评分因素
+
+        Returns:
+            包含各项分数的字典
+        """
+        unit = result.code_unit
+        code_text = f"{unit.symbol} {unit.code} {unit.signature or ''}"
+
+        return {
+            "keyword": self._compute_keyword_score(code_text, query_keywords, dangerous_keywords),
+            "security": self._compute_security_score(unit),
+            "context": self._compute_context_score(unit),
+        }
+
+    def _compute_keyword_score(
+        self,
+        code_text: str,
+        query_keywords: List[str],
+        dangerous_keywords: List[str] = None
+    ) -> float:
+        """计算关键词匹配分数"""
+        if not query_keywords:
+            return 0.0
+
+        code_lower = code_text.lower()
+        matches = 0
+        bonus = 0
+
+        for keyword in query_keywords:
+            if keyword in code_lower:
+                matches += 1
+                if dangerous_keywords and keyword in dangerous_keywords:
+                    bonus += 0.1
+
+        base_score = matches / len(query_keywords)
+        return min(1.0, base_score + bonus)
+
+    def _compute_security_score(self, unit: CodeUnit) -> float:
+        """计算安全相关性分数
+
+        基于代码中危险模式的出现情况
+        """
+        code = unit.code.lower()
+        score = 0.0
+        matches = 0
+
+        # 检查高危模式
+        for pattern in self._high_risk_re:
+            if pattern.search(code):
+                matches += 1
+
+        if matches > 0:
+            # 基础分 + 额外匹配加分
+            score = min(1.0, 0.3 + matches * 0.15)
+
+        # 检查函数名/符号名是否包含敏感词
+        symbol_lower = unit.symbol.lower()
+        sensitive_in_name = any(
+            kw in symbol_lower for kw in
+            ["auth", "login", "password", "token", "admin", "delete", "payment", "transfer"]
+        )
+        if sensitive_in_name:
+            score = min(1.0, score + 0.2)
+
+        return score
+
+    def _compute_context_score(self, unit: CodeUnit) -> float:
+        """计算上下文相关性分数
+
+        考虑:
+        - 是否为入口点
+        - 代码长度 (更短更聚焦)
+        - 代码类型
+        """
+        score = 0.5  # 基础分
+
+        # 入口点加分
+        if self.config.prefer_entry_points:
+            symbol_lower = unit.symbol.lower()
+            for pattern in self.ENTRY_POINT_PATTERNS:
+                if pattern in symbol_lower:
+                    score += 0.2
+                    break
+
+            # 检查装饰器
+            for decorator in (unit.decorators or []):
+                dec_lower = decorator.lower()
+                if any(p in dec_lower for p in ["route", "api", "get", "post", "put", "delete"]):
+                    score += 0.15
+                    break
+
+        # 代码长度评估
+        if self.config.prefer_smaller_units:
+            lines = unit.code.count('\n') + 1
+            if lines <= self.config.max_preferred_lines:
+                # 较短代码加分
+                score += 0.1 * (1 - lines / self.config.max_preferred_lines)
+            else:
+                # 过长代码轻微扣分
+                score -= 0.1
+
+        # 单元类型评估
+        unit_type = unit.unit_type.value if hasattr(unit.unit_type, 'value') else str(unit.unit_type)
+        if unit_type in ["function", "method"]:
+            score += 0.1
+        elif unit_type == "class":
+            score += 0.05
+
+        return min(1.0, max(0.0, score))
+
+    def _combine_scores(self, scores: Dict[str, float], vector_score: float) -> float:
+        """组合各项分数为最终分数
+
+        Args:
+            scores: 各项分数字典
+            vector_score: 原始向量相似度分数
+
+        Returns:
+            综合分数
+        """
+        cfg = self.config
+
+        # 加权求和
+        final_score = (
+            vector_score * cfg.vector_weight +
+            scores.get("keyword", 0) * cfg.keyword_weight +
+            scores.get("security", 0) * cfg.security_weight +
+            scores.get("context", 0) * cfg.context_weight
+        )
+
+        # 安全优先模式: 对安全相关结果额外提升
+        if cfg.security_priority_mode and scores.get("security", 0) > 0.5:
+            final_score *= cfg.security_boost_factor
+
+        return final_score
 
 
 class BaseVectorStore(ABC):
@@ -118,12 +390,13 @@ class BaseVectorStore(ABC):
         filters: Optional[Dict[str, Any]] = None,
         hybrid_config: Optional[HybridSearchConfig] = None
     ) -> List[SearchResult]:
-        """混合检索 (向量 + 关键词)
+        """混合检索 (向量 + 关键词 + 重排序)
 
-        实现三明治检索策略:
+        实现多阶段检索策略:
         1. 先用元数据过滤 (language, file_path, category 等)
         2. 在候选集中做向量相似度检索
-        3. 用关键词匹配对结果进行重排/提升
+        3. 用关键词匹配对结果进行提升
+        4. (可选) 使用 CodeReranker 进行高级重排序
 
         Args:
             query_embedding: 查询向量
@@ -138,31 +411,49 @@ class BaseVectorStore(ABC):
         config = hybrid_config or HybridSearchConfig()
 
         # 第一步: 向量检索 (可能已包含元数据过滤)
+        # 多取一些候选用于后续重排序
+        expand_factor = 3 if config.enable_keyword_boost else 1
+        if config.reranker_config and config.reranker_config.enable_reranking:
+            expand_factor = max(expand_factor, 5)  # 重排序时取更多候选
+
         vector_results = self.search(
             query_embedding=query_embedding,
-            top_k=top_k * 3 if config.enable_keyword_boost else top_k,  # 多取一些用于重排
+            top_k=top_k * expand_factor,
             filters=filters
         )
 
-        if not config.enable_keyword_boost:
-            return vector_results[:top_k]
+        if not vector_results:
+            return []
 
-        # 第二步: 关键词匹配提升
-        query_keywords = self._extract_keywords(query_text, config.dangerous_keywords)
+        # 第二步: 基础关键词匹配提升
+        if config.enable_keyword_boost:
+            query_keywords = self._extract_keywords(query_text, config.dangerous_keywords)
 
-        for result in vector_results:
-            keyword_score = self._compute_keyword_score(
-                result.code_unit,
-                query_keywords,
-                config.dangerous_keywords
+            for result in vector_results:
+                keyword_score = self._compute_keyword_score(
+                    result.code_unit,
+                    query_keywords,
+                    config.dangerous_keywords
+                )
+                # 混合分数 = 向量分数 * (1 - weight) + 关键词分数 * weight
+                result.score = result.score * (1 - config.keyword_boost_weight) + \
+                              keyword_score * config.keyword_boost_weight
+
+        # 第三步: 高级重排序 (如果配置了)
+        if config.reranker_config and config.reranker_config.enable_reranking:
+            reranker = CodeReranker(config.reranker_config)
+            vector_results = reranker.rerank(
+                results=vector_results,
+                query_text=query_text,
+                dangerous_keywords=config.dangerous_keywords,
+                top_k=top_k
             )
-            # 混合分数 = 向量分数 * (1 - weight) + 关键词分数 * weight
-            result.score = result.score * (1 - config.keyword_boost_weight) + \
-                          keyword_score * config.keyword_boost_weight
+        else:
+            # 基础排序
+            vector_results.sort(key=lambda x: x.score, reverse=True)
+            vector_results = vector_results[:top_k]
 
-        # 重新排序
-        vector_results.sort(key=lambda x: x.score, reverse=True)
-        return vector_results[:top_k]
+        return vector_results
 
     def _extract_keywords(self, text: str, dangerous_keywords: List[str]) -> List[str]:
         """从查询文本中提取关键词"""

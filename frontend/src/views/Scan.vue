@@ -434,13 +434,62 @@
             </div>
           </div>
         </div>
+
+        <!-- LLM 交互时间线 -->
+        <div v-if="currentScan && interactions.length > 0" class="glass-card rounded-2xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              LLM 分析过程
+            </h3>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-500">{{ interactions.length }} 条记录</span>
+              <button @click="clearInteractions" class="text-xs text-gray-500 hover:text-gray-700">
+                清空
+              </button>
+            </div>
+          </div>
+          <div class="h-64 overflow-y-auto space-y-2">
+            <div
+              v-for="(interaction, index) in interactions"
+              :key="index"
+              class="p-3 rounded-lg border-l-4 transition-all hover:shadow-sm"
+              :class="getInteractionClass(interaction.type)"
+            >
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">{{ getInteractionIcon(interaction.type) }}</span>
+                  <div>
+                    <span class="text-sm font-medium text-gray-800">{{ interaction.title }}</span>
+                    <span v-if="interaction.tool_name" class="text-xs text-gray-500 ml-2">
+                      ({{ interaction.tool_name }})
+                    </span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                  <span v-if="interaction.duration_ms" class="px-1.5 py-0.5 rounded bg-white/50">
+                    {{ formatDuration(interaction.duration_ms) }}
+                  </span>
+                  <span v-if="interaction.tokens_used" class="px-1.5 py-0.5 rounded bg-white/50">
+                    {{ interaction.tokens_used }} tokens
+                  </span>
+                </div>
+              </div>
+              <div v-if="interaction.content" class="mt-2 text-xs text-gray-600 line-clamp-2">
+                {{ typeof interaction.content === 'string' ? interaction.content : JSON.stringify(interaction.content).slice(0, 150) }}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import * as api from '../api'
@@ -450,6 +499,7 @@ const appStore = useAppStore()
 
 const showAdvanced = ref(true)
 const logs = ref([])
+const interactions = ref([])  // LLM 交互日志
 
 const availableLanguages = [
   { value: 'python', label: 'Python', icon: 'Py', iconClass: 'bg-blue-500' },
@@ -578,9 +628,19 @@ const getLogClass = (level) => {
   return classes[level] || 'text-gray-300'
 }
 
-const addLog = (message, level = 'info') => {
+const addLog = (message, level = 'info', append = false) => {
   const now = new Date()
   const time = now.toTimeString().split(' ')[0]
+
+  // 流式追加模式：将内容追加到最后一条日志
+  if (append && logs.value.length > 0) {
+    const lastLog = logs.value[logs.value.length - 1]
+    if (lastLog.level === level) {
+      lastLog.message += message
+      return
+    }
+  }
+
   logs.value.push({ time, message, level })
   if (logs.value.length > 100) {
     logs.value.shift()
@@ -589,6 +649,58 @@ const addLog = (message, level = 'info') => {
 
 const clearLogs = () => {
   logs.value = []
+}
+
+// LLM 交互日志处理
+const handleInteraction = (interaction) => {
+  interactions.value.push(interaction)
+  // 限制显示数量
+  if (interactions.value.length > 50) {
+    interactions.value.shift()
+  }
+  // 同时添加到日志
+  const logLevel = interaction.type === 'finding' ? 'success' : 'info'
+  addLog(`[${getInteractionTypeName(interaction.type)}] ${interaction.title}`, logLevel)
+}
+
+const getInteractionTypeName = (type) => {
+  const names = {
+    'tool_call': '工具调用',
+    'thinking': 'LLM思考',
+    'analysis': 'LLM分析',
+    'finding': '发现问题',
+  }
+  return names[type] || type
+}
+
+const getInteractionIcon = (type) => {
+  const icons = {
+    'tool_call': '🔧',
+    'thinking': '💭',
+    'analysis': '🔍',
+    'finding': '⚠️',
+  }
+  return icons[type] || '📝'
+}
+
+const getInteractionClass = (type) => {
+  const classes = {
+    'tool_call': 'border-blue-400 bg-blue-50',
+    'thinking': 'border-purple-400 bg-purple-50',
+    'analysis': 'border-green-400 bg-green-50',
+    'finding': 'border-orange-400 bg-orange-50',
+  }
+  return classes[type] || 'border-gray-400 bg-gray-50'
+}
+
+const formatDuration = (ms) => {
+  if (!ms) return ''
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+const clearInteractions = () => {
+  interactions.value = []
 }
 
 const selectAllVulnTypes = () => {
@@ -624,6 +736,7 @@ const startScan = async () => {
 
   isScanning.value = true
   logs.value = []
+  interactions.value = []  // 清空交互日志
   addLog('开始扫描任务...', 'info')
 
   try {
@@ -661,6 +774,20 @@ const startScan = async () => {
             currentScan.value = { ...currentScan.value, ...data }
             if (data.log) {
               addLog(data.log, data.log_level || 'info')
+            }
+          } else if (data.type === 'interaction') {
+            // 处理 LLM 交互日志
+            handleInteraction(data.data)
+          } else if (data.type === 'llm_stream') {
+            // 处理 LLM 流式响应 - 实时显示 LLM 输出
+            if (data.content) {
+              // 将流式内容追加到当前分析日志
+              addLog(data.content, 'info', true) // true = 追加模式
+            }
+          } else if (data.type === 'analysis_detail') {
+            // 处理分析详情 - 显示分析进度细节
+            if (data.data && data.data.message) {
+              addLog(`[${data.detail_type}] ${data.data.message}`, 'info')
             }
           }
         }
@@ -708,6 +835,7 @@ const cancelScan = () => {
     if (ws) ws.close()
     if (pollInterval) clearInterval(pollInterval)
     currentScan.value = null
+    interactions.value = []  // 清空交互日志
     addLog('扫描已取消', 'warning')
   }
 }

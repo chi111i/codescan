@@ -13,7 +13,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Iterator, Callable
 import httpx
 
 from config import LLMConfig
@@ -104,6 +104,16 @@ class EmbeddingResponse:
     usage: Dict[str, int]
 
 
+@dataclass
+class StreamChunk:
+    """流式响应块"""
+    content: str  # 增量内容
+    is_done: bool = False  # 是否完成
+    finish_reason: Optional[str] = None
+    tool_calls: Optional[List[ToolCall]] = None
+    usage: Optional[Dict[str, int]] = None
+
+
 class LLMClientError(Exception):
     """LLM 客户端异常基类"""
     pass
@@ -164,6 +174,36 @@ class BaseLLMClient(ABC):
             encoding_format: 编码格式，"float" 或 "base64"
         """
         pass
+
+    def chat_completion_stream(
+        self,
+        messages: List[ChatMessage],
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        on_chunk: Optional[Callable[[StreamChunk], None]] = None,
+        **kwargs
+    ) -> ChatResponse:
+        """流式聊天请求（可选实现）
+
+        Args:
+            messages: 消息列表
+            model: 模型名称
+            temperature: 温度参数
+            max_tokens: 最大生成 token 数
+            on_chunk: 每个流块的回调函数，用于实时显示
+
+        Returns:
+            完整的 ChatResponse（流结束后返回）
+        """
+        # 默认实现：回退到非流式调用
+        return self.chat_completion(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
 
 
 class OpenAICompatibleClient(BaseLLMClient):
@@ -505,6 +545,126 @@ class OpenAICompatibleClient(BaseLLMClient):
                 "prompt_tokens": usage.get("prompt_tokens", 0),
                 "total_tokens": usage.get("total_tokens", 0),
             },
+        )
+
+    def chat_completion_stream(
+        self,
+        messages: List[ChatMessage],
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        on_chunk: Optional[Callable[[StreamChunk], None]] = None,
+        **kwargs
+    ) -> ChatResponse:
+        """流式聊天请求
+
+        实时返回 LLM 生成的内容，支持回调函数处理每个块。
+
+        Args:
+            messages: 消息列表
+            model: 模型名称
+            temperature: 温度参数
+            max_tokens: 最大生成 token 数
+            on_chunk: 每个流块的回调函数
+
+        Returns:
+            完整的 ChatResponse
+        """
+        use_model = model or self.default_model
+        use_temp = temperature if temperature is not None else self.config.temperature
+        use_max_tokens = max_tokens or self.config.max_tokens
+
+        # 构建消息列表
+        formatted_messages = []
+        for m in messages:
+            if hasattr(m, 'to_dict'):
+                formatted_messages.append(m.to_dict())
+            else:
+                formatted_messages.append({"role": m.role, "content": m.content})
+
+        payload = {
+            "model": use_model,
+            "messages": formatted_messages,
+            "temperature": use_temp,
+            "max_tokens": use_max_tokens,
+            "stream": True,  # 启用流式
+        }
+        payload.update(kwargs)
+
+        url = f"{self.base_url}/chat/completions"
+        self._log_request("/chat/completions (stream)", use_model, payload=payload)
+
+        full_content = ""
+        finish_reason = None
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+        try:
+            with self._client.stream("POST", url, json=payload) as response:
+                if response.status_code != 200:
+                    self._handle_error(response, 1)
+
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+
+                    # SSE 格式: "data: {...}"
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # 去掉 "data: " 前缀
+
+                        if data_str.strip() == "[DONE]":
+                            # 流结束
+                            if on_chunk:
+                                on_chunk(StreamChunk(
+                                    content="",
+                                    is_done=True,
+                                    finish_reason=finish_reason,
+                                    usage=usage
+                                ))
+                            break
+
+                        try:
+                            data = json.loads(data_str)
+                            choice = data.get("choices", [{}])[0]
+                            delta = choice.get("delta", {})
+
+                            # 提取增量内容
+                            chunk_content = delta.get("content", "")
+                            if chunk_content:
+                                full_content += chunk_content
+
+                                if on_chunk:
+                                    on_chunk(StreamChunk(
+                                        content=chunk_content,
+                                        is_done=False
+                                    ))
+
+                            # 检查完成原因
+                            if choice.get("finish_reason"):
+                                finish_reason = choice["finish_reason"]
+
+                            # 更新 usage（如果提供）
+                            if "usage" in data:
+                                usage = data["usage"]
+
+                        except json.JSONDecodeError:
+                            logger.warning(f"无法解析流数据: {data_str[:100]}")
+                            continue
+
+        except httpx.TimeoutException:
+            logger.error("流式请求超时")
+            raise APIError("Stream request timeout")
+        except httpx.RequestError as e:
+            logger.error(f"流式请求错误: {e}")
+            raise APIError(f"Stream request error: {e}")
+
+        logger.info(f"Stream complete: content_length={len(full_content)}, finish_reason={finish_reason}")
+
+        return ChatResponse(
+            content=full_content,
+            model=use_model,
+            usage=usage,
+            finish_reason=finish_reason or "stop",
+            tool_calls=None,  # 流式模式通常不支持 tool_calls
         )
 
     def close(self):
