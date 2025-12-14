@@ -4,15 +4,35 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import total_ordering
 from typing import List, Optional, Dict, Any
 
 
+@total_ordering
 class RiskLevel(Enum):
-    """风险等级"""
+    """风险等级（支持比较操作）"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+    def _get_order(self) -> int:
+        """获取风险等级的排序值"""
+        order_map = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+        return order_map.get(self.value, 0)
+
+    def __lt__(self, other):
+        if isinstance(other, RiskLevel):
+            return self._get_order() < other._get_order()
+        return NotImplemented
+
+    def __eq__(self, other):
+        if isinstance(other, RiskLevel):
+            return self.value == other.value
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.value)
 
 
 class RuleCategory(Enum):
