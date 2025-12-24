@@ -294,6 +294,16 @@ class CodeIndexer:
         # 初始化向量存储
         self.vector_store.initialize()
 
+    @property
+    def code_units(self) -> Dict[str, 'CodeUnit']:
+        """获取所有已索引的代码单元（字典格式）
+
+        Returns:
+            Dict[str, CodeUnit]: 以 unit.id 为键的代码单元字典
+        """
+        all_units = self.vector_store.get_all(limit=100000)
+        return {unit.id: unit for unit in all_units}
+
     def _should_include(self, file_path: Path, gitignore: GitIgnoreParser) -> bool:
         """检查文件是否应该被索引"""
         # 检查 gitignore
@@ -890,6 +900,90 @@ class CodeIndexer:
         """
         all_units = self.get_all_units()
         return [u for u in all_units if file_path in u.file_path]
+
+    def read_file(
+        self,
+        file_path: str,
+        start_line: Optional[int] = None,
+        end_line: Optional[int] = None
+    ) -> Optional[str]:
+        """读取文件内容（支持行号范围）
+
+        Args:
+            file_path: 文件路径（相对或绝对）
+            start_line: 起始行号（从1开始，可选）
+            end_line: 结束行号（包含，可选）
+
+        Returns:
+            文件内容字符串，如果文件不存在返回 None
+        """
+        try:
+            # 尝试作为相对路径处理
+            target_path = Path(self.scan_config.target_path) / file_path
+            if not target_path.exists():
+                # 尝试作为绝对路径
+                target_path = Path(file_path)
+                if not target_path.exists():
+                    return None
+
+            content = target_path.read_text(encoding='utf-8', errors='ignore')
+
+            # 如果指定了行号范围，提取对应行
+            if start_line is not None or end_line is not None:
+                lines = content.splitlines()
+                start = (start_line - 1) if start_line else 0
+                end = end_line if end_line else len(lines)
+                content = '\n'.join(lines[start:end])
+
+            return content
+
+        except Exception as e:
+            logger.error(f"读取文件失败 {file_path}: {e}")
+            return None
+
+    def list_files(
+        self,
+        pattern: str = "**/*",
+        max_results: int = 100
+    ) -> List[str]:
+        """列出匹配模式的文件
+
+        Args:
+            pattern: Glob 模式（如 "**/*.py", "src/**/*"）
+            max_results: 最大返回数量
+
+        Returns:
+            文件路径列表（相对于 target_path）
+        """
+        try:
+            root_path = Path(self.scan_config.target_path).resolve()
+            if not root_path.exists():
+                return []
+
+            files = []
+            gitignore = GitIgnoreParser(root_path)
+
+            # 使用 glob 查找匹配的文件
+            for file_path in root_path.glob(pattern):
+                if not file_path.is_file():
+                    continue
+
+                # 应用 include/exclude 过滤
+                if not self._should_include(file_path, gitignore):
+                    continue
+
+                # 转换为相对路径
+                rel_path = str(file_path.relative_to(root_path)).replace("\\", "/")
+                files.append(rel_path)
+
+                if len(files) >= max_results:
+                    break
+
+            return files
+
+        except Exception as e:
+            logger.error(f"列出文件失败 (pattern={pattern}): {e}")
+            return []
 
     def parse_directory_without_index(self, directory: str, languages: Optional[List[str]] = None) -> List[CodeUnit]:
         """直接解析目录中的代码文件，不使用向量索引
