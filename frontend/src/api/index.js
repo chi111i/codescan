@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 60000,
+  timeout: 300000, // 5 分钟超时，支持复杂 LLM 分析
 })
 
 // 响应拦截器
@@ -64,6 +64,69 @@ export const createScanWebSocket = (scanId) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const host = window.location.host
   return new WebSocket(`${protocol}//${host}/ws/scan/${scanId}`)
+}
+
+// ============ 交互式审计 API ============
+
+// 会话管理
+export const createInteractiveSession = (data) => api.post('/interactive/session/start', data)
+export const getInteractiveSession = (sessionId) => api.get(`/interactive/session/${sessionId}`)
+export const deleteInteractiveSession = (sessionId) => api.delete(`/interactive/session/${sessionId}`)
+export const listInteractiveSessions = () => api.get('/interactive/sessions')
+
+// 代码浏览
+export const listCodeUnits = (sessionId, limit = 200) => api.get(`/interactive/session/${sessionId}/code-units`, { params: { limit } })
+export const getCodeUnitDetail = (sessionId, unitId) => api.get(`/interactive/session/${sessionId}/code-units/${unitId}`)
+export const listSinkSites = (sessionId, limit = 200) => api.get(`/interactive/session/${sessionId}/sink-sites`, { params: { limit } })
+export const listChainContexts = (sessionId, limit = 100) => api.get(`/interactive/session/${sessionId}/chain-contexts`, { params: { limit } })
+export const getChainContextDetail = (sessionId, chainId) => api.get(`/interactive/session/${sessionId}/chain-contexts/${chainId}`)
+
+// LLM 交互
+export const analyzeSelection = (data) => api.post('/interactive/analyze', data)
+export const chatWithLLM = (data) => api.post('/interactive/chat', data)
+export const digDeeper = (data) => api.post('/interactive/dig-deeper', data)
+export const summarizeSession = (sessionId) => api.post(`/interactive/session/${sessionId}/summarize`)
+export const stopAnalysis = (sessionId) => api.post(`/interactive/session/${sessionId}/stop`)
+
+// 发现管理
+export const getFindings = (sessionId) => api.get(`/interactive/session/${sessionId}/findings`)
+export const confirmFinding = (sessionId, findingId, notes = '') => api.post(`/interactive/session/${sessionId}/findings/${findingId}/confirm`, { notes })
+export const rejectFinding = (sessionId, findingId, reason = '') => api.post(`/interactive/session/${sessionId}/findings/${findingId}/reject`, { reason })
+export const updateFindingNotes = (sessionId, findingId, notes) => api.put(`/interactive/session/${sessionId}/findings/${findingId}/notes`, { notes })
+
+// 交互式审计 WebSocket 连接
+export const createInteractiveWebSocket = (sessionId) => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return new WebSocket(`${protocol}//${host}/api/interactive/ws/${sessionId}`)
+}
+
+// ============ 统一智能体 API ============
+
+// 会话管理
+export const createUnifiedSession = (data) => api.post('/agent/session/create', data)
+export const getUnifiedSession = (sessionId) => api.get(`/agent/session/${sessionId}`)
+export const deleteUnifiedSession = (sessionId) => api.delete(`/agent/session/${sessionId}`)
+export const listUnifiedSessions = () => api.get('/agent/sessions')
+
+// 对话交互
+export const chatWithAgent = (sessionId, message) => api.post(`/agent/session/${sessionId}/chat`, { message })
+export const getAgentMessages = (sessionId, limit = 50) => api.get(`/agent/session/${sessionId}/messages`, { params: { limit } })
+export const getAgentToolCalls = (sessionId, limit = 100) => api.get(`/agent/session/${sessionId}/tool-calls`, { params: { limit } })
+export const clearAgentHistory = (sessionId) => api.post(`/agent/session/${sessionId}/clear-history`)
+
+// 工具与状态
+export const getAgentTools = (sessionId, category = null) => api.get(`/agent/session/${sessionId}/tools`, { params: { category } })
+export const getAgentStats = (sessionId) => api.get(`/agent/session/${sessionId}/stats`)
+
+// 索引
+export const indexAgentProject = (sessionId, data) => api.post(`/agent/session/${sessionId}/index`, data)
+
+// 统一智能体 WebSocket 连接
+export const createAgentWebSocket = (sessionId) => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return new WebSocket(`${protocol}//${host}/api/agent/ws/${sessionId}`)
 }
 
 export default api
