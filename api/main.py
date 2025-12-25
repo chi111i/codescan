@@ -4,6 +4,7 @@ import sys
 import uuid
 import asyncio
 import logging
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, List
@@ -75,8 +76,29 @@ class AppState:
         # 交互式审计会话管理器（延迟初始化）
         self.interactive_session_manager = None
 
+        # ============ 缓存机制 ============
+        # 统计信息缓存（避免每次请求都遍历）
+        self._stats_cache: Optional[Dict] = None
+        self._stats_cache_time: float = 0
+        self._stats_cache_ttl: float = 30.0  # 缓存 30 秒
+
+    def get_cached_stats(self) -> Optional[Dict]:
+        """获取缓存的统计信息（如果未过期）"""
+        if self._stats_cache and (time.time() - self._stats_cache_time < self._stats_cache_ttl):
+            return self._stats_cache
+        return None
+
+    def set_stats_cache(self, stats: Dict):
+        """设置统计信息缓存"""
+        self._stats_cache = stats
+        self._stats_cache_time = time.time()
+
+    def invalidate_stats_cache(self):
+        """使统计信息缓存失效"""
+        self._stats_cache = None
+
     def initialize(self, config_path: Optional[str] = None):
-        """初始化组件"""
+        """初始化组件（同步版本，内部使用）"""
         self.config = load_config(config_path=config_path)
         self.llm_client = create_llm_client(self.config.llm)
         # 传递嵌入向量维度，确保与嵌入模型输出一致
@@ -98,6 +120,10 @@ class AppState:
 
         logger.info("API 组件初始化完成（含数据库）")
 
+    async def initialize_async(self, config_path: Optional[str] = None):
+        """异步初始化组件（避免阻塞事件循环）"""
+        await asyncio.to_thread(self.initialize, config_path)
+
 
 app_state = AppState()
 
@@ -107,9 +133,9 @@ app_state = AppState()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化
+    # 启动时异步初始化（不阻塞事件循环）
     try:
-        app_state.initialize()
+        await app_state.initialize_async()
         logger.info("API 服务启动")
         print(f"[INIT] rule_manager 已初始化: {app_state.rule_manager is not None}")
         if app_state.rule_manager:
@@ -224,6 +250,9 @@ async def index_project(request: IndexRequest, background_tasks: BackgroundTasks
         count = app_state.indexer.index_directory(str(target_path))
         stats = app_state.indexer.get_stats()
 
+        # 索引完成后使统计缓存失效
+        app_state.invalidate_stats_cache()
+
         result = IndexResultSchema(
             target_path=str(target_path),
             total_files=count,
@@ -245,30 +274,48 @@ async def index_project(request: IndexRequest, background_tasks: BackgroundTasks
 
 @app.get("/api/index/stats", response_model=APIResponse)
 async def get_index_stats():
-    """获取索引统计"""
+    """获取索引统计（带缓存，避免频繁遍历）"""
     if not app_state.indexer:
         raise HTTPException(status_code=500, detail="索引器未初始化")
 
+    # 尝试使用缓存
+    cached = app_state.get_cached_stats()
+    if cached:
+        return APIResponse(
+            success=True,
+            message="获取统计成功（缓存）",
+            data=cached,
+        )
+
+    # 缓存未命中，计算统计信息
     stats = app_state.indexer.get_stats()
 
-    # 获取语言分布
-    all_units = app_state.indexer.get_all_units(limit=10000)
-    lang_counts = {}
-    type_counts = {}
+    # 使用异步线程避免阻塞
+    def compute_distribution():
+        all_units = app_state.indexer.get_all_units(limit=10000)
+        lang_counts = {}
+        type_counts = {}
+        for unit in all_units:
+            lang_counts[unit.language] = lang_counts.get(unit.language, 0) + 1
+            type_counts[unit.unit_type.value] = type_counts.get(unit.unit_type.value, 0) + 1
+        return lang_counts, type_counts
 
-    for unit in all_units:
-        lang_counts[unit.language] = lang_counts.get(unit.language, 0) + 1
-        type_counts[unit.unit_type.value] = type_counts.get(unit.unit_type.value, 0) + 1
+    lang_counts, type_counts = await asyncio.to_thread(compute_distribution)
+
+    result_data = StatsSchema(
+        total_units=stats["total_units"],
+        collection_name=stats["collection_name"],
+        languages=lang_counts,
+        unit_types=type_counts,
+    ).model_dump()
+
+    # 设置缓存
+    app_state.set_stats_cache(result_data)
 
     return APIResponse(
         success=True,
         message="获取统计成功",
-        data=StatsSchema(
-            total_units=stats["total_units"],
-            collection_name=stats["collection_name"],
-            languages=lang_counts,
-            unit_types=type_counts,
-        ).model_dump(),
+        data=result_data,
     )
 
 
@@ -280,6 +327,8 @@ async def clear_index():
 
     try:
         app_state.indexer.clear_index()
+        # 使统计缓存失效
+        app_state.invalidate_stats_cache()
         logger.info("索引已清空并重建")
         return APIResponse(
             success=True,

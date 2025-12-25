@@ -273,7 +273,9 @@ const formatNumber = (num) => {
 }
 
 onMounted(() => {
-  appStore.fetchStats()
+  // 不再主动调用 API，依赖 Dashboard 或其他页面的调用
+  // Store 已实现请求去重和缓存，即使多处调用也只发一次请求
+  // 首次加载时静默检查健康状态（不阻塞渲染）
   appStore.checkHealth()
 
   // 如果当前路由在高级工具中，展开菜单
