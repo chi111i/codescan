@@ -195,6 +195,14 @@ app.include_router(interactive_router)
 from .agent_router import router as agent_router
 app.include_router(agent_router)
 
+# 注册代码属性图路由
+from .graph_router import router as graph_router
+app.include_router(graph_router)
+
+# 注册变体分析路由
+from .variant_router import router as variant_router
+app.include_router(variant_router)
+
 
 # ============ 静态文件 ============
 

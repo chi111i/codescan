@@ -17,9 +17,9 @@ const routes = [
     component: () => import('./views/UnifiedAudit.vue'),
   },
   {
+    // 兼容性重定向：/scan 重定向到 /audit
     path: '/scan',
-    name: 'Scan',
-    component: () => import('./views/Scan.vue'),
+    redirect: '/audit',
   },
   {
     path: '/interactive',

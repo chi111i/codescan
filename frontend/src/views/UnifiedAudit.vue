@@ -1,6 +1,6 @@
 <template>
   <div class="h-[calc(100vh-3rem)] flex flex-col">
-    <!-- 页面标题 -->
+    <!-- 页面标题 + 模式切换 -->
     <div class="flex items-center justify-between mb-4 shrink-0">
       <div>
         <h1 class="text-3xl font-bold text-white mb-2 flex items-center gap-3">
@@ -8,6 +8,38 @@
           智能审计
         </h1>
         <p class="text-white/60">AI 驱动的智能代码安全审计，支持自主工具调用</p>
+      </div>
+
+      <!-- 模式切换 Tab（仅在无会话时显示） -->
+      <div v-if="!currentSession" class="flex items-center gap-2 bg-white/10 p-1 rounded-xl">
+        <button
+          @click="auditMode = 'conversation'"
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+          :class="auditMode === 'conversation'
+            ? 'bg-white/90 text-violet-700 shadow-sm'
+            : 'text-white/70 hover:text-white hover:bg-white/10'"
+        >
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+            </svg>
+            对话审计
+          </span>
+        </button>
+        <button
+          @click="auditMode = 'quick-scan'"
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+          :class="auditMode === 'quick-scan'
+            ? 'bg-white/90 text-violet-700 shadow-sm'
+            : 'text-white/70 hover:text-white hover:bg-white/10'"
+        >
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            快速扫描
+          </span>
+        </button>
       </div>
       <div class="flex items-center gap-3">
         <!-- 会话状态 -->
@@ -39,9 +71,77 @@
       </div>
     </div>
 
-    <!-- 无会话时：显示创建会话界面 -->
+    <!-- 无会话时：根据模式显示不同界面 -->
     <div v-if="!currentSession" class="flex-1 flex items-center justify-center">
-      <div class="glass-card rounded-2xl p-8 max-w-xl w-full">
+      <!-- 快速扫描模式 -->
+      <div v-if="auditMode === 'quick-scan'" class="glass-card rounded-2xl p-8 max-w-2xl w-full">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-800 mb-2">快速安全扫描</h2>
+          <p class="text-gray-500">配置扫描参数，批量检测安全漏洞</p>
+        </div>
+
+        <!-- 快速扫描配置面板 -->
+        <ScanConfigPanel
+          :is-scanning="isQuickScanning"
+          @start-scan="handleQuickScan"
+        />
+
+        <!-- 扫描进度显示 -->
+        <div v-if="quickScanProgress" class="mt-6 p-4 rounded-xl bg-blue-50 border border-blue-100">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-blue-700">{{ quickScanProgress.current_step || '扫描中...' }}</span>
+            <span class="text-sm text-blue-600">{{ Math.round((quickScanProgress.progress || 0) * 100) }}%</span>
+          </div>
+          <div class="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-300"
+              :style="{ width: `${(quickScanProgress.progress || 0) * 100}%` }"
+            ></div>
+          </div>
+          <p v-if="quickScanProgress.details" class="mt-2 text-xs text-blue-600">{{ quickScanProgress.details }}</p>
+        </div>
+
+        <!-- 扫描完成后显示结果链接 -->
+        <div v-if="quickScanResult" class="mt-6 p-4 rounded-xl bg-green-50 border border-green-100">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-medium text-green-800">扫描完成</div>
+                <div class="text-sm text-green-600">
+                  发现 {{ quickScanResult.findings_count || 0 }} 个问题
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <router-link
+                :to="`/results/${quickScanResult.scan_id}`"
+                class="btn-primary text-sm"
+              >
+                查看结果
+              </router-link>
+              <button
+                @click="continueInConversation"
+                class="btn-secondary text-sm"
+              >
+                对话深入分析
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 对话审计模式（原有界面） -->
+      <div v-else class="glass-card rounded-2xl p-8 max-w-xl w-full">
         <div class="text-center mb-8">
           <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
             <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,8 +429,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as api from '../api'
+import ScanConfigPanel from '../components/ScanConfigPanel.vue'
 
 // ============ 状态 ============
+
+// 审计模式
+const auditMode = ref('conversation') // 'conversation' | 'quick-scan'
 
 // 会话管理
 const currentSession = ref(null)
@@ -342,6 +446,12 @@ const newSessionConfig = reactive({
   enableCallChain: true,
   enableVariantAnalysis: true,
 })
+
+// 快速扫描状态
+const isQuickScanning = ref(false)
+const quickScanProgress = ref(null)
+const quickScanResult = ref(null)
+let quickScanWs = null
 
 // 工具
 const availableTools = ref([])
@@ -530,6 +640,118 @@ const clearHistory = async () => {
   } catch (error) {
     console.error('清空历史失败:', error)
   }
+}
+
+// ============ 快速扫描功能 ============
+
+const handleQuickScan = async (config) => {
+  if (isQuickScanning.value) return
+
+  isQuickScanning.value = true
+  quickScanProgress.value = { progress: 0, current_step: '正在初始化...' }
+  quickScanResult.value = null
+
+  try {
+    // 发起扫描请求
+    const result = await api.startScan(config)
+
+    if (result.success && result.data.scan_id) {
+      const scanId = result.data.scan_id
+      // 连接 WebSocket 监听进度
+      connectQuickScanWebSocket(scanId)
+    } else {
+      throw new Error(result.error || '启动扫描失败')
+    }
+  } catch (error) {
+    console.error('快速扫描失败:', error)
+    alert('启动扫描失败: ' + (error.response?.data?.detail || error.message))
+    isQuickScanning.value = false
+    quickScanProgress.value = null
+  }
+}
+
+const connectQuickScanWebSocket = (scanId) => {
+  try {
+    if (quickScanWs) {
+      quickScanWs.close()
+      quickScanWs = null
+    }
+
+    quickScanWs = api.createScanWebSocket(scanId)
+
+    quickScanWs.onopen = () => {
+      console.log('Quick scan WebSocket connected')
+    }
+
+    quickScanWs.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        handleQuickScanMessage(data)
+      } catch (e) {
+        console.error('Quick scan WebSocket parse error:', e)
+      }
+    }
+
+    quickScanWs.onerror = (error) => {
+      console.error('Quick scan WebSocket error:', error)
+    }
+
+    quickScanWs.onclose = () => {
+      console.log('Quick scan WebSocket closed')
+    }
+  } catch (error) {
+    console.error('Quick scan WebSocket connection failed:', error)
+    isQuickScanning.value = false
+  }
+}
+
+const handleQuickScanMessage = (data) => {
+  switch (data.type) {
+    case 'progress':
+      quickScanProgress.value = {
+        progress: data.progress || 0,
+        current_step: data.current_step || '扫描中...',
+        details: data.details || '',
+      }
+      break
+    case 'completed':
+      quickScanResult.value = {
+        scan_id: data.scan_id,
+        findings_count: data.findings_count || 0,
+        target_path: data.target_path,
+      }
+      isQuickScanning.value = false
+      quickScanProgress.value = null
+      disconnectQuickScanWebSocket()
+      break
+    case 'error':
+      console.error('Scan error:', data.error)
+      alert('扫描出错: ' + data.error)
+      isQuickScanning.value = false
+      quickScanProgress.value = null
+      disconnectQuickScanWebSocket()
+      break
+  }
+}
+
+const disconnectQuickScanWebSocket = () => {
+  if (quickScanWs) {
+    quickScanWs.close(1000, 'Scan completed')
+    quickScanWs = null
+  }
+}
+
+const continueInConversation = async () => {
+  if (!quickScanResult.value) return
+
+  // 切换到对话模式
+  auditMode.value = 'conversation'
+
+  // 预填充目标路径
+  newSessionConfig.targetPath = quickScanResult.value.target_path || ''
+
+  // 清空快速扫描结果
+  quickScanResult.value = null
 }
 
 // 对话交互
@@ -771,6 +993,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   disconnectWebSocket()
+  disconnectQuickScanWebSocket()
 })
 
 watch(chatMessages, () => {

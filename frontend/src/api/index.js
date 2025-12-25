@@ -129,4 +129,33 @@ export const createAgentWebSocket = (sessionId) => {
   return new WebSocket(`${protocol}//${host}/api/agent/ws/${sessionId}`)
 }
 
+// ============ 代码属性图 API ============
+
+// 图管理
+export const listGraphs = () => api.get('/graph/list')
+export const buildGraph = (data) => api.post('/graph/build', data)
+export const getGraph = (graphId) => api.get(`/graph/${graphId}`)
+export const getGraphSummary = (graphId) => api.get(`/graph/${graphId}/summary`)
+export const deleteGraph = (graphId) => api.delete(`/graph/${graphId}`)
+
+// 数据流分析
+export const analyzeGraphDataFlow = (graphId, data) => api.post(`/graph/${graphId}/data-flow`, data)
+
+// ============ 变体分析 API ============
+
+// 模式管理
+export const listVariantPatterns = () => api.get('/variant/patterns')
+export const getVariantStats = () => api.get('/variant/stats')
+export const confirmVulnerability = (data) => api.post('/variant/confirm', data)
+export const deleteVariantPattern = (patternId) => api.delete(`/variant/patterns/${patternId}`)
+
+// 变体搜索
+export const searchVariants = (data) => api.post('/variant/search', data)
+export const confirmVariant = (data) => api.post('/variant/confirm-variant', data)
+
+// 规则管理
+export const generateVariantRule = (data) => api.post('/variant/generate-rule', data)
+export const approveVariantRule = (ruleId) => api.post(`/variant/rules/${ruleId}/approve`)
+export const deleteVariantRule = (ruleId) => api.delete(`/variant/rules/${ruleId}`)
+
 export default api
