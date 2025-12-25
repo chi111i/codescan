@@ -1,0 +1,18 @@
+
+【代码执行类漏洞专项分析指南】
+
+重点检查：
+1. eval/exec/Function 等是否执行用户可控代码
+2. 模板引擎是否存在 SSTI 可能
+3. 反射/动态加载是否可被滥用
+
+常见危险模式：
+- eval(user_input), exec(user_input)
+- Python: compile() + exec()
+- JS: new Function(user_input), eval()
+- PHP: eval(), assert(), create_function()
+
+安全检查要点：
+- 是否有代码签名/白名单验证
+- 沙箱隔离是否存在
+- AST 预检查是否实施

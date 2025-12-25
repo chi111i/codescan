@@ -1,0 +1,101 @@
+# Prompt 配置文件
+# 管理所有审计场景的提示词模板
+
+version: "1.0"
+
+# 链级分析提示词配置
+chain_analysis:
+  name: "调用链安全分析"
+  description: "分析从入口点到危险函数的完整调用链"
+  template_dir: "templates/chain_analysis"
+  system_template: "system.jinja2"
+  user_template: "user.jinja2"
+
+  # Token 预算分配
+  token_budget:
+    max_total_tokens: 8000
+    system_prompt_tokens: 2000
+    sink_code_tokens: 1500
+    chain_nodes_tokens: 3000
+    category_prompt_tokens: 500
+    metadata_tokens: 1000
+
+  # 内容优先级
+  content_priority:
+    system_prompt: "CRITICAL"
+    sink_code: "HIGH"
+    entry_point: "HIGH"
+    chain_nodes: "MEDIUM"
+    category_prompt: "MEDIUM"
+    metadata: "LOW"
+
+  # 高危类别专项提示词
+  category_templates:
+    command_exec: "categories/command_exec.jinja2"
+    code_exec: "categories/code_exec.jinja2"
+    sql_injection: "categories/sql_injection.jinja2"
+    file_read: "categories/file_read.jinja2"
+    file_write: "categories/file_write.jinja2"
+    deserialization: "categories/deserialization.jinja2"
+    ssrf: "categories/ssrf.jinja2"
+    xss: "categories/xss.jinja2"
+
+# 单点分析提示词（保留兼容）
+point_analysis:
+  name: "单点安全分析"
+  description: "分析单个函数或代码片段"
+  template_dir: "templates/point_analysis"
+  system_template: "system.jinja2"
+  user_template: "user.jinja2"
+
+  token_budget:
+    max_total_tokens: 6000
+    system_prompt_tokens: 1500
+    code_context_tokens: 3500
+    focus_prompt_tokens: 1000
+
+# 输出格式 Schema
+output_schemas:
+  chain_analysis:
+    required_fields:
+      - chain_id
+      - sink_category
+      - has_issue
+      - confidence
+    optional_fields:
+      - risk_level
+      - issue_type
+      - summary
+      - evidence
+      - data_flow
+      - security_controls
+      - exploitability_conditions
+      - fix_suggestion
+      - notes
+
+    field_constraints:
+      risk_level:
+        type: "enum"
+        values: ["low", "medium", "high", "critical"]
+      confidence:
+        type: "range"
+        min: 0.0
+        max: 1.0
+      has_issue:
+        type: "enum"
+        values: [true, false, "uncertain"]
+
+# 审查风格配置
+review_styles:
+  professional:
+    name: "专业严谨"
+    description: "使用标准工程术语，保持专业严谨"
+  detailed:
+    name: "详细分析"
+    description: "提供深入的技术细节和多维度分析"
+  concise:
+    name: "简明扼要"
+    description: "聚焦核心问题，简洁明了"
+
+# 默认风格
+default_style: "professional"

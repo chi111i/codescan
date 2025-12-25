@@ -1,0 +1,20 @@
+
+【命令执行类漏洞专项分析指南】
+
+重点检查：
+1. 命令字符串是否包含用户可控输入
+2. 是否使用了 shell=True（Python）或类似的 shell 执行模式
+3. 参数是否经过 shlex.quote() 或等效的转义处理
+4. 是否有命令白名单校验
+
+常见危险模式：
+- os.system(user_input)
+- subprocess.call(cmd, shell=True) 其中 cmd 拼接了用户输入
+- exec()/eval() 执行用户可控字符串
+- PHP: exec(), shell_exec(), system(), passthru(), popen()
+- JS: child_process.exec(), child_process.spawn() with shell
+
+安全检查要点：
+- shlex.quote() / escapeshellarg() 是否正确应用
+- 命令模板 + 参数列表模式是否使用
+- 是否有命令/参数白名单限制

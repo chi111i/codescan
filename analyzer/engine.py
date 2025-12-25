@@ -156,43 +156,46 @@ class SecurityAnalyzer:
             patterns = [r for r in patterns if language in r.languages]
 
         all_rules = sinks + patterns
-        print(f"[DISCOVER] 扫描 {len(code_units)} 个代码单元，使用 {len(all_rules)} 条规则 (sinks: {len(sinks)}, patterns: {len(patterns)})")
+        logger.debug(
+            "[DISCOVER] 扫描 %s 个代码单元，使用 %s 条规则 (sinks: %s, patterns: %s)",
+            len(code_units),
+            len(all_rules),
+            len(sinks),
+            len(patterns),
+        )
         logger.info(f"Scanning {len(code_units)} code units for {len(all_rules)} rules (sinks: {len(sinks)}, patterns: {len(patterns)})...")
 
         # 调试：显示 PHP 相关规则
         php_rules = [r for r in all_rules if 'php' in r.languages]
-        print(f"[DISCOVER] PHP 规则数: {len(php_rules)}")
-        if php_rules:
-            print(f"[DISCOVER] PHP 规则示例: {[r.id for r in php_rules[:5]]}")
-            print(f"[DISCOVER] 第一条 PHP 规则的模式: {php_rules[0].patterns[:5] if php_rules else 'none'}")
+        if php_rules and logger.isEnabledFor(logging.DEBUG):
+            logger.debug("[DISCOVER] PHP 规则数: %s", len(php_rules))
+            logger.debug("[DISCOVER] PHP 规则示例: %s", [r.id for r in php_rules[:5]])
+            logger.debug("[DISCOVER] 第一条 PHP 规则的模式: %s", php_rules[0].patterns[:5])
 
         # 遍历所有代码单元
         for unit in code_units:
-            print(f"[DISCOVER] 检查代码单元: {unit.symbol}, 语言: {unit.language}")
-            print(f"[DISCOVER] 代码预览: {unit.code[:300]}...")
+            logger.debug("[DISCOVER] 检查代码单元: %s, 语言: %s", unit.symbol, unit.language)
 
             # 如果指定了语言，跳过不匹配的
             if language and unit.language != language:
-                print(f"[DISCOVER] 跳过（语言不匹配）: {unit.language} != {language}")
+                logger.debug("[DISCOVER] 跳过（语言不匹配）: %s != %s", unit.language, language)
                 continue
 
             # 检查每个规则
             matched_rule = None
-            print(f"[DISCOVER] 开始对 {len(all_rules)} 条规则进行模式匹配...")
+            logger.debug("[DISCOVER] 开始对 %s 条规则进行模式匹配...", len(all_rules))
 
             # 首先手动检查代码中是否包含常见的危险函数关键词
             code_lower = unit.code.lower()
             dangerous_keywords = ['mysql_query', 'mysqli_query', 'exec(', 'eval(', 'system(', 'shell_exec', '$_get', '$_post', '$_request']
             found_keywords = [kw for kw in dangerous_keywords if kw in code_lower]
             if found_keywords:
-                print(f"[DISCOVER] 代码中发现危险关键词: {found_keywords}")
-            else:
-                print(f"[DISCOVER] 代码中未发现常见危险关键词")
+                logger.debug("[DISCOVER] 代码中发现危险关键词: %s", found_keywords)
 
             for rule in all_rules:
-                if self._contains_pattern(unit.code, rule.patterns, debug=True):
+                if self._contains_pattern(unit.code, rule.patterns, debug=self.config.debug):
                     matched_rule = rule
-                    print(f"[DISCOVER] 匹配规则: {rule.id}, 模式: {rule.patterns[:3]}")
+                    logger.debug("[DISCOVER] 匹配规则: %s, 模式: %s", rule.id, rule.patterns[:3])
                     # 计算优先级
                     priority = self._calculate_priority(unit, rule)
 
@@ -209,12 +212,12 @@ class SecurityAnalyzer:
                     break  # 每个代码单元只记录一次
 
             if not matched_rule:
-                print(f"[DISCOVER] 未匹配任何规则")
+                logger.debug("[DISCOVER] 未匹配任何规则: %s", unit.symbol)
 
         # 按优先级排序
         candidates.sort(key=lambda x: x.priority, reverse=True)
 
-        print(f"[DISCOVER] 发现 {len(candidates)} 个候选点")
+        logger.debug("[DISCOVER] 发现 %s 个候选点", len(candidates))
         logger.info(f"Discovered {len(candidates)} candidates from direct scan")
         return candidates[:max_candidates]
 
@@ -360,6 +363,8 @@ class SecurityAnalyzer:
         max_candidates: int = 50,
         max_workers: int = 2,
         max_chain_depth: int = 5,
+        max_llm_calls: int = 30,
+        vuln_types: Optional[List[str]] = None,
     ) -> List[Finding]:
         """统一的链级分析入口（P0 目标推荐流程）
 
@@ -376,13 +381,17 @@ class SecurityAnalyzer:
             max_candidates: 最大候选点数量
             max_workers: 并行分析数量
             max_chain_depth: 最大调用链深度
+            max_llm_calls: 最大 LLM 调用次数（防止失控）
+            vuln_types: 要检测的漏洞类型列表（如 ['command_injection', 'logic_flaw']）
 
         Returns:
             Finding 列表
         """
         from .call_chain import CallChainAnalyzer
 
-        logger.info(f"[P0] 开始链级分析流程，代码单元数: {len(code_units)}")
+        logger.info(f"[P0] 开始链级分析流程，代码单元数: {len(code_units)}, 最大 LLM 调用: {max_llm_calls}")
+        if vuln_types:
+            logger.info(f"[P0] 漏洞类型过滤: {vuln_types}")
 
         # ============================================================
         # P0-1: 使用 SinkCallScanner 确定性扫描危险函数触发点
@@ -395,6 +404,60 @@ class SecurityAnalyzer:
             return []
 
         logger.info(f"[P0-1] 发现 {len(sink_sites)} 个危险函数触发点")
+
+        # 按漏洞类型过滤 sink_sites
+        if vuln_types:
+            # 漏洞类型到 SinkCategory 的映射
+            vuln_to_sink_category = {
+                'rce': [SinkCategory.CODE_EXEC, SinkCategory.COMMAND_EXEC],
+                'command_injection': [SinkCategory.COMMAND_EXEC],
+                'sql_injection': [SinkCategory.SQL_INJECTION],
+                'file_read': [SinkCategory.FILE_READ],
+                'file_write': [SinkCategory.FILE_WRITE],
+                'file_upload': [SinkCategory.FILE_WRITE],
+                'ssrf': [SinkCategory.SSRF],
+                'ssti': [SinkCategory.CODE_EXEC],
+                'deserialization': [SinkCategory.DESERIALIZATION],
+                'xss': [SinkCategory.XSS],
+                'path_traversal': [SinkCategory.PATH_TRAVERSAL],
+                'xxe': [SinkCategory.FILE_READ],  # XXE 可以读取文件
+                # 逻辑类漏洞不基于 sink category
+                # 'logic_flaw', 'auth_bypass', 'authz_bypass', 'idor', 'race_condition', 'mass_assignment'
+            }
+
+            # 逻辑类漏洞类型列表
+            logic_vuln_types = {'logic_flaw', 'auth_bypass', 'authz_bypass', 'idor', 'race_condition', 'mass_assignment'}
+
+            # 收集要检测的 sink categories
+            target_categories = set()
+            check_logic = False
+            for vt in vuln_types:
+                vt_lower = vt.lower()
+                if vt_lower in logic_vuln_types:
+                    check_logic = True
+                elif vt_lower in vuln_to_sink_category:
+                    target_categories.update(vuln_to_sink_category[vt_lower])
+
+            # 过滤 sink_sites
+            if target_categories:
+                original_count = len(sink_sites)
+                sink_sites = [
+                    site for site in sink_sites
+                    if site.sink_category in target_categories
+                ]
+                logger.info(
+                    f"[P0-1] 漏洞类型过滤后: {len(sink_sites)}/{original_count} 个触发点 "
+                    f"(过滤类别: {[c.value for c in target_categories]})"
+                )
+            else:
+                # 如果没有匹配的 sink category（比如只选了 logic_flaw），清空 sink_sites
+                if not check_logic:
+                    sink_sites = []
+                    logger.info("[P0-1] 没有匹配的 sink category，跳过 sink 扫描")
+
+        if not sink_sites:
+            logger.info("[P0-1] 过滤后未发现任何危险函数触发点")
+            return []
 
         # 限制候选点数量
         sink_sites = sink_sites[:max_candidates]
@@ -435,9 +498,17 @@ class SecurityAnalyzer:
         logger.info(f"[P0-4] 收集了 {len(chain_contexts)} 个调用链上下文")
 
         # ============================================================
-        # P0-5: LLM 链级分析
+        # P0-5: LLM 链级分析（限制调用次数）
         # ============================================================
-        logger.info("[P0-5] 开始 LLM 链级分析...")
+        # 限制 LLM 调用次数，防止无限分析
+        if len(chain_contexts) > max_llm_calls:
+            logger.warning(
+                f"[P0-5] 调用链上下文数 ({len(chain_contexts)}) 超过 LLM 调用限制 ({max_llm_calls})，"
+                f"只分析前 {max_llm_calls} 个"
+            )
+            chain_contexts = chain_contexts[:max_llm_calls]
+
+        logger.info(f"[P0-5] 开始 LLM 链级分析，共 {len(chain_contexts)} 个上下文...")
         findings = []
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -814,7 +885,7 @@ class SecurityAnalyzer:
 
             if matched:
                 if debug:
-                    print(f"[PATTERN] 匹配成功: '{pattern}'")
+                    logger.debug("[PATTERN] 匹配成功: %r", pattern)
                 return True
         return False
 
@@ -1103,6 +1174,8 @@ class SecurityAnalyzer:
         code_units: Optional[List[CodeUnit]] = None,
         use_chain_analysis: bool = True,
         max_chain_depth: int = 5,
+        vuln_types: Optional[List[str]] = None,
+        max_llm_calls: int = 30,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -1115,6 +1188,8 @@ class SecurityAnalyzer:
             code_units: 直接提供的代码单元列表（用于 skip_index 模式）
             use_chain_analysis: 是否使用链级分析（默认 True，推荐）
             max_chain_depth: 最大调用链深度
+            vuln_types: 要检测的漏洞类型列表（如 ['command_injection', 'logic_flaw']）
+            max_llm_calls: 最大 LLM 调用次数
 
         Returns:
             Finding 列表
@@ -1122,6 +1197,8 @@ class SecurityAnalyzer:
         # 如果提供了 code_units，优先使用链级分析
         if code_units is not None:
             logger.info(f"Using direct analysis mode with {len(code_units)} code units")
+            if vuln_types:
+                logger.info(f"漏洞类型过滤: {vuln_types}")
 
             # 默认使用链级分析（P0 目标推荐）
             if use_chain_analysis:
@@ -1132,6 +1209,8 @@ class SecurityAnalyzer:
                     max_candidates=max_candidates,
                     max_workers=max_workers,
                     max_chain_depth=max_chain_depth,
+                    max_llm_calls=max_llm_calls,
+                    vuln_types=vuln_types,
                 )
             else:
                 # 回退到 SinkScanner 模式
@@ -1182,12 +1261,23 @@ class SecurityAnalyzer:
         Returns:
             Finding 列表
         """
-        print(f"[ANALYZE_DIRECT] 进入 analyze_units_direct，代码单元数: {len(code_units)}, 语言: {language}")
+        logger.debug(
+            "[ANALYZE_DIRECT] 进入 analyze_units_direct，代码单元数: %s, 语言: %s",
+            len(code_units),
+            language,
+        )
         logger.info(f"Starting direct analysis of {len(code_units)} code units...")
 
         # 调试：打印代码单元信息
-        for i, unit in enumerate(code_units[:5]):  # 只打印前5个
-            print(f"[ANALYZE_DIRECT] 代码单元 {i+1}: symbol={unit.symbol}, language={unit.language}, file={unit.file_path}")
+        if logger.isEnabledFor(logging.DEBUG):
+            for i, unit in enumerate(code_units[:5]):  # 只打印前5个
+                logger.debug(
+                    "[ANALYZE_DIRECT] 代码单元 %s: symbol=%s, language=%s, file=%s",
+                    i + 1,
+                    unit.symbol,
+                    unit.language,
+                    unit.file_path,
+                )
 
         # 优先使用 SinkCallScanner（确定性扫描）
         if use_sink_scanner:
@@ -1210,11 +1300,11 @@ class SecurityAnalyzer:
         )
 
         if not candidates:
-            print(f"[ANALYZE_DIRECT] 未发现任何候选点！")
+            logger.debug("[ANALYZE_DIRECT] 未发现任何候选点")
             logger.info("No candidates found in direct scan")
             return []
 
-        print(f"[ANALYZE_DIRECT] 发现 {len(candidates)} 个候选点，开始 LLM 分析...")
+        logger.debug("[ANALYZE_DIRECT] 发现 %s 个候选点，开始 LLM 分析", len(candidates))
         logger.info(f"Analyzing {len(candidates)} candidates...")
 
         # 2. 分析候选点

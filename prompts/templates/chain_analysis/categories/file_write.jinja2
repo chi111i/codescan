@@ -1,0 +1,19 @@
+
+【任意文件写入类漏洞专项分析指南】
+
+重点检查：
+1. 写入路径是否用户可控
+2. 写入内容是否用户可控
+3. 是否可覆盖关键配置文件
+
+常见危险模式：
+- open(user_path, 'w').write(user_content)
+- file_put_contents($_GET['file'], $_POST['data'])
+- fs.writeFile(req.body.path, req.body.content)
+- move_uploaded_file() 目标路径可控
+
+安全检查要点：
+- 写入目录白名单限制
+- 文件扩展名白名单
+- 文件名随机化/UUID
+- 内容类型检查（如上传文件）

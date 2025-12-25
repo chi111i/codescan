@@ -679,6 +679,7 @@ class HighRiskVulnDetector:
         code_units: List[CodeUnit],
         vuln_types: Optional[List[VulnType]] = None,
         use_llm: bool = True,
+        max_llm_calls: int = 20,
     ) -> List[VulnFinding]:
         """检测高危漏洞
 
@@ -686,6 +687,7 @@ class HighRiskVulnDetector:
             code_units: 代码单元列表
             vuln_types: 要检测的漏洞类型，None 表示全部
             use_llm: 是否使用 LLM 进行深度分析
+            max_llm_calls: 最大 LLM 调用次数（防止失控）
 
         Returns:
             漏洞发现列表
@@ -697,6 +699,7 @@ class HighRiskVulnDetector:
             patterns_to_check = [p for p in VULN_PATTERNS if p.vuln_type in vuln_types]
 
         findings = []
+        llm_call_count = 0
 
         for unit in code_units:
             for pattern in patterns_to_check:
@@ -709,9 +712,14 @@ class HighRiskVulnDetector:
                 if matches:
                     finding = self._create_finding(unit, pattern, matches)
 
-                    # 使用 LLM 深度分析
-                    if use_llm:
+                    # 使用 LLM 深度分析（限制调用次数）
+                    if use_llm and llm_call_count < max_llm_calls:
                         self._llm_analyze(finding, unit, pattern)
+                        llm_call_count += 1
+                        logger.info(f"[VulnDetector] LLM 分析 {llm_call_count}/{max_llm_calls}: {unit.symbol}")
+                    elif use_llm and llm_call_count >= max_llm_calls:
+                        finding.needs_manual_review = True
+                        finding.review_notes = "已达到 LLM 分析上限，需人工审核"
 
                     findings.append(finding)
 
@@ -960,6 +968,7 @@ class HighRiskVulnDetector:
         self,
         code_units: List[CodeUnit],
         business_context: Optional[str] = None,
+        max_llm_calls: int = 15,
     ) -> List[VulnFinding]:
         """专门检测业务逻辑漏洞
 
@@ -968,6 +977,7 @@ class HighRiskVulnDetector:
         Args:
             code_units: 代码单元列表
             business_context: 业务上下文描述
+            max_llm_calls: 最大 LLM 调用次数（防止失控）
 
         Returns:
             漏洞发现列表
@@ -985,9 +995,19 @@ class HighRiskVulnDetector:
         ]
 
         findings = []
+        llm_call_count = 0
+
+        logger.info(f"[LogicVuln] 筛选出 {len(logic_units)} 个业务逻辑相关代码单元")
 
         for unit in logic_units:
+            if llm_call_count >= max_llm_calls:
+                logger.info(f"[LogicVuln] 已达到 LLM 调用上限 {max_llm_calls}，跳过剩余 {len(logic_units) - llm_call_count} 个单元")
+                break
+
             finding = self._analyze_logic_vuln(unit, business_context)
+            llm_call_count += 1
+            logger.info(f"[LogicVuln] LLM 分析 {llm_call_count}/{max_llm_calls}: {unit.symbol}")
+
             if finding:
                 findings.append(finding)
 

@@ -1,0 +1,19 @@
+
+【XSS 类漏洞专项分析指南】
+
+重点检查：
+1. 用户输入是否直接输出到 HTML
+2. 是否经过适当的转义/编码
+3. 模板引擎是否正确配置
+
+常见危险模式：
+- echo $_GET['name']（PHP）
+- innerHTML = user_input（JS）
+- render_template_string(user_input)（Flask SSTI）
+- v-html="user_input"（Vue）
+
+安全检查要点：
+- HTML 实体编码是否应用
+- Content-Type 是否正确设置
+- CSP 策略是否配置
+- 模板自动转义是否开启

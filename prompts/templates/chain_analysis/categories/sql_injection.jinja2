@@ -1,0 +1,18 @@
+
+【SQL 注入类漏洞专项分析指南】
+
+重点检查：
+1. SQL 语句是否通过字符串拼接构造
+2. 参数化查询是否正确使用
+3. ORM 是否安全使用（是否有 raw SQL）
+
+常见危险模式：
+- "SELECT * FROM users WHERE id=" + user_id
+- cursor.execute(f"SELECT * FROM {table}")
+- Model.objects.raw(user_input)
+- mysqli_query($conn, "SELECT * FROM users WHERE id=$id")
+
+安全检查要点：
+- 参数化查询 (?, %s, :param) 是否使用
+- ORM 安全方法是否使用
+- 输入是否经过类型转换（如 int()）

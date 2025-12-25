@@ -1,0 +1,19 @@
+
+【SSRF 类漏洞专项分析指南】
+
+重点检查：
+1. URL 是否包含用户可控部分
+2. 是否可以访问内网资源
+3. 协议是否受限（http/https only）
+
+常见危险模式：
+- requests.get(user_url)
+- curl_exec() with user-provided URL
+- file_get_contents(user_url)
+- fetch(req.body.url)
+
+安全检查要点：
+- URL 白名单/黑名单校验
+- 协议限制（禁止 file://, gopher:// 等）
+- 内网 IP 过滤（127.0.0.1, 10.x, 172.16.x, 192.168.x）
+- DNS rebinding 防护

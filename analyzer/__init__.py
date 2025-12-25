@@ -76,6 +76,19 @@ from .chain_context import (
     ChainContext,
     ChainNode,
 )
+from .interactive_agent import (
+    InteractiveAuditAgent,
+    InteractiveFinding,
+    AgentResponse,
+    AgentResponseType,
+    FindingStatus,
+    AnalysisContext as InteractiveAnalysisContext,
+)
+from .session_manager import (
+    InteractiveSessionManager,
+    SessionInfo,
+    SessionStatus,
+)
 
 __all__ = [
     # 基础模型
@@ -145,4 +158,14 @@ __all__ = [
     "ChainContextCollector",
     "ChainContext",
     "ChainNode",
+    # 交互式审计
+    "InteractiveAuditAgent",
+    "InteractiveFinding",
+    "AgentResponse",
+    "AgentResponseType",
+    "FindingStatus",
+    "InteractiveAnalysisContext",
+    "InteractiveSessionManager",
+    "SessionInfo",
+    "SessionStatus",
 ]

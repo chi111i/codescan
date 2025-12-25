@@ -1,0 +1,19 @@
+
+【任意文件读取类漏洞专项分析指南】
+
+重点检查：
+1. 文件路径是否包含用户可控部分
+2. 是否存在路径穿越风险（../）
+3. 是否限制在安全目录内
+
+常见危险模式：
+- open(user_path, 'r')
+- file_get_contents($_GET['file'])
+- fs.readFile(req.query.path)
+- send_file(user_provided_path)
+
+安全检查要点：
+- os.path.realpath() + startswith() 目录限制
+- 路径规范化是否在检查之前
+- 白名单文件列表是否存在
+- 是否禁止 ../ 和绝对路径

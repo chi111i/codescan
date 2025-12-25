@@ -1,0 +1,20 @@
+
+【反序列化类漏洞专项分析指南】
+
+重点检查：
+1. 反序列化数据是否来自不可信源
+2. 是否使用了不安全的反序列化方法
+3. 是否有类型限制或白名单
+
+常见危险模式：
+- pickle.loads(user_data)
+- yaml.load(user_input)（非 safe_load）
+- unserialize($_GET['data'])（PHP）
+- ObjectInputStream.readObject()（Java）
+- JSON.parse() 配合原型污染（JS）
+
+安全检查要点：
+- 是否使用安全替代方案（如 pickle -> json, yaml.safe_load）
+- 是否有签名/HMAC 验证
+- 是否有类型白名单
+- 数据来源是否可信（如仅限内部服务）
