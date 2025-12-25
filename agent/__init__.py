@@ -5,6 +5,7 @@ Agent 模块 - LLM Function Calling 驱动的代码分析代理
 - 代码导航工具供 LLM 调用
 - 支持 OpenAI Function Calling 格式
 - 工具调用日志记录
+- 统一审计智能体（支持自主工具调用）
 """
 
 from .code_agent import CodeAnalysisAgent, SecurityAnalysisAgent, AgentResult, ToolCallRecord
@@ -18,6 +19,22 @@ from .tools.registry import (
     SECURITY_ANALYSIS_TOOLS,
     create_default_registry,
     create_security_registry,
+)
+from .tools.manager import AgentToolManager, ToolDefinition, ToolCategory
+from .unified_agent import (
+    UnifiedAuditAgent,
+    UnifiedAgentConfig,
+    AgentMessage,
+    ToolCallEvent,
+    ToolCallStatus,
+    create_unified_agent,
+)
+from .context_manager import (
+    ContextManager,
+    ContextManagerConfig,
+    ContextItem,
+    ContextType,
+    create_context_manager,
 )
 
 # 为了向后兼容，创建别名
@@ -61,4 +78,21 @@ __all__ = [
     "ToolRegistry",
     "create_default_registry",
     "create_security_registry",
+    # 统一工具管理器
+    "AgentToolManager",
+    "ToolDefinition",
+    "ToolCategory",
+    # 统一审计智能体
+    "UnifiedAuditAgent",
+    "UnifiedAgentConfig",
+    "AgentMessage",
+    "ToolCallEvent",
+    "ToolCallStatus",
+    "create_unified_agent",
+    # 上下文管理器
+    "ContextManager",
+    "ContextManagerConfig",
+    "ContextItem",
+    "ContextType",
+    "create_context_manager",
 ]
