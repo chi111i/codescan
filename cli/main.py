@@ -98,7 +98,7 @@ def create_app():
 
             # 创建组件
             llm_client = create_llm_client(config.llm)
-            vector_store = create_vector_store(config.vector_store)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
             indexer = CodeIndexer(config, llm_client, vector_store)
 
             if clear:
@@ -193,7 +193,7 @@ def create_app():
             # 创建组件
             console.print("[dim]初始化组件...[/dim]")
             llm_client = create_llm_client(config.llm)
-            vector_store = create_vector_store(config.vector_store)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
             indexer = CodeIndexer(config, llm_client, vector_store)
             rule_manager = create_rule_manager(config.rules)
             analyzer = SecurityAnalyzer(config, llm_client, indexer, rule_manager)
@@ -304,7 +304,7 @@ def create_app():
             # 创建组件
             console.print("[dim]初始化组件...[/dim]")
             llm_client = create_llm_client(config.llm)
-            vector_store = create_vector_store(config.vector_store)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
             indexer = CodeIndexer(config, llm_client, vector_store)
             rule_manager = create_rule_manager(config.rules)
 
@@ -502,7 +502,7 @@ def create_app():
             # 创建组件
             console.print("[dim]初始化组件...[/dim]")
             llm_client = create_llm_client(config.llm)
-            vector_store = create_vector_store(config.vector_store)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
             indexer = CodeIndexer(config, llm_client, vector_store)
             rule_manager = create_rule_manager(config.rules)
 
@@ -660,7 +660,7 @@ def create_app():
             _setup_logging(config)
 
             llm_client = create_llm_client(config.llm)
-            vector_store = create_vector_store(config.vector_store)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
             indexer = CodeIndexer(config, llm_client, vector_store)
 
             console.print(f"[cyan]搜索: {query}[/cyan]\n")
@@ -863,6 +863,120 @@ def create_app():
             raise typer.Exit(1)
 
     @app.command()
+    def agent(
+        path: str = typer.Argument(
+            ".",
+            help="要审计的项目路径",
+        ),
+        config_file: Optional[str] = typer.Option(
+            None,
+            "--config", "-c",
+            help="配置文件路径",
+        ),
+        offline: bool = typer.Option(
+            False,
+            "--offline",
+            help="离线模式：使用 Mock LLM（不会请求网络），嵌入使用本地哈希向量",
+        ),
+        reindex: bool = typer.Option(
+            False,
+            "--reindex",
+            help="启动前重新索引（memory 向量存储每次都会重新构建）",
+        ),
+        show_tools: bool = typer.Option(
+            False,
+            "--show-tools",
+            help="显示工具调用详情（调试用）",
+        ),
+    ):
+        """启动交互式代码审计智能体（REPL）
+
+        说明：
+        - 智能体会自动索引项目代码并根据你的提问调用工具：搜索、读取文件、调用链追踪等。
+        - 建议在未配置 API Key 时使用 --offline，避免网络请求失败。
+        """
+        try:
+            import asyncio
+            import uuid
+
+            from agent.unified_agent import UnifiedAgentConfig, create_unified_agent
+
+            # 加载配置
+            config = load_config(config_path=config_file, target_path=path)
+            _setup_logging(config)
+
+            console.print(Panel.fit(
+                "[bold cyan]CodeScan 交互式审计智能体[/bold cyan]\n"
+                f"目标: {path}\n"
+                f"离线模式: {offline}",
+                border_style="cyan",
+            ))
+
+            # 创建组件
+            llm_client = create_llm_client(config.llm, offline=offline)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
+            indexer = CodeIndexer(config, llm_client, vector_store)
+
+            # 索引（memory 向量存储无法持久化，通常需要每次构建；qdrant 可复用）
+            stats = indexer.get_stats()
+            if stats.get("total_units", 0) == 0 or reindex:
+                console.print("[yellow]正在索引代码（用于检索/导航）...[/yellow]")
+                indexer.index_directory(path)
+                stats = indexer.get_stats()
+            console.print(f"[green]索引就绪[/green]：{stats.get('total_units', 0)} 个代码单元")
+
+            # 工具调用回调（可选）
+            def _on_tool_call(event):
+                if not show_tools:
+                    return
+                try:
+                    console.print(f"[dim]→ Tool: {event.tool_name} args={event.arguments} status={event.status}[/dim]")
+                except Exception:
+                    # 避免回调影响主流程
+                    pass
+
+            agent_cfg = UnifiedAgentConfig(on_tool_call=_on_tool_call)
+            session_id = str(uuid.uuid4())
+
+            async def _run_repl():
+                audit_agent = create_unified_agent(
+                    session_id=session_id,
+                    llm_client=llm_client,
+                    indexer=indexer,
+                    config=agent_cfg,
+                )
+
+                await audit_agent.initialize()
+
+                console.print("\n[bold]进入对话模式[/bold]（输入 exit/quit 退出）\n")
+
+                while True:
+                    try:
+                        user_input = input(">>> ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        console.print("\n[dim]退出[/dim]")
+                        break
+
+                    if not user_input:
+                        continue
+                    if user_input.lower() in {"exit", "quit", "q"}:
+                        console.print("[dim]退出[/dim]")
+                        break
+
+                    resp = await audit_agent.chat(user_input)
+                    console.print("\n[bold cyan]Assistant:[/bold cyan]")
+                    console.print(resp.content or "")
+                    console.print("")
+
+            asyncio.run(_run_repl())
+
+        except typer.Exit:
+            raise
+        except Exception as e:
+            console.print(f"[red]错误: {e}[/red]")
+            raise typer.Exit(1)
+
+    @app.command()
     def storage(
         action: str = typer.Argument(
             "stats",
@@ -885,7 +999,7 @@ def create_app():
             _setup_logging(config)
 
             llm_client = create_llm_client(config.llm)
-            vector_store = create_vector_store(config.vector_store)
+            vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
             storage_manager = StorageManager(config, llm_client, vector_store)
 
             if action == "stats":
@@ -987,7 +1101,7 @@ def simple_cli():
     elif args.command == "index":
         config = load_config(config_path=args.config, target_path=args.path)
         llm_client = create_llm_client(config.llm)
-        vector_store = create_vector_store(config.vector_store)
+        vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
         indexer = CodeIndexer(config, llm_client, vector_store)
 
         if args.clear:
@@ -1000,7 +1114,7 @@ def simple_cli():
     elif args.command == "scan":
         config = load_config(config_path=args.config, target_path=args.path)
         llm_client = create_llm_client(config.llm)
-        vector_store = create_vector_store(config.vector_store)
+        vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
         indexer = CodeIndexer(config, llm_client, vector_store)
         rule_manager = create_rule_manager(config.rules)
         analyzer = SecurityAnalyzer(config, llm_client, indexer, rule_manager)
@@ -1031,7 +1145,7 @@ def simple_cli():
     elif args.command == "vulnscan":
         config = load_config(config_path=args.config, target_path=args.path)
         llm_client = create_llm_client(config.llm)
-        vector_store = create_vector_store(config.vector_store)
+        vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
         indexer = CodeIndexer(config, llm_client, vector_store)
         rule_manager = create_rule_manager(config.rules)
 
@@ -1064,7 +1178,7 @@ def simple_cli():
     elif args.command == "callgraph":
         config = load_config(config_path=args.config, target_path=args.path)
         llm_client = create_llm_client(config.llm)
-        vector_store = create_vector_store(config.vector_store)
+        vector_store = create_vector_store(config.vector_store, embedding_dim=config.llm.embedding_dim)
         indexer = CodeIndexer(config, llm_client, vector_store)
         rule_manager = create_rule_manager(config.rules)
 

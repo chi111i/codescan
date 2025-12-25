@@ -1,0 +1,7563 @@
+rules:
+- id: php-injection-ac8312a0
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_read_all
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 8550836B-5100-48cd-A2D9-CB7205424165
+    source_category: Cross-Site Scripting
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3eb1b67d
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:pg_(send_)?prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 9FA5B284-2A51-42d7-A854-083B391AFFE9
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-66a32f78
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysqli_(stmt_)?prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 9FA5B212-2A51-42d7-A854-383B393AF338
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f0e0b4dd
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysqli_(stmt_)?prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 9FA5B284-2A51-42d7-A854-383B393AF338
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b8d75627
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:preg_replace
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 2B72B08B-1D08-46E5-A5F7-8DDA44BB4BD7
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d6cc12dd
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(ssh2|ssh1)_exec
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 022E5604-0B3E-46A9-A131-F8013305898F
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e0e34993
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(shell_)?exec|passthru|(proc_|p)open|system
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 23849EF9-7CF6-4B6F-A0E2-488C0737733A
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-88539dea
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:preg_replace
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: CB70624F-3D6C-4520-ADD9-2F247AEC5D36
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-46d2ce9a
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(ssh2|ssh1)_exec
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: C4DCB1AC-9959-4B57-9AD8-4B6A5FE888B9
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-69f94855
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(shell_)?exec|passthru|(proc_|p)open|system
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 5B43AB66-BCBC-40AD-A034-27C7D505F8EA
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f56f4049
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(exec|raw|site)
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 86E20117-CAEA-4A97-B226-B2B5D9E43EFD
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9b55afa9
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(exec|raw|site)
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: D088E411-6A4E-4A12-B85E-3E0A26A5518D
+    source_category: Command Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-af712efe
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:where|orWhere|order
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 4AB73D3C-56D2-4DBD-995A-06A44025869D
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-54e60d89
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - update
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 0ABE5303-16D2-47B0-BB40-4010828C1935
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1d8a344f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - delete
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: A9D81FEA-13BD-4071-B8FE-683BAE72A220
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-38f23b4f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 0B7EF518-33A5-45F9-B17F-F1E557DCD677
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-4914ea62
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:query|fetchAll
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: C5DE05B8-739E-446A-BEDB-B893BFAFF7BC
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-942ff6ca
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:CacheExecute|CacheSelectLimit|CachePageExecute|CacheGetAssoc|CacheGet(One|Col)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 57D02202-D4EF-4F1C-8109-B8156897C817
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1add22c8
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:Execute(Cursor)?|SelectLimit|CacheSelectLimit|CacheGetAssoc|CacheGet(One|Col)|PageExecute|GetAssoc|Get(One|Row|All|Col)|Prepare(SP)?
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: DAB59EC0-2B2C-47CC-B1DE-CDE799F2C992
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8f0d6199
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:create(Sequence|Trigger)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: EECD187A-C734-4962-9AC5-7EFF88C43955
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-cfe180bb
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:create(Sequence|Trigger)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: E5BE3D50-C288-4AB1-8E1D-CBFB1018312C
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fda97ce3
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - DboMysqli._executeProcedure
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: BD5E7A4D-D55B-4F38-90FA-8CD7B1B0D34A
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-80dd5a71
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - DboSource.update
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 2D9AB89C-9288-40D8-997D-ED7DCB839122
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1cf9aa5b
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:fetchAssociated|field|hasAny
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 4E367F3C-1505-4C36-863A-5D2CD1074811
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f257a07c
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(_)?execute|fetch(All|Row)|query|rawQuery
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 8855E8DD-1A41-4222-B9FE-745BB69973B5
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-77acea2b
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - DboSource.delete
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 5C1AE25C-7EF4-404D-BA7F-F9051E93E4FA
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d6ef8d1d
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Model.query
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: FC37E1A5-C276-43CA-BBDD-FF31BE820F98
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e01716a4
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:pg_(send_)?prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: A74FD789-4E6C-4164-829F-F1C6DB6C35D2
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-58e853ec
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:exec|prepare|query
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 0D6C2C36-9DDE-479A-93F6-B5EF99FD1030
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f94191c2
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysqli_(((multi_|real_)?query)|(stmt_)?prepare)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 547E7A53-4768-40A1-929A-3B2C57B9EE79
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bc37182e
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - mysql_db_query
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: D8DDB016-692A-4FE8-A0A1-85994C59DF86
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-18cef8db
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:pg_(exec|(send_)?(execute|query(_params)?))
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: FF8963A2-228F-43D1-98EB-464237AC47AE
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-038ed03d
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - odbc_exec
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 83F178CE-35D0-40B0-B390-B7BC4A0EA71D
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-faac11c7
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(query|(drop|create)_db)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 5BD12CCA-7BD0-4C0B-A0E6-D505ADD8AA24
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9abbc0fb
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:oci_execute
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: BCD1AA93-A529-4E92-A2DC-09CAE082B67D
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-67964c93
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - mysqli_stmt.prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 992E3BBC-2725-4564-85A2-3257295BFD51
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0d76ac3b
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(multi_|real_)?query|prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 5479B422-946E-48DC-86A8-31FBF5161AFF
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0b6dea3c
+  name: 'Header Manipulation: SMTP'
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(imap_)?mail
+  description: 检测 Header Manipulation 相关的安全风险（SMTP）
+  cwe_ids:
+  - CWE-93
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: FAC6F17C-F1C3-4B77-BFBE-D7597C8BA541
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ce4294d4
+  name: 'Header Manipulation: SMTP'
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(imap_)?mail
+  description: 检测 Header Manipulation 相关的安全风险（SMTP）
+  cwe_ids:
+  - CWE-93
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: A3711002-4678-4C8A-83E8-EE025238B686
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ce4294d4
+  name: 'Header Manipulation: SMTP'
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(imap_)?mail
+  description: 检测 Header Manipulation 相关的安全风险（SMTP）
+  cwe_ids:
+  - CWE-93
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: A3711002-4678-4C8A-83E8-EE025238B686
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-01f32c26
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Json_Expr.init^
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 8500BD63-8A0F-4D5C-9610-0DE54DDBBFF9
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3b231015
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - SessionHelper.flash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: E7624099-EC01-429A-A0FD-187BDB9F4DE3
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-046b9c9a
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - JavascriptHelper.event
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: CA01AB32-89BF-447B-98A3-B435C0B3DAA7
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-276ba4f8
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - View.error
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: D05497B3-BC92-41DE-AFCE-643864D6CADC
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ec672aaf
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - MediaView._header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: B8434546-CE9D-4885-97CE-D9E5C055B39F
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-28a04dca
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - MediaView._header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: AEC28AF9-06BD-4A97-99AC-B835C5D197C9
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-28a04dca
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - MediaView._header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: AEC28AF9-06BD-4A97-99AC-B835C5D197C9
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ed74c977
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - SessionComponent.setFlash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 00735FDF-45B9-4642-803B-9EF67DEAB8AF
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2920907b
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - RequestHandlerComponent.respondAs
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 52483DBB-7E3A-4A60-91CC-BC1B6EDB636E
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8d0b5347
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - RequestHandlerComponent.respondAs
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 166727E1-F864-48BC-8E1A-E4C84410FF82
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8d0b5347
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - RequestHandlerComponent.respondAs
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 166727E1-F864-48BC-8E1A-E4C84410FF82
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-6078b0fc
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - CookieComponent.write
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 3EF580D5-8FCC-44F8-8F7D-41362D5C5C86
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-192fe155
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - CookieComponent.write
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: B4337280-CA44-49B2-8CD1-FA97AE8902B0
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-192fe155
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - CookieComponent.write
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: B4337280-CA44-49B2-8CD1-FA97AE8902B0
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-6abc972b
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Controller.header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: BC654564-614E-4FD4-B4EC-70A22403593C
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7ca3bb62
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: EA0FD927-03FD-444C-9DD9-05F23C640CCC
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7ca3bb62
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Controller.header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: EA0FD927-03FD-444C-9DD9-05F23C640CCC
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2acc9214
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Controller.flash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: F7863173-1E4E-4C2B-A013-D10285739F75
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-230d4ed5
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - buildCookies
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: E47C6F3A-4C80-44E8-B51F-ED5185E10D64
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e608dab2
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - buildCookies
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 24BFED20-BDD2-4C2B-B432-340979CD19E2
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e608dab2
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - buildCookies
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 24BFED20-BDD2-4C2B-B432-340979CD19E2
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-97572b94
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:__construct|error(404)?|missing(Action|Component(Class|File)|Connection|Controller|Database|Helper(Class|File)|Layout|Model|Table|View)|privateAction
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 77ED137C-E8DC-4CED-A16E-61846074BA5F
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a81b116d
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Debugger.handledError
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 82BF85FD-F592-4942-9D62-395D5D699719
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c1cfa09c
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Debugger.dump
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 1C0AB091-1545-4C9C-BD67-9E4CC64AFA8A
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b0c485f8
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:e|pr
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 89DBBF32-4E52-4913-9F09-419F8A68B55E
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-428769ea
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - debug
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 31B0D091-89DF-4922-9BDE-590A471E3157
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e4a219d9
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Smarty.display
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: E09811B0-D4DE-4557-8FAE-59F37C9C4A41
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d273be9d
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:append|insert|prepend
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 8A1B685C-D62C-4EE7-A551-89386EDD33AE
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-49000070
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(append|set)Body|insert
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: FEFA9E2B-B12E-42B0-8A9A-868D95CD43A7
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-611563a2
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - DOMDocument.loadHTML
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 56401D83-89BD-4AA8-96B4-BD49A135F947
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fb8af20e
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Smarty.trigger_error
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: A731B7F7-8879-40C9-974F-6798EE8C2B92
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-6eb53a9d
+  name: 'Cross-Site Scripting: Persistent'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:builtin_(echo|print)|(v)?printf|var_dump|debug_zval_dump|fpassthru
+  description: 检测 Cross-Site Scripting 相关的安全风险（Persistent）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: AF6C6C57-CA46-489C-B449-CFE4A5AB7202
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-44b04ec8
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(Raw)?Header
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: E67B8B97-5838-4AD1-8BD3-64CE9C8B1BEA
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-08a5987e
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Header_SetCookie.init^
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 9A2177C2-EECB-4D91-9259-46A181D86ECC
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-08a5987e
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Header_SetCookie.init^
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 9A2177C2-EECB-4D91-9259-46A181D86ECC
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-92dd4b4c
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set.*
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: F8861440-8949-4011-AA06-43FC469CEBC7
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-228c3c26
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set.*
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: C6F2D681-5C6C-4098-82AE-480C11895FE6
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-228c3c26
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set.*
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: C6F2D681-5C6C-4098-82AE-480C11895FE6
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9a87f83a
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setCookie
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 9E3917FF-CCAD-4102-BA9F-D4BCA7AD3CDD
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f216a690
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setCookie
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 898DA403-B997-4602-B455-B49F85402FFC
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f216a690
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setCookie
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 898DA403-B997-4602-B455-B49F85402FFC
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-dacfbff2
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 39EC67BD-BF0C-46E8-8881-63DE7323ACE3
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fbbfb5d6
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: EE74ADC1-0E54-4fe2-88B0-2C2CF7E7CDB7
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fbbfb5d6
+  name: 'Header Manipulation: Cookies'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Header Manipulation 相关的安全风险（Cookies）
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: EE74ADC1-0E54-4fe2-88B0-2C2CF7E7CDB7
+    source_category: Header Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ca37603a
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Controller_Response_Abstract.setHeader
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: B1074933-9977-492B-88F0-91322DDD1809
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-99bed262
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Controller_Response_Abstract.setHeader
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: F385AAC7-AAA8-45B0-8091-4F5919B29A36
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-99bed262
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Controller_Response_Abstract.setHeader
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: F385AAC7-AAA8-45B0-8091-4F5919B29A36
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f006bade
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setHeaders
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: A9C39706-AB5D-48AD-97C4-0F408F3A3146
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-26f32013
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setHeaders
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 27D581F9-2969-4776-A236-D8F28191758C
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-26f32013
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setHeaders
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 27D581F9-2969-4776-A236-D8F28191758C
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-082f0f59
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: E1500B74-1782-46FB-9122-C66AA963A720
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-75291cd5
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 34918516-B6BC-4dd7-9428-5811C1D01CC0
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-75291cd5
+  name: Header Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - header
+  description: 检测 Header Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-113
+  - CWE-020
+  owasp_ids:
+  - A03:2021
+  tags:
+  - header_manipulation
+  - php
+  metadata:
+    source_rule_id: 34918516-B6BC-4dd7-9428-5811C1D01CC0
+    source_category: Header Manipulation
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2846f932
+  name: Dangerous File Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - mail
+  description: 检测 Dangerous File Injection 相关的安全风险
+  cwe_ids:
+  - CWE-94
+  - CWE-98
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dangerous_file_injection
+  - php
+  metadata:
+    source_rule_id: 7F822517-7424-48DE-A5F9-4CC9B3D4CA9D
+    source_category: Dangerous File Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f1bf728d
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:imap_(append|clearflag_full|create|createmailbox|delete|deletemailbox|expunge|mail_copy|mail_move|rename|renamemailbox|setflag_full|subscribe)
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 57B9D290-1079-4608-BCF2-95D59DBBC33B
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-01934ec8
+  name: XML Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - loadXml
+  description: 检测 XML Injection 相关的安全风险
+  cwe_ids:
+  - CWE-91
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xml_injection
+  - php
+  metadata:
+    source_rule_id: 8EE541CD-9B2A-4D8F-AEE5-11FDB5023021
+    source_category: XML Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-23ee0310
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Soap_Client.setLocation
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: 7FD2143E-46E1-4B3E-90D8-61CCD49A675F
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-23ee0310
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Soap_Client.setLocation
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: 7FD2143E-46E1-4B3E-90D8-61CCD49A675F
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-273f9096
+  name: Object Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Serializer_Adapter_PhpSerialize.unserialize
+  description: 检测 Object Injection 相关的安全风险
+  cwe_ids:
+  - CWE-502
+  owasp_ids:
+  - A08:2021
+  tags:
+  - object_injection
+  - php
+  metadata:
+    source_rule_id: E0ED268A-42AB-4865-9EF8-C1E735375676
+    source_category: Object Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-273f9096
+  name: Object Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Serializer_Adapter_PhpSerialize.unserialize
+  description: 检测 Object Injection 相关的安全风险
+  cwe_ids:
+  - CWE-502
+  owasp_ids:
+  - A08:2021
+  tags:
+  - object_injection
+  - php
+  metadata:
+    source_rule_id: E0ED268A-42AB-4865-9EF8-C1E735375676
+    source_category: Object Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bcc5d96e
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Cache_Frontend_Function.call
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: 56E1C67F-AF6C-4E12-895C-86BDBF2C8731
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bcc5d96e
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Cache_Frontend_Function.call
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: 56E1C67F-AF6C-4E12-895C-86BDBF2C8731
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e30b0b7f
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - builtin_new
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: F0D47193-AC3D-411C-BB8A-CA6612FF3AD1
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7639afd0
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - php_eval
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: D15A14AF-8852-4E62-AB18-71E6BD27EB0B
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7639afd0
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - php_eval
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: D15A14AF-8852-4E62-AB18-71E6BD27EB0B
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7bbf5f56
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Json_Expr.init^
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: BCA96DDF-98D2-4447-9576-BF1855360CE6
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fe8a0370
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Json_Expr.init^
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 061BD43C-A53B-409F-BF61-9352E96B323E
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-33f7bf5e
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - header
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: BBEB1B1D-EF0D-442C-9270-B0DF4B0CAC17
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-33f7bf5e
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - header
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: BBEB1B1D-EF0D-442C-9270-B0DF4B0CAC17
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3726d8d9
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:setUsername|(_)?redirect|setGotoUrl|gotoUrl(AndExit)?|setRedirect
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: 9A0E2C9B-826A-41D5-A8F5-8AC79581C433
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3726d8d9
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:setUsername|(_)?redirect|setGotoUrl|gotoUrl(AndExit)?|setRedirect
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: 9A0E2C9B-826A-41D5-A8F5-8AC79581C433
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-099aa689
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:where|orWhere|order
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 46CBDC27-8B27-4D39-A015-A6BD11746E22
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f14bb53e
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:where|orWhere|order
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 4D7154F6-E722-4DB5-9B44-2AC62E057BDB
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-245d95be
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - update
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: D1697813-E519-471C-8998-FAFC01AE2A49
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8fdfa8ea
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - update
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: E4AB9B08-19E9-4609-915D-56C87A056F6C
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-77171fa6
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - delete
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: EB254D4A-C408-4DB5-804A-AB74DD474A17
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fe155142
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - delete
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 7C21338E-38A3-48CE-9066-0C318027561A
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f77ec59c
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 566F84D7-BA48-4E0D-BBD8-CD54E3229297
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-cd6173f8
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: F39DF7A4-11F8-4980-826F-8E9CFBBEFF79
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b9923f33
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:query|fetchAll
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 566A2F55-4F99-4C66-AC90-FCFD13C1F140
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-5f13a81d
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:query|fetchAll
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: B2A06CF0-C959-4699-A0BA-950B6EBD03F2
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7490b9e1
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:CacheExecute|CacheSelectLimit|CachePageExecute|CacheGetAssoc|CacheGet(One|Col)
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 2AD98AA4-B330-4962-ADAD-4DFE363D2829
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bdf5d5f0
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:CacheExecute|CacheSelectLimit|CachePageExecute|CacheGetAssoc|CacheGet(One|Col)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 829DB851-6590-40BA-A556-D93B5F8CBF87
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c82c6c6b
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:Execute(Cursor)?|SelectLimit|CacheSelectLimit|CacheGetAssoc|CacheGet(One|Col)|PageExecute|GetAssoc|Get(One|Row|All|Col)|Prepare(SP)?
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 227B12E2-4162-45DA-9AB6-008701AF63BA
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-80d4cbfe
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:Execute(Cursor)?|SelectLimit|CacheSelectLimit|CacheGetAssoc|CacheGet(One|Col)|PageExecute|GetAssoc|Get(One|Row|All|Col)|Prepare(SP)?
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 0AC231B6-436A-4A53-87AE-D8EF11D99953
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f83d49cb
+  name: XQuery Injection
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:importQuery|compileQuery|compile
+  description: 检测 XQuery Injection 相关的安全风险
+  cwe_ids:
+  - CWE-652
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xquery_injection
+  - php
+  metadata:
+    source_rule_id: 440F5AC5-86BB-4C52-B4BB-A3C5BA77E7BF
+    source_category: XQuery Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-244f0a6d
+  name: XSLT Injection
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - xslt_process
+  description: 检测 XSLT Injection 相关的安全风险
+  cwe_ids:
+  - CWE-494
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xslt_injection
+  - php
+  metadata:
+    source_rule_id: A556F2D6-8A10-4A9E-922A-5DAF66C61A1C
+    source_category: XSLT Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9c10016a
+  name: XSLT Injection
+  rule_type: sink
+  category: injection
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - XSLTProcessor.importStyleSheet
+  description: 检测 XSLT Injection 相关的安全风险
+  cwe_ids:
+  - CWE-494
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xslt_injection
+  - php
+  metadata:
+    source_rule_id: 4A5793DB-A509-49C8-92F7-6D3CF2A6637E
+    source_category: XSLT Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b820fce0
+  name: XML Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - simplexml_load_string
+  description: 检测 XML Injection 相关的安全风险
+  cwe_ids:
+  - CWE-91
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xml_injection
+  - php
+  metadata:
+    source_rule_id: 06E61F0A-7AB8-4C37-AC8C-8F80C0D04391
+    source_category: XML Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-798c5326
+  name: XML Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:xml_parse(_into_struct)?
+  description: 检测 XML Injection 相关的安全风险
+  cwe_ids:
+  - CWE-91
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xml_injection
+  - php
+  metadata:
+    source_rule_id: 615AEA25-5B4F-4A05-899B-2BFEB4B36094
+    source_category: XML Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b4a70b48
+  name: XML Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:init\^|xml|loadXML|setDocument(Xml|Xhtml)?
+  description: 检测 XML Injection 相关的安全风险
+  cwe_ids:
+  - CWE-91
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xml_injection
+  - php
+  metadata:
+    source_rule_id: 1D3276DF-B5BD-4D90-95B8-104ACFA2DD51
+    source_category: XML Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-63e7cc38
+  name: XPath Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:evaluate|query|xpath|queryXpath
+  description: 检测 XPath Injection 相关的安全风险
+  cwe_ids:
+  - CWE-643
+  owasp_ids:
+  - A03:2021
+  tags:
+  - xpath_injection
+  - php
+  metadata:
+    source_rule_id: BDE09E23-6B8C-4983-8E36-F33B84095FEE
+    source_category: XPath Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a702d1ef
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:create(Sequence|Trigger)
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 0D35C665-8C51-4424-8E21-F5A26DDA4378
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-405a2c1b
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:create(Sequence|Trigger)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 87D450BA-92F5-416C-B964-65F7A2BE9279
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ba5aac2f
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - DboMysqli._executeProcedure
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 8514A1BC-DC37-4470-98A3-87595D4DAAD3
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0f693367
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - DboMysqli._executeProcedure
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 82F2D22F-FC96-4D8F-B1A0-D5631B0D8EB3
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-12a01366
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - DboSource.update
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: DFD8E06D-2B0C-4C30-9A7E-D7F861A1420C
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-4b808ffb
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - DboSource.update
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 9EADAC9F-1520-4F79-991A-03CBCDEB0700
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1c7d5c34
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:fetchAssociated|field|hasAny
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: AA7149A4-17D4-4A2D-BFAA-A1AFCFEDA2D6
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-331ac0ac
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:fetchAssociated|field|hasAny
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 77119966-2F2D-4FD6-B64D-DF191F232BFF
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-30cb2f74
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(_)?execute|fetch(All|Row)|query|rawQuery
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 59BA3A19-77ED-43BD-A7C0-19CEF5D4C57C
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-792179f7
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(_)?execute|fetch(All|Row)|query|rawQuery
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: F52E5A6C-E942-4F48-9F8C-48F4C8EA068C
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ffa95cdd
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - DboSource.delete
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: DA7B68F6-2CC1-4D94-AC36-B7DFFF193405
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-39fb4486
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - DboSource.delete
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 04452E1A-3777-4BD4-9145-BAD1BC035C57
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0d83f6c5
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Model.query
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 9AA8743A-E4AB-491A-A1FE-135EBD41CBAE
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-5152f20f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Model.query
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: C78E2C07-99DB-4CE9-A311-94DB9ACFAAAC
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-664b0f9b
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - SessionHelper.flash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 44ABD9C0-BF64-49C2-9E05-EE89971A6959
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0a8b4c58
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - SessionHelper.flash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 4E57A641-FC56-4BBF-9143-7852502E056F
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-afbe8870
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - JavascriptHelper.event
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 6C3E7A18-C1E5-4CC8-A9D0-91FC1D508AD2
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0ace92d6
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - JavascriptHelper.event
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 56E8C13D-1B51-4628-B7A8-9D9C63EECA34
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-340e4701
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setFileUpload
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: FC3562E3-5403-4BF1-A119-F6B60D95E37D
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ace4cb95
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setFileUpload
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 97C068B7-008D-4D8A-9F80-82A4FC5DE453
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bc8d8827
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Http_Client.setFileUpload
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 2E9F1735-2F81-45A8-80DF-E046257FEA88
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-82d7cb21
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(add|set)ScriptPath|(add|set)BasePath|render|init\^|setDestination
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 9E490DA3-7810-4D86-8E15-C0BC1F8EF808
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-79195ffe
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(add|set)ScriptPath|(add|set)BasePath|render|init\^|setDestination
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: AD6BF302-E4ED-42EC-ABF9-3D0AEB4C8912
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c496e1ad
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 2266CFC4-6FEC-45C1-8BAE-0F62232160C2
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-402c208b
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 5EBA4A6C-596E-43D9-9F9E-C95C679C0CAE
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-55393468
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 11AF0AB1-3598-4219-AFF7-E983E4D149D1
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e7b5955b
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:load|loadHTMLFile|save|saveHTMLFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 910D5EA2-9E08-409A-9DAB-6C85BAA046D6
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-5f76f215
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:load|loadHTMLFile|save|saveHTMLFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 66F5AFB0-F850-4CF9-B29B-1A529135D14D
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-5f76f215
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:load|loadHTMLFile|save|saveHTMLFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 66F5AFB0-F850-4CF9-B29B-1A529135D14D
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2ae10a99
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Cache.cache
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 8B922252-B244-443D-A354-4101885FAFC8
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a861fc73
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Cache.cache
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 6133F5E9-3B0F-4DDB-856B-B21C32A20BF6
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a861fc73
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Cache.cache
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 6133F5E9-3B0F-4DDB-856B-B21C32A20BF6
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1c897717
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - View.error
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: E62E0E81-3DC4-49FA-BA88-5CDD3D4CA232
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-365bee4f
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - View.error
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 5BCDB453-545F-474F-919D-0D2DCDF75E26
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ece07215
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Helper.loadConfig
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 2920489A-FEE5-421F-809E-83F115BBA18B
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e0aab0bc
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Helper.loadConfig
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: DB57812D-7C9C-4D4B-99EB-A8B584CB62A5
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e0aab0bc
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Helper.loadConfig
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: DB57812D-7C9C-4D4B-99EB-A8B584CB62A5
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3f248071
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - SessionComponent.setFlash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: F6AC64F8-07C7-4929-9348-2A75EF80F779
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-07654797
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - SessionComponent.setFlash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 56824188-DC93-43FC-8C52-FAA6955E8C2D
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fc3aeb8c
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - EmailComponent.send
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: BC75DB81-4DEB-43DD-B700-8D02D44D49DE
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-faca1f6a
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:redirect(Url)?
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: A472C747-C0E3-47DA-8ABC-831AF001C7EF
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-faca1f6a
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:redirect(Url)?
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: A472C747-C0E3-47DA-8ABC-831AF001C7EF
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-6c5e13e0
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - IniAcl.readConfigFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: E842BA49-5F08-4F44-A432-E3C0BD254856
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a0cfd9f2
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - IniAcl.readConfigFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 41906409-D799-4693-A30C-BB776FB7BC57
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a0cfd9f2
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - IniAcl.readConfigFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 41906409-D799-4693-A30C-BB776FB7BC57
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-16bf18f0
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Controller.loadModel
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 5FCC9B62-E75F-4CB5-AC25-F7C8C4FE01F2
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c30c46d5
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Controller.redirect
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: DA6167B8-FA88-446B-8546-7B2D5C42F611
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c30c46d5
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Controller.redirect
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: DA6167B8-FA88-446B-8546-7B2D5C42F611
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-46542279
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Controller.flash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 9054C7EF-0CD7-434F-9D59-929706A55E53
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-5ca99e2d
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Controller.flash
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 88DB966E-31A4-4CC8-84C9-BF1FDADC3FA2
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-cdae4c51
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - MagicDb.analyze
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 2ECED04F-284E-49D0-A068-FF91023BE154
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-352ed3ee
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - MagicDb.analyze
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 39426229-0D91-47EC-940D-64201E0C32BE
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-352ed3ee
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - MagicDb.analyze
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 39426229-0D91-47EC-940D-64201E0C32BE
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7838e376
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:cd|chmod|__construct|copy|cp|create|delete|inPath|mkdir|move|mv|rm|tree
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: F9F3E9FF-9F0F-4223-9798-F4C416330BAA
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8bc3f9d8
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:cd|chmod|__construct|copy|cp|create|delete|inPath|mkdir|move|mv|rm|tree
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 88F48D36-515A-4697-95B7-57E54C11B6C9
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8bc3f9d8
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:cd|chmod|__construct|copy|cp|create|delete|inPath|mkdir|move|mv|rm|tree
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 88F48D36-515A-4697-95B7-57E54C11B6C9
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-712eb10c
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:__construct|error(404)?|missing(Action|Component(Class|File)|Connection|Controller|Database|Helper(Class|File)|Layout|Model|Table|View)|privateAction
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 75B27097-F1BF-40A6-A455-4DB65F82CA1E
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-adad93bc
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:__construct|error(404)?|missing(Action|Component(Class|File)|Connection|Controller|Database|Helper(Class|File)|Layout|Model|Table|View)|privateAction
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 36255516-B8BC-4A1E-879E-140120A40483
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-44c6fc73
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Debugger.handledError
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 364248EE-F5B9-4D30-8CA4-3CE17B6E84B8
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d353b219
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Debugger.handledError
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: F2668C66-A3EE-4BCD-A715-FC6C6FDB2CA8
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-df007c13
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Debugger.dump
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 8C43E525-856C-45C3-BD98-6AD4AAF1E187
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d1ca96de
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Debugger.dump
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 925659F8-E951-481C-B1BB-8EBA63593778
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-16cad6d9
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Configure.delete
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 1D8DBF4C-80D0-41AE-B581-3D9A6688693A
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9919b9a8
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Configure.store
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 3B6C6883-6133-4E33-894F-C7E32B627938
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-87f2a4ec
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Configure.store
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 27FE79B5-6393-40B8-99E9-37852FB173B8
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-87f2a4ec
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Configure.store
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 27FE79B5-6393-40B8-99E9-37852FB173B8
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3ee9e956
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(build|core)Paths|__list|load
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 9019A8CE-A194-4336-B287-B54F3A1D5F57
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-03b4645f
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(build|core)Paths|__list|load
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 6DBBAC15-6D4C-45DF-BE31-D35405DE1C9A
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-03b4645f
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(build|core)Paths|__list|load
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 6DBBAC15-6D4C-45DF-BE31-D35405DE1C9A
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8843442f
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ClassRegistry.init
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 9FE75F0E-9005-49A9-B939-1B67A5504875
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bd424ee0
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Log_Writer_Stream.init^
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: D6724327-50F5-477B-B87F-E27F2D3EB2BB
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e0897118
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Log_Writer_Stream.init^
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 3A32A4A6-C838-4F4F-BB70-DC681F1345AA
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e0897118
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Log_Writer_Stream.init^
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 3A32A4A6-C838-4F4F-BB70-DC681F1345AA
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c32e5845
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - CakeLog.write
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 39CAEEBB-9619-43CD-AEB1-06BFB6320E5E
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2baf8f64
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - write
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: DF5D0927-3628-4C69-80E2-E8BF58B2F8D4
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2baf8f64
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - CakeLog.write
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: DF5D0927-3628-4C69-80E2-E8BF58B2F8D4
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-cca8dc87
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:delete(Many)?
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 37C7F5E4-2B76-4C81-807E-208F0C436AE2
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bf5e6336
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - fileExistsInPath
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 49C2E681-0EB6-46FB-9A5E-E0980731F5CF
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-efa5294a
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - fileExistsInPath
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 451BFC49-8B3E-446E-B693-8F19310E1C61
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-efa5294a
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - fileExistsInPath
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 451BFC49-8B3E-446E-B693-8F19310E1C61
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-10b5b458
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - clearCache
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 5374F392-591D-4633-BF55-B67F0943ED06
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9c1e1dd5
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - clearCache
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: A9BD8B3C-5342-4BD0-9B1A-7F0E24D33854
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9c1e1dd5
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - clearCache
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: A9BD8B3C-5342-4BD0-9B1A-7F0E24D33854
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-932571e7
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - cache
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 9A3D1817-9BF9-414A-A8F9-33637F4446C3
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9b6f88ad
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:e|pr
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 7B315502-A659-4902-A01D-164511D98409
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-59a25343
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:e|pr
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 61726732-CBAF-4A74-9E10-EC7ABBFE7B23
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-dce14d6f
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - debug
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: B659A9ED-CB7A-4EEC-BFD7-5C2B0B1C2F79
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1ccf7409
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - debug
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 7497407B-C111-4AC7-A6EE-5D38D9B79209
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-dea6e11e
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - config
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 4DBB03F5-3AF7-4EBC-AA68-2A287FDD8D17
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-353bb02f
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:import|uses
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 4B0D87FB-1FEC-453B-90B9-303E114C6305
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e7089a54
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - DOMDocument.loadHTML
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: CB018360-E0E9-4BBD-B7A3-3FA0966BF006
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d6fd17d8
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Smarty.display
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: EC3DCFEA-80FA-4582-BC9B-92F08941AA25
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f32c6b24
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:append|insert|prepend
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: DA9457D2-C269-4114-A9B1-252C6CD451B1
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3cc14084
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(append|set)Body|insert
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 9CD4D088-E741-4D9C-8E0A-17D8791DD774
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2b6cac17
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - DOMDocument.loadHTML
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 8122B144-30AD-4AE0-812C-2EDAF997F9A7
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-293fc99c
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Smarty.trigger_error
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: 2B5FA8E7-FA8A-41c3-B464-C89067E7D153
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-e91c5218
+  name: 'Cross-Site Scripting: Reflected'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:builtin_(echo|print)|(v)?printf|var_dump|debug_zval_dump|fpassthru
+  description: 检测 Cross-Site Scripting 相关的安全风险（Reflected）
+  cwe_ids:
+  - CWE-79
+  - CWE-80
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: F9CB8F3E-C813-44CF-AF70-9BFA6609105D
+    source_category: Cross-Site Scripting
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-36557b0b
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - error_log
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: F98503FC-E095-477A-9DDE-9DCE7EB69C6A
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-212800f4
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - error_log
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: EC04C3E0-56E7-43ee-B2A0-50B0577E7681
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-212800f4
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - error_log
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: EC04C3E0-56E7-43ee-B2A0-50B0577E7681
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2f5253e5
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_import
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 66BB3EDA-3E75-432C-93BB-83CB763AB78C
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f523f2a5
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_import
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 77BBDE77-2DE2-4e54-97B8-D6A833FB6F77
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f523f2a5
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_import
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 77BBDE77-2DE2-4e54-97B8-D6A833FB6F77
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2ade3623
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_import
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 689C2BE2-DBA7-41B0-8838-C56614E4B5A2
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d849e766
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_import
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 6B0A73EC-1B58-472c-B45E-6FDAEEF39C66
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d849e766
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_import
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 6B0A73EC-1B58-472c-B45E-6FDAEEF39C66
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-258a40dd
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_trace
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: DCB91E61-79DE-49BE-BF73-C5B21035DCCB
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1136a5f6
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_trace
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 82C43EC0-79A7-4074-8593-91A52809A74E
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1136a5f6
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_trace
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 82C43EC0-79A7-4074-8593-91A52809A74E
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0ad7c7fb
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_export
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 0689AED2-40CA-4D18-B93A-1AF9FC03D4AA
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-eff383ed
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_export
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: BDBB0D42-FBE0-4529-A324-D97B9C85653F
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-eff383ed
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - pg_lo_export
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: BDBB0D42-FBE0-4529-A324-D97B9C85653F
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1d504982
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:pg_(send_)?prepare
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: EEFC86C0-F335-4CEE-B9FF-E450325C352C
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-74e085d5
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:pg_(send_)?prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: A7C13D3A-CEF1-44c8-AC7E-0D1815510892
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b2a6f4cd
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - move_uploaded_file
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 07007D69-B311-4B6A-9716-C331DBAAB104
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-38b93a03
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - move_uploaded_file
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: AC0356C0-C404-4C78-AD97-F97D8BF3ECC2
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-38b93a03
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - move_uploaded_file
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: AC0356C0-C404-4C78-AD97-F97D8BF3ECC2
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a59f9b2b
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ch(grp|mod|own)|lch(grp|own)|(mk|rm)dir|unlink|delete|file(_(get|put)_contents)?|(f|gz)open|(read|gz)file|(f|gz)passthru|readgzfile|parse_ini_file
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: C0950EC4-9C65-448D-B008-6FE4E04DA794
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b0324b38
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ch(grp|mod|own)|lch(grp|own)|(mk|rm)dir|unlink|delete|file(_(get|put)_contents)?|(f|gz)open|(read|gz)file|(f|gz)passthru|readgzfile|parse_ini_file
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 39C8F541-9D6D-4BFC-ADD4-9C6A0D457548
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-b0324b38
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ch(grp|mod|own)|lch(grp|own)|(mk|rm)dir|unlink|delete|file(_(get|put)_contents)?|(f|gz)open|(read|gz)file|(f|gz)passthru|readgzfile|parse_ini_file
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 39C8F541-9D6D-4BFC-ADD4-9C6A0D457548
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1efbb6b7
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:copy|(sym)?link|rename
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: C3351772-7D33-4B88-A258-30A73BF82AAA
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bc575dbc
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:copy|(sym)?link|rename
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 2C45C166-BCF6-49A2-BF4C-99109AF04725
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bc575dbc
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:copy|(sym)?link|rename
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 2C45C166-BCF6-49A2-BF4C-99109AF04725
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bc7eb5c6
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - create_function
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: D88FE485-F951-452C-8450-4162F2CBDC28
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bc7eb5c6
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - create_function
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: D88FE485-F951-452C-8450-4162F2CBDC28
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-348b1f03
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - builtin_eval
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: 7F3E3BED-5B8A-4413-B301-2072DE464140
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-348b1f03
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - builtin_eval
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - php
+  metadata:
+    source_rule_id: 7F3E3BED-5B8A-4413-B301-2072DE464140
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-dcd3739e
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - preg_replace
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 5453FBE6-31B0-4C22-A73B-5AD1FFEEF67F
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3c6ed2a3
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - preg_replace
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: D8E95209-2E1B-463E-BB97-F133DF4E9F46
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3c6ed2a3
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - preg_replace
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: D8E95209-2E1B-463E-BB97-F133DF4E9F46
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-bcbdd74c
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(ssh2|ssh1)_exec
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 83DDC685-F3CE-4DB3-AE94-DE1C7FC60B05
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-5b8e14cb
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(ssh1|ssh2)_exec
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 363BDE04-16E1-49A5-8F73-66BFD132A38B
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7e77669c
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(ssh2|ssh1)_exec
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 720AB1CD-C941-418E-884C-0AF2811E721D
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-92d94c45
+  name: Object Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - unserialize
+  description: 检测 Object Injection 相关的安全风险
+  cwe_ids:
+  - CWE-502
+  owasp_ids:
+  - A08:2021
+  tags:
+  - object_injection
+  - php
+  metadata:
+    source_rule_id: AA400BA9-A819-4DD4-BD8D-B88B46333132
+    source_category: Object Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-92d94c45
+  name: Object Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - unserialize
+  description: 检测 Object Injection 相关的安全风险
+  cwe_ids:
+  - CWE-502
+  owasp_ids:
+  - A08:2021
+  tags:
+  - object_injection
+  - php
+  metadata:
+    source_rule_id: AA400BA9-A819-4DD4-BD8D-B88B46333132
+    source_category: Object Injection
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-9dbcb036
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(shell_)?exec|passthru|(proc_|p)open|system
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 774EF148-27EE-4089-AD20-A8DDAC586962
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0ae3cc13
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(shell_)?exec|passthru|(proc_|p)open|system
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: A97A26BE-D2E0-40BC-A2E9-5D7613D74CAE
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0ae3cc13
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(shell_)?exec|passthru|(proc_|p)open|system
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: A97A26BE-D2E0-40BC-A2E9-5D7613D74CAE
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a8e34d8c
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:exec|prepare|query
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: B585DAF2-41B9-4E8D-8015-7892524D89E3
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-ea6e333e
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:exec|prepare|query
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 88A0BDFF-452D-475F-96AF-C55E817A31DD
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-1a6c8f73
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysqli_(((multi_|real_)?query)|(stmt_)?prepare)
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 8FE82CAC-5E7E-491F-A8D0-DD41067E2951
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0301afc4
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:mysqli_(((multi_|real_)?query)|(stmt_)?prepare)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: FF858C20-4BCD-4EBA-8DBA-F1502AB06D2E
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2b0228b2
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - mysql_db_query
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: C4003E3F-099E-4FBE-8479-21DBAF27895B
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-6dc0bcde
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - mysql_db_query
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: B072074A-167D-4FF0-9B93-9AEC881E47FA
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-2b4387ad
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:pg_(exec|(send_)?(execute|query(_params)?))
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 8EC431CE-0103-4C2D-8A6E-E8CCBCF17F1F
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-97f833e6
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:pg_(exec|(send_)?(execute|query(_params)?))
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 73885FC1-B277-49BE-9AEC-FE3D1E977999
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-da3f5cf7
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - odbc_exec
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 6BE4827A-FF7C-4771-8F7E-E00A6FA5B0C1
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-6650920d
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - odbc_exec
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: F5F4EBD5-17DC-4CA9-BC0F-8E2F29B0FB94
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-950ba338
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(query|(drop|create)_db)
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 67642287-7FBB-4A94-910D-A5DA762659BF
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fc27ec54
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(query|(drop|create)_db)
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 68AEEAD7-0339-4859-BE8D-EC60200DC107
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0a7d0793
+  name: 'Cross-Site Scripting: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:builtin_(echo|print)|(v)?printf|var_dump|debug_zval_dump|fpassthru
+  description: 检测 Cross-Site Scripting 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-82
+  - CWE-83
+  - CWE-87
+  - CWE-692
+  - CWE-079
+  owasp_ids:
+  - A03:2021
+  tags:
+  - cross-site_scripting
+  - php
+  metadata:
+    source_rule_id: C5624965-3160-4822-AC22-405F9A741ED8
+    source_category: Cross-Site Scripting
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-48073aac
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_connect|ftp_ssl_connect
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: CB6C166E-E02F-4766-86C9-F1582EFBF5DB
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-eb535265
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(exec|raw|site)
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: B6AA67F6-3A89-44AF-A46F-D2AC872F87D6
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-f31e018c
+  name: Command Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(exec|raw|site)
+  description: 检测 Command Injection 相关的安全风险
+  cwe_ids:
+  - CWE-77
+  - CWE-78
+  - CWE-078
+  - CWE-077
+  owasp_ids:
+  - A03:2021
+  tags:
+  - command_injection
+  - php
+  metadata:
+    source_rule_id: 6DC48586-0BC9-44E7-B3B2-98CA8361C888
+    source_category: Command Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-c55e7145
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(append|get|nb_fget|nb_get|nb_put|put|rename)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 290CEC21-8E1D-4652-9DDF-B47185734929
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-48d5e103
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(append|get|nb_fget|nb_get|nb_put|put|rename)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: BA7B86E0-0A76-40F6-BD6E-538A3AE1C1FA
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-33c7307f
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(chmod|fget)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 9CA593CD-2E1E-4DC2-9AA1-2DE89814B078
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-66d9068d
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(chmod|fget)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: D2E35774-1C78-411D-AE81-668947DFBDFC
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-a6ccf104
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(chdir|delete|fput|mkdir|nb_fput|rmdir|size)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 39C6264F-A477-4AFB-BE9C-C724D4AF38AF
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7a2faf3d
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ftp_(chdir|delete|fput|mkdir|nb_fput|rmdir|size)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: F75564D1-92B1-4C58-B892-7B126C127B42
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-536b814c
+  name: LDAP Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:ldap_search|ldap_list
+  description: 检测 LDAP Injection 相关的安全风险
+  cwe_ids:
+  - CWE-90
+  owasp_ids:
+  - A03:2021
+  tags:
+  - ldap_injection
+  - php
+  metadata:
+    source_rule_id: C99683EC-217F-43E7-A685-E186D3B426C1
+    source_category: LDAP Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-4f6b46e7
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - http_redirect
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: 1DADAC72-1BB6-4125-BB79-610E01DBA962
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-4617867d
+  name: Open Redirect
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - header
+  description: 检测 Open Redirect 相关的安全风险
+  cwe_ids:
+  - CWE-601
+  owasp_ids:
+  - A01:2021
+  tags:
+  - open_redirect
+  - php
+  metadata:
+    source_rule_id: 4A2602EE-1CB2-4AC0-BA65-AC5DA800F7BE
+    source_category: Open Redirect
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-8eebeac0
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - oci_execute
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 643F1665-41C4-4417-BC3D-EB1816A74F7B
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-7bcc3025
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - mysqli_stmt.prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: DDFBED7E-DAEE-4B2C-A6D6-D0E76FB8EA1F
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-00904018
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(multi_|real_)?query|prepare
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 0155A3F3-19E4-4264-BA05-4792C1FAE0AD
+    source_category: SQL Injection
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d6a9546d
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - mysqli_stmt.prepare
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: CC70F879-9B7E-4E6C-A93A-92D349D49FFF
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-d52b8ada
+  name: 'SQL Injection: Poor Validation'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(multi_|real_)?query|prepare
+  description: 检测 SQL Injection 相关的安全风险（Poor Validation）
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - php
+  metadata:
+    source_rule_id: 45E71AFE-8F0C-4EDE-8240-B4AF6D22DF01
+    source_category: SQL Injection
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3990e5e8
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Cache.engine
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - php
+  metadata:
+    source_rule_id: 421D5C88-CFB4-4FE8-9689-B5EB34FD415E
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-fd020deb
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:add(File|Glob|Pattern)
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 264984F3-C65A-4FE7-9A88-3531C4E7755B
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-052e1a48
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - ZipArchive.replaceFile
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: F8BE88DA-9FA9-48E6-B6B9-114A86614DC2
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-3323c0e1
+  name: Path Manipulation
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - ZipArchive.open
+  description: 检测 Path Manipulation 相关的安全风险
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: 3E5333B1-BCBC-4A7D-B1DC-280B15BC348A
+    source_category: Path Manipulation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-injection-0cb768aa
+  name: 'Path Manipulation: Zip Entry Overwrite'
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ZipArchive.extractTo
+  description: 检测 Path Manipulation 相关的安全风险（Zip Entry Overwrite）
+  cwe_ids:
+  - CWE-22
+  - CWE-73
+  - CWE-022
+  - CWE-020
+  owasp_ids:
+  - A01:2021
+  tags:
+  - path_manipulation
+  - php
+  metadata:
+    source_rule_id: B7DF2B0E-57A8-4BC6-9EB6-CF1B180772B3
+    source_category: Path Manipulation
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:13.469214'
+  total_rules: 305

@@ -1,0 +1,1178 @@
+rules:
+- id: python-ssrf-35b7116b
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Http.request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 08776706-7724-4B07-9978-D33B68251A9C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-9df9311c
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Http.request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: DBC927BC-FAD7-41CC-9BCA-E511766AE93B
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-1d5cb09a
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:__init__|connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 657F4B1D-62A4-41D5-93DF-EA1A236F3355
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-77c71ae3
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:__init__|connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: DFBA5467-B291-460B-8643-B1323404E77A
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-cd803bff
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - requests.models.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: BA6BFE93-D097-4DB7-8D82-804DD66EFBC2
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-301080e5
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - requests.models.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: D1D1CCF2-FC70-471B-A4CC-A558FD7C0EC3
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-3ac26f55
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:get|put|post|delete|head|options
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: F9BB8082-477A-4AF7-B685-FAE315FD8FBA
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-d7d8d7e6
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:get|put|post|delete|head|options|request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 62265A5C-2C39-48EF-B676-48A2F40B58D6
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-a4c783fe
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:get|put|post|delete|head|options|request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: BE0F92DD-D9DA-48DA-B0A2-965993B0452E
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-853cf1cb
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:get|put|post|delete|head|options|request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: A30BA96D-0F35-416F-850A-102ED321A6AF
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-db42c423
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - httplib.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 54BC3D08-E045-4003-8583-18DBDCE404CE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-044b54cd
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - httplib.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 1F6EF857-7BFE-4134-BBFF-277D90618651
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-11220ef9
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - OpenerDirector.open
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: DB5731B9-2C27-4201-B7B5-3AE9DDEA6B1C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-e9aa7843
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - OpenerDirector.open
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 1DDEB869-4CE2-4D09-930F-13F6A836DB9D
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-84705b52
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Request.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: E7206E06-2EA0-4E69-A838-992B98FDC4C5
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-25898348
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Request.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: FB41300D-2C01-4984-95AD-3D9EEFD8F7E9
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-c502d5e2
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib2.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: A00EBA2D-7A25-48EF-A8A9-14EE3453E0B4
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-17404e6d
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib2.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: DFC21E49-DD19-4ABF-B1A4-11CB9EF262DE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-17404e6d
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib2.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: DFC21E49-DD19-4ABF-B1A4-11CB9EF262DE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-1419a345
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:open|open_unknown|retrieve
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 4C02DC15-D7C3-450F-8DBC-034AAAEF5A50
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-55b44c01
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:open|open_unknown|retrieve
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 5D0AD6DB-B71B-49F4-9865-49888F7D1454
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-59cc3900
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:urlopen|urlretrieve
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 0EA0E40A-239A-429C-9748-6D3129ED096E
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-cd535cbe
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:urlopen|urlretrieve
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 01DBFFB7-C9A1-4EC8-939F-9218ED6C310F
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-cd535cbe
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:urlopen|urlretrieve
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 01DBFFB7-C9A1-4EC8-939F-9218ED6C310F
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-3f24b174
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - SSLSocket.sendto
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 3EA9C08C-264C-46C9-9565-D5E6D937D576
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-17bf1e54
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - SSLSocket.sendto
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 4DEDFBAC-D6F6-46F8-A2D4-B865F9FE9CE6
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-3e297653
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - SSLSocket.connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: BC9A0F80-0B3D-44CC-A1A8-46951B30F83C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-1d85fa75
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - SSLSocket.connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: F4087826-D6AD-4844-A474-2121CEB46A4B
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-427a3fac
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - _socketobject.sendto
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: C5B13F1F-3CD5-4D88-89B5-5FE02A4A13DA
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-30af56a7
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - _socketobject.sendto
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 0DFD4683-BDFE-4BD7-A963-DBE6939E519D
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-16e4c847
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - _socketobject.connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: FBC14B2C-C375-47E8-892D-28A6FE2729B6
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-fe218e20
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - _socketobject.connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 0B91F761-624E-4FDB-A677-1ACFC5D5A2C3
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-15734072
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - socket.create_connection
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 56CDD2A1-7D92-4629-9FC1-F730ED881797
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-06f89c10
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - socket.create_connection
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 34A5B067-B434-44B2-BC2C-E54B0168B623
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-06f89c10
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - socket.create_connection
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 34A5B067-B434-44B2-BC2C-E54B0168B623
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-4313037a
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:__init__|connection_from_url
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: A26F9A2A-D929-4388-9A7B-5139FE5A5752
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-a29d0f99
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:__init__|connection_from_url
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: AA97E1DB-AD80-4264-BF44-3EBD874143E3
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-993541f9
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.poolmanager.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 297B38FF-0F05-4EF0-8979-F541943E1E8C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-41493a11
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.poolmanager.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: A0C7093A-B9CB-4F3C-9DFB-0E68F919282B
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-95bf52d7
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connectionpool.connection_from_url
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: C10F4ED7-BCD8-4D04-9189-E765301EF7C9
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-7bd7731e
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connectionpool.connection_from_url
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: CAF1A1D4-4FE8-42F5-B28F-4737C0A3E3CD
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-d3de9420
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connectionpool.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 1192C9BC-F3D9-4F53-B5D8-143341A0C1D8
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-5791e472
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connectionpool.urlopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 64AE041A-8B63-48B9-8EB6-F44189585E2D
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-09e0fb68
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connectionpool.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 7813D865-049A-484A-91A8-5891E59A6DDA
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-234f7181
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connectionpool.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 14E020F5-4B1B-44C6-9A5D-3D51337DD9BE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-c3dd9a26
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:request(_encode_(url|body))?
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: AB1E5B4A-956C-4619-A4D3-1DE52D5DB688
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-63c86cab
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:request(_encode_(url|body))?
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 7B742F01-8BBD-452D-8864-ED8CEACE1BBE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-4118e79a
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connection.request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 081F6909-8F15-4971-9F58-64373C2AC0CA
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-102aed36
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connection.request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: 3885A620-7B24-4694-BA92-ACC1A58FA215
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-01465269
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connection.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: C525B40E-689B-4637-99A3-8CCE94BAC4BD
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-ssrf-9d6f6c87
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib3.connection.__init__
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - python
+  metadata:
+    source_rule_id: F4EE2910-9B0A-4F59-90DC-55B72B913981
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:11.710746'
+  total_rules: 51

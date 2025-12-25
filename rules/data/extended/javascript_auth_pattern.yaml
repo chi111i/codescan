@@ -1,0 +1,1205 @@
+rules:
+- id: javascript-auth-335c94ac
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: e9bf2e2b-153f-4c52-b30b-9a1299e413bc
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-335c94ac
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: e9bf2e2b-153f-4c52-b30b-9a1299e413bc
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-278454ac
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: e7154b73-6e06-45fb-86a8-8e253434d284
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-278454ac
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: e7154b73-6e06-45fb-86a8-8e253434d284
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-d237fb3e
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: ce9fa1ed-8086-411a-8de8-73c91b977ae2
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-d237fb3e
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: ce9fa1ed-8086-411a-8de8-73c91b977ae2
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-e64bf88e
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 7250fdfd-b51f-4eff-b729-f322992a624c
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-e64bf88e
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 7250fdfd-b51f-4eff-b729-f322992a624c
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-952a4079
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 0A1504CD-0409-4910-890A-1461F1233EE9
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-952a4079
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 0A1504CD-0409-4910-890A-1461F1233EE9
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-0dde7b2b
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: A79E289A-14D7-4dfd-8E34-F249133A69FE
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-0dde7b2b
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: A79E289A-14D7-4dfd-8E34-F249133A69FE
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-6aff3a7b
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 7BAF6892-5A6C-4634-AF2A-F823578F81FD
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-6aff3a7b
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 7BAF6892-5A6C-4634-AF2A-F823578F81FD
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-19ec0e7d
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: ba7adc18-2937-430c-8031-209abbea53ee
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-19ec0e7d
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: ba7adc18-2937-430c-8031-209abbea53ee
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-dab7d11d
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 170185FE-3E08-4ED3-BAD9-3877F43EEC89
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-dab7d11d
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 170185FE-3E08-4ED3-BAD9-3877F43EEC89
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-e9ce0368
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: F0EA844C-9892-4509-BF54-6D93D7C99315
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-e9ce0368
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: F0EA844C-9892-4509-BF54-6D93D7C99315
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-5f1e3852
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: eae0ba12-94b7-4774-a4d7-3e75e9b03ab9
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-5f1e3852
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: eae0ba12-94b7-4774-a4d7-3e75e9b03ab9
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-bb1f81a7
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: A4FDA087-7EBE-485F-A7F8-5B2C20DF6E0A
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-bb1f81a7
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: A4FDA087-7EBE-485F-A7F8-5B2C20DF6E0A
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-b94272ec
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 723D60F2-608D-4435-A99F-CACA7DA7E6FE
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-b94272ec
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 723D60F2-608D-4435-A99F-CACA7DA7E6FE
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-20ce9b5b
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 506E034D-BF70-4BF1-A192-5535D0D37B15
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-20ce9b5b
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 506E034D-BF70-4BF1-A192-5535D0D37B15
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-2b87c5fb
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 150E61F9-7F96-4641-A618-F238BD72B13C
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-2b87c5fb
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 150E61F9-7F96-4641-A618-F238BD72B13C
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-64c1ac41
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 84ED5B6C-B1AD-4D09-90BD-CB247CF37A6B
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-64c1ac41
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 84ED5B6C-B1AD-4D09-90BD-CB247CF37A6B
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-467fef4d
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 83102439-03ec-4b00-9e7a-d0c8b55d5a70
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-467fef4d
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 83102439-03ec-4b00-9e7a-d0c8b55d5a70
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-fef37008
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: i2dae2473-87d9-4374-9c0e-c64290063ef3
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-fef37008
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: i2dae2473-87d9-4374-9c0e-c64290063ef3
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-9d20758c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: FE6EFD72-B1EE-44CF-9553-1AE30FB2ABDD
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-9d20758c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: FE6EFD72-B1EE-44CF-9553-1AE30FB2ABDD
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-5abbe435
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 5C516548-4EE7-4B77-9B23-4E4C23294D05
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-5abbe435
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pwd.*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: 5C516548-4EE7-4B77-9B23-4E4C23294D05
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-36c68122
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: FB43D79C-B4E6-4016-A720-6F7AC1EE5504
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-36c68122
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: FB43D79C-B4E6-4016-A720-6F7AC1EE5504
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-c0263c9b
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: D5C1CCF5-3180-415B-A904-A9EEBA33E8A5
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-c0263c9b
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)pwd
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: D5C1CCF5-3180-415B-A904-A9EEBA33E8A5
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-79d6b88c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: D6E6DFB6-6664-4FC9-BFE8-502BAE140905
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-79d6b88c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: D6E6DFB6-6664-4FC9-BFE8-502BAE140905
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-1c990d62
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: B597124D-3BC9-4831-ACA6-84762DE48A12
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-auth-1c990d62
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - javascript
+  metadata:
+    source_rule_id: B597124D-3BC9-4831-ACA6-84762DE48A12
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:12.223689'
+  total_rules: 48

@@ -1,0 +1,1172 @@
+rules:
+- id: php-crypto-49168d86
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?((enc(ryption|rypt)?|crypto)(_)?key)
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: CF4F7FAD-5FEC-4C61-B8C9-961535714FD1
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-81691e28
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$((enc(ryption|rypt)?|crypto)(_)?key)
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: EE2FEE8B-A52E-4E5D-A62B-6005CFD4CA48
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-260b811c
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?((enc(ryption|rypt)?|crypto)(_)?key)
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 0F7C06B9-4467-45CD-BD53-08B37FBA3926
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-3092f034
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$((enc(ryption|rypt)?|crypto)(_)?key)
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 4DABBB80-CA1B-45AA-9821-A1F48A7BD1AC
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-8dde0aa9
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?((enc(ryption|rypt)?|crypto)(_)?key)
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 51F26EEF-B5FF-46F8-B2C5-406EB3EC6D68
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-5ced6aa1
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$((enc(ryption|rypt)?|crypto)(_)?key)
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 73AFFE6A-E12F-4FA2-B53A-BE7F80A7AC9E
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-04201cfc
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?(.*enc(?!e|o|y).*key.*)
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 877925E0-BFB2-45FE-BBDD-F4DFE96AA39A
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-8720df7b
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$(.*enc(?!e|o|y).*key.*)
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 8C7063BE-4B29-467F-B3DD-485DA15CFC0D
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-88230fa6
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?(.*enc(?!e|o|y).*key.*)
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: DA4EEADB-BE82-4537-B685-5A5034AB3447
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-84ac07d8
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$(.*enc(?!e|o|y).*key.*)
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: F217D816-6659-4B1F-8F6A-0D7FA8C781B1
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-3d482602
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?(.*enc(?!e|o|y).*key.*)
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 613C93A7-8D45-4E11-A012-FBC0DF10CA06
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-440b7540
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$(.*enc(?!e|o|y).*key.*)
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: F949096B-92D8-42EA-90F9-C3BF9CA0A370
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-3155e465
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(?i)MCRYPT_RC2
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - php
+  metadata:
+    source_rule_id: BC4B279A-F058-4A66-93C6-AB0899FDCF3A
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-a4df6331
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(?i)MCRYPT_((3|TRIPLE)?DES(_COMPAT)?|ARCFOUR|RC4)
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - php
+  metadata:
+    source_rule_id: A12330FA-9965-4B04-BAD9-0F74B42780E4
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-25108ddb
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)MHASH_(MD2|MD4|MD5|SHA1)
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 01196775-4AA2-4EBF-B362-BDD77C89F21D
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-c60b581d
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)OPENSSL_ALGO_(MD2|MD4|MD5|SHA1|RMD160)
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 50EE7FC1-9D4D-41EC-BF49-8B3ACB81E1F6
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-crypto-ce2a63e1
+  name: Insecure Transport
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:stream_socket_enable_crypto
+  description: 检测 Insecure Transport 相关的安全风险
+  cwe_ids:
+  - CWE-319
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: 1809275D-4682-45FF-8142-80978CDE5852
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-d04c9be5
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:stream_socket_server|stream_socket_client
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: DB8C1EA9-28A9-4CB8-9132-00EAF3C6FC19
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-b6ff7ee8
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:(p)?fsockopen
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: CE884529-5ADF-4ED9-9DE4-0E01CD1DEF41
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-88dee54b
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_OpenId.createDhKey
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 6EEA1C63-7E21-4D11-9270-4018D3996F19
+    source_category: Key Management
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-df7141a1
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_OpenId.createDhKey
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: BACDED84-5E8E-4DCF-9F98-D77490B21135
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-db496d96
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_OpenId.createDhKey
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 6A0715BC-5FBB-4307-935C-A21F75E8915F
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-be661ac3
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Filter_Encrypt.init^
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 32FE9CA9-4B3D-4128-992D-BB6B008E3237
+    source_category: Key Management
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-708e13dd
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_Filter_Encrypt.init^
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: D3857657-0EFB-4378-93F7-835C0FAA63B7
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-d70acb7e
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Zend_Filter_Encrypt.init^
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 7F3AF2EF-75F3-4B0B-953F-9D4AEEDEBBA0
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-1a3d725f
+  name: Insecure Transport
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Uri_Http.init^
+  description: 检测 Insecure Transport 相关的安全风险
+  cwe_ids:
+  - CWE-319
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: 760ED54E-9100-45A3-AFE0-5B1212407F9E
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-1a3d725f
+  name: Insecure Transport
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Zend_Uri_Http.init^
+  description: 检测 Insecure Transport 相关的安全风险
+  cwe_ids:
+  - CWE-319
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: 760ED54E-9100-45A3-AFE0-5B1212407F9E
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-9f3de368
+  name: Insecure Transport
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:init\^|setUri|url|setUsername|(_)?redirect|setGotoUrl|gotoUrl(AndExit)?|setRedirect|setParams
+  description: 检测 Insecure Transport 相关的安全风险
+  cwe_ids:
+  - CWE-319
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: C99C025B-1B46-43ED-83FA-8DF1B741768D
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-9f3de368
+  name: Insecure Transport
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - regex:init\^|setUri|url|setUsername|(_)?redirect|setGotoUrl|gotoUrl(AndExit)?|setRedirect|setParams
+  description: 检测 Insecure Transport 相关的安全风险
+  cwe_ids:
+  - CWE-319
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - php
+  metadata:
+    source_rule_id: C99C025B-1B46-43ED-83FA-8DF1B741768D
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-d3760071
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Security.setHash
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: C8FB195F-AE48-4828-B761-8307A6887217
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-7c581e47
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - Security.hash
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 7A689A7D-2B38-4962-B807-EEF09BC75043
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-f0befdd8
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - crypt
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - php
+  metadata:
+    source_rule_id: 2DA15808-FA26-4765-B77D-5A77440AF1CB
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-41bda0c2
+  name: 'Weak Cryptographic Hash: Hardcoded Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - crypt
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 02FD7ADA-96A6-4E2E-8219-274EFA35C93D
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-505684dd
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:hash_file|hash_hmac_file|hash_hmac|hash_init|hash
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: C4244C95-7E85-4C78-8F3B-04DAC62CB0C3
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-ce5ebe14
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(md5|sha1)(_file)?
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 3E15CC2F-6FD3-405F-BEF8-2F0E7B30945A
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-b88b961c
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - hash_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: FDC1F380-C4CB-45A3-A25C-38E03ADBB84D
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-6556140f
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - hash_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 39A580B9-E2CB-4916-9817-22E631DAF4E8
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-2b65083e
+  name: 'Weak Cryptographic Hash: Empty PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - hash_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty PBE Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: BD94ABA6-774D-40C6-8898-F75C5B83087A
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-3ef60896
+  name: 'Weak Cryptographic Hash: Hardcoded PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - hash_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded PBE Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: E075EEFB-AD28-4AB2-AAAB-98E5377B5426
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-adaf2749
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - hash_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 41AA1EF9-59F8-4A89-9EEA-990714F95C20
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-f3699d8d
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - Security.cipher
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - php
+  metadata:
+    source_rule_id: DF378331-61C4-487D-807B-7601E04AA4D5
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-66ee620d
+  name: 'Key Management: Empty PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:setEncryption(Index|Name)
+  description: 检测 Key Management 相关的安全风险（Empty PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: FC381E46-4500-4124-AF3C-3F368CAF269A
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-6ec28f92
+  name: 'Key Management: Hardcoded PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:setEncryption(Index|Name)
+  description: 检测 Key Management 相关的安全风险（Hardcoded PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - php
+  metadata:
+    source_rule_id: 485DE1DA-85E3-42F4-A2CF-A27A0B20B706
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-d264d1ca
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - php
+  patterns:
+  - openssl_seal
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - php
+  metadata:
+    source_rule_id: 2AC2D781-9B53-4AEB-A98D-93AD56310625
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-88cc9cdf
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - openssl_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 0B013E30-DACA-46E2-ADD5-B51CDA59CB3E
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-f14b53a4
+  name: 'Weak Cryptographic Hash: Hardcoded PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - openssl_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded PBE Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 572A4BD1-5090-4B1E-9D8A-B30AFEC97F71
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-3098ca02
+  name: 'Weak Cryptographic Hash: Empty PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - openssl_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty PBE Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 4BD83E2A-8E19-4DAC-A6D7-CEE398D3561B
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-fc8ec022
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - openssl_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: E5767850-24F6-4BF8-9D20-E5000880024C
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-crypto-47843854
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - openssl_pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - php
+  metadata:
+    source_rule_id: 2B32FCD5-B256-4601-8850-01A179935550
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:13.008919'
+  total_rules: 49

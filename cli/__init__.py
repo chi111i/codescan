@@ -1,4 +1,4 @@
-"""}‰L•„!W"""
+"""Command line interface package."""
 
 from .main import main, create_app, simple_cli
 

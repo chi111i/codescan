@@ -1,0 +1,925 @@
+rules:
+- id: php-ssrf-d715fdee
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:fwrite|socket_write
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: AA387CE2-768E-4E72-8562-159A9A47957A
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-435485a4
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:fwrite|socket_write
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: B509117A-107D-4F04-A687-30C8603A4A9B
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-435485a4
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:fwrite|socket_write
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: B509117A-107D-4F04-A687-30C8603A4A9B
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-932fa54f
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(p)?fsockopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 1167BC34-E1E9-421C-9FF2-29807ADF22ED
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-02970a6f
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(p)?fsockopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 4FA83B77-2C81-47FD-9FDC-DE5088AAD5DF
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-02970a6f
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(p)?fsockopen
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 4FA83B77-2C81-47FD-9FDC-DE5088AAD5DF
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-caf79d5b
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - socket_connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: CDA370C4-C10C-4F04-9D89-BC3DA56B6301
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-85bd6c67
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - socket_connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 1AEB41D7-D69A-4F65-B130-246CEEFACDDA
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-85bd6c67
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - socket_connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 1AEB41D7-D69A-4F65-B130-246CEEFACDDA
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-e59391de
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - stream_socket_client
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 480DD0B8-0B51-41AA-A1BB-46725B356155
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-b96fe7e5
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - stream_socket_client
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 0B04F2BE-4619-4200-9F60-BBFFE3B677D2
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-b96fe7e5
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - stream_socket_client
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 0B04F2BE-4619-4200-9F60-BBFFE3B677D2
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-272fc8fc
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:__construct|setUri|setMethod|init\^|rest(Get|Post|Put)
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 8F1585AE-F99B-4677-8B46-4075BA1671BE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-a7e0ef04
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:__construct|setUri|setMethod|init\^|rest(Get|Post|Put)
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 23E2C11C-8F2F-4D92-8959-75CD7FB5A12C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-a7e0ef04
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:__construct|setUri|setMethod|init\^|rest(Get|Post|Put)
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 23E2C11C-8F2F-4D92-8959-75CD7FB5A12C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-ff83f045
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_XmlRpc_Client.call
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: F4C15E86-D8A3-4081-8A75-C12D23CC887C
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-663a2e4c
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_XmlRpc_Client.call
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 90FA5B4C-DA82-4D73-8460-271B8F90280A
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-663a2e4c
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Zend_XmlRpc_Client.call
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 90FA5B4C-DA82-4D73-8460-271B8F90280A
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-a753295e
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:__construct|init\^
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 00A48F33-863C-4C59-BC7E-BCFAC9E12340
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-f3fae3ff
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:__construct|init\^
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: BD4D17F3-0AD1-429E-8B7F-AA33169ECB60
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-f3fae3ff
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:__construct|init\^
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: BD4D17F3-0AD1-429E-8B7F-AA33169ECB60
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-ff987f7b
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:init\^|__construct|delete|post|put|get|patch|request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: EDECF2CB-842C-42B4-96B9-AB7FC291CAE9
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-c7358220
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:init\^|__construct|delete|post|put|get|patch|request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: A4A404CB-6155-48D6-B034-DC43A929018E
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-c7358220
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:init\^|__construct|delete|post|put|get|patch|request
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: A4A404CB-6155-48D6-B034-DC43A929018E
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-4b1b0304
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - configProxy
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: A1174635-9CB0-4C36-846B-CB33D6652BFE
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-473dd07a
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - configProxy
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 4E2D6D41-CCBE-4E8A-B8F1-7FC2859FC246
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-473dd07a
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - configProxy
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 4E2D6D41-CCBE-4E8A-B8F1-7FC2859FC246
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-89bcae3f
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - apd_set_socket_session_trace
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: DAA035F0-9EF4-4DE7-B38A-25A87F9C5643
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-b0ecac24
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - apd_set_socket_session_trace
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 0701611F-EBF9-46b3-AAC3-5F72B629DF12
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-b0ecac24
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - apd_set_socket_session_trace
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 0701611F-EBF9-46b3-AAC3-5F72B629DF12
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-c2e8b820
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:pg_(p)?connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 66278C82-5771-4646-93E2-E19FBED95D1A
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-aa184d26
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:pg_(p)?connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: E58D823C-86CC-4989-A3F0-524A4FE4A5E3
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-aa184d26
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:pg_(p)?connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: E58D823C-86CC-4989-A3F0-524A4FE4A5E3
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-bd6247e6
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - curl_init
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 13C90520-C73D-43EE-BA0A-C91E16E671A0
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-96e1a6b1
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - curl_init
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: F58FB740-DFE2-45C5-874B-13F8F87DB4DC
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-96e1a6b1
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - curl_init
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: F58FB740-DFE2-45C5-874B-13F8F87DB4DC
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-b45db3b8
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(p)?connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 50ED7E09-CEB6-4074-B463-C2B19A42CF67
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-7ac5ad74
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(p)?connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 7FBBFB5C-4C70-490f-A7EC-228361C0F107
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-7ac5ad74
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(p)?connect
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: 7FBBFB5C-4C70-490f-A7EC-228361C0F107
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-ssrf-ce0962e7
+  name: Server-Side Request Forgery
+  rule_type: sink
+  category: ssrf
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - fpassthru
+  description: 检测 Server-Side Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-918
+  owasp_ids:
+  - A10:2021
+  tags:
+  - server-side_request_forgery
+  - php
+  metadata:
+    source_rule_id: F620E7DF-C9F1-4E19-9BE5-169F9B430151
+    source_category: Server-Side Request Forgery
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:13.780875'
+  total_rules: 40

@@ -1,0 +1,1504 @@
+rules:
+- id: javascript-other-f11667f4
+  name: Denial of Service
+  rule_type: pattern
+  category: other
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*file.*
+  description: 检测 Denial of Service 相关的安全风险
+  cwe_ids:
+  - CWE-730
+  owasp_ids: []
+  tags:
+  - denial_of_service
+  - javascript
+  metadata:
+    source_rule_id: D33CB9EA-6B6F-4A23-BBC3-BF736CD95135
+    source_category: Denial of Service
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-other-f11667f4
+  name: Denial of Service
+  rule_type: pattern
+  category: other
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*file.*
+  description: 检测 Denial of Service 相关的安全风险
+  cwe_ids:
+  - CWE-730
+  owasp_ids: []
+  tags:
+  - denial_of_service
+  - javascript
+  metadata:
+    source_rule_id: D33CB9EA-6B6F-4A23-BBC3-BF736CD95135
+    source_category: Denial of Service
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-other-a46ce21b
+  name: Fortify Internal
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - noSniff
+  description: 检测 Fortify Internal 相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - fortify_internal
+  - javascript
+  metadata:
+    source_rule_id: BB834B09-C007-4220-A065-8DB9E617FD16
+    source_category: Fortify Internal
+    source_severity: 1.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: javascript-other-ee92854a
+  name: Fortify Internal
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - field:secure
+  description: 检测 Fortify Internal 相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - fortify_internal
+  - javascript
+  metadata:
+    source_rule_id: 7FE291D9-33C1-470D-8C09-CF8F4F45B1E8
+    source_category: Fortify Internal
+    source_severity: 1.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-other-a46ce21b
+  name: Fortify Internal
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - noSniff
+  description: 检测 Fortify Internal 相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - fortify_internal
+  - javascript
+  metadata:
+    source_rule_id: BB834B09-C007-4220-A065-8DB9E617FD16
+    source_category: Fortify Internal
+    source_severity: 1.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: javascript-other-8babcfce
+  name: Insecure Randomness
+  rule_type: pattern
+  category: other
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - field:Math
+  description: 检测 Insecure Randomness 相关的安全风险
+  cwe_ids:
+  - CWE-338
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_randomness
+  - javascript
+  metadata:
+    source_rule_id: 919BF191-6443-4239-BBFF-A7A31C108032
+    source_category: Insecure Randomness
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-other-8babcfce
+  name: Insecure Randomness
+  rule_type: pattern
+  category: other
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - field:Math
+  description: 检测 Insecure Randomness 相关的安全风险
+  cwe_ids:
+  - CWE-338
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_randomness
+  - javascript
+  metadata:
+    source_rule_id: 919BF191-6443-4239-BBFF-A7A31C108032
+    source_category: Insecure Randomness
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-other-24643c1e
+  name: Cross-Site Request Forgery
+  rule_type: pattern
+  category: other
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - field:method
+  description: 检测 Cross-Site Request Forgery 相关的安全风险
+  cwe_ids:
+  - CWE-352
+  owasp_ids:
+  - A01:2021
+  tags:
+  - cross-site_request_forgery
+  - javascript
+  metadata:
+    source_rule_id: 2335EF74-F5C5-4BE1-89B6-707D1B78D6B3
+    source_category: Cross-Site Request Forgery
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-other-0a355a59
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - render
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C7BC8C1A-CA18-459D-8DB1-A114E178818F
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-d10c5146
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - render
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 18B1E6D3-7FAE-4B46-B6C6-A3DE2E096233
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-763a56b4
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - render
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: E489C946-EA43-4BB8-9701-BAC09DD96ACD
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-8e072bac
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - TextInputSecure
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 6EE48D64-7870-465A-A31F-580CC2291577
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-1bab5c5f
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - any
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 5D80D627-9D4C-4D49-B644-BDEE1CFDCE74
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-98d98cdc
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - race
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 4331F38B-6A7C-4FFD-9A4A-94FA9712F6FD
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-397b421f
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - all
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 1BB244F9-BE0F-42ED-9DE4-F4935657EE51
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-b9f0f1ab
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - allSettled
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 9EC68821-8F38-4CF7-A445-1CC57E079AE5
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-041a7d05
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - catch
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: DBD77378-06F8-438A-B56E-04AEC798D8D2
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-4531a620
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - reject
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 354335AE-E78A-48FA-BFF3-E15F0F06B39F
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-5ae2fa9b
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - resolve
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 2A592713-7EE5-4150-8B1D-CB3430F411C1
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-2c2ae456
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - then
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 27BFC9F8-A667-427A-A760-8680F8E09C3A
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-ce73fec7
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Promise
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 9BCBA163-F79D-483B-907A-38E70467AEE1
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-2a7e1eb6
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - getOwnPropertyNames
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: F43146D7-FDF2-45F1-B7E8-5D9FB77B7F0F
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-60fdd4a0
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - getOwnPropertyDescriptor
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: AD6E5921-F131-4690-A484-277953872ACB
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-f07cbe1a
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - entries
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 343981BC-67CA-4A7A-9341-72A93F48BF7E
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-3873937d
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - values
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 98C3639C-0C2B-4BCE-B322-D0F2460F647D
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-dcc771c3
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - keys
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: F47FE635-D082-4ACA-8536-2234BE138FBC
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-08137a6e
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - getOwnPropertyDescriptors
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 65AF88B9-1B2B-4EF6-93FE-077D2E19AA4C
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-2594efda
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - fromEntries
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 87C30869-E8C6-4686-9111-779A22E6D522
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-aed180d7
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - matchAll
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 3FBE0D61-843F-4EDD-8D0C-CA3676E1F6FA
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-89b5d750
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - createWriter
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C1007B5F-2A09-4990-B1E8-A2D33B5B6A21
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-301dcc1d
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - transaction
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: EF5126D1-73C6-4A70-8646-9EC43F35D3C2
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-bd172e78
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - openDatabase
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 22F5C367-2202-4ADA-9FC6-5811FB8959C2
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-3ea5bf06
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - openDatabaseSync
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: BBEA6548-863F-4490-AB4C-4FCC12608810
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-d30d3c0c
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - __angularPipe_slice
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: E03F3D70-6AA6-4A6A-A8F9-0DC69A106692
+    source_category: ''
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-3fcac4db
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - executeSql
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 4B998007-BA8C-48E7-AB4F-DC645AB07BF2
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-9308bd46
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - values
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 7078DD22-DC4B-45B8-A4EC-38F1457A6AB4
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-ae9b183a
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - keys
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 421C6AC6-6871-4A01-BBCF-F56A800B7EA0
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-780e8b95
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - entries
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 01255FCE-D8D1-4A4F-9608-5E7125C93BE6
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-18a7a004
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C13C449E-DF73-4643-9273-08EE788C14D3
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-18a7a004
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C13C449E-DF73-4643-9273-08EE788C14D3
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-18a7a004
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C13C449E-DF73-4643-9273-08EE788C14D3
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-18a7a004
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - regex:DataView|Int8Array|Uint8Array|Uint8ClampedArray|Int16Array|Uint16Array|Int32Array|Uint32Array|Float32Array|Float64Array
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C13C449E-DF73-4643-9273-08EE788C14D3
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-18a7a004
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - regex:DataView|Int8Array|Uint8Array|Uint8ClampedArray|Int16Array|Uint16Array|Int32Array|Uint32Array|Float32Array|Float64Array
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C13C449E-DF73-4643-9273-08EE788C14D3
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-5e84f3de
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Array.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C3795B73-1350-4B9A-A017-E89996FF0385
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-30e113e2
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - String.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 1B127CCA-C976-4070-BA0F-C70E59040FF0
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-47069e50
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - RegExp.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: BCFEC882-2C27-4D38-9967-258299613023
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-0e87623c
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - array_put
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 9860780F-9A37-4B07-A587-0E67E9E1959C
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-08419f28
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - array_get
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 413F6731-40E5-42F0-8710-2AF733FC3550
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-47069e50
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - RegExp.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: BCFEC882-2C27-4D38-9967-258299613023
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-08419f28
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - array_get
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 413F6731-40E5-42F0-8710-2AF733FC3550
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-30e113e2
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - String.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 1B127CCA-C976-4070-BA0F-C70E59040FF0
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-5e84f3de
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Array.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C3795B73-1350-4B9A-A017-E89996FF0385
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-0e87623c
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - array_put
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 9860780F-9A37-4B07-A587-0E67E9E1959C
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-0e87623c
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - array_put
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 9860780F-9A37-4B07-A587-0E67E9E1959C
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-08419f28
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - array_get
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 413F6731-40E5-42F0-8710-2AF733FC3550
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-5e84f3de
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Array.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C3795B73-1350-4B9A-A017-E89996FF0385
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-5e84f3de
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Array
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C3795B73-1350-4B9A-A017-E89996FF0385
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-5e84f3de
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Array
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: C3795B73-1350-4B9A-A017-E89996FF0385
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-47069e50
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - RegExp.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: BCFEC882-2C27-4D38-9967-258299613023
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-47069e50
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - RegExp
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: BCFEC882-2C27-4D38-9967-258299613023
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-47069e50
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - RegExp
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: BCFEC882-2C27-4D38-9967-258299613023
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-30e113e2
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - String.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 1B127CCA-C976-4070-BA0F-C70E59040FF0
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-30e113e2
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - String
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 1B127CCA-C976-4070-BA0F-C70E59040FF0
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-30e113e2
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - String
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 1B127CCA-C976-4070-BA0F-C70E59040FF0
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-7037e777
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: A237A27F-4C86-46AF-806A-42B0EA672509
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-7037e777
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: A237A27F-4C86-46AF-806A-42B0EA672509
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-cb11e513
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Error.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 522B1439-A9A6-4014-BB03-87B812986BCB
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-cb11e513
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - Error.init^
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 522B1439-A9A6-4014-BB03-87B812986BCB
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-92676293
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - builtin_delete
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 2027F4DA-15F7-45B8-83CB-36E52222FDD1
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-92676293
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - builtin_delete
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 2027F4DA-15F7-45B8-83CB-36E52222FDD1
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-other-92676293
+  name: ''
+  rule_type: pattern
+  category: other
+  risk_level: low
+  languages:
+  - javascript
+  patterns:
+  - builtin_delete
+  description: 检测  相关的安全风险
+  cwe_ids: []
+  owasp_ids: []
+  tags:
+  - ''
+  - javascript
+  metadata:
+    source_rule_id: 2027F4DA-15F7-45B8-83CB-36E52222FDD1
+    source_category: ''
+    source_severity: 0.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:12.315520'
+  total_rules: 71

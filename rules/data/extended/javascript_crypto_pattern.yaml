@@ -1,0 +1,351 @@
+rules:
+- id: javascript-crypto-432ac0f0
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 5566C5D8-54E1-4374-89C6-82F4C601BF50
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-91719cb6
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 7C0F135E-3106-4959-858A-61D51FBFBEB2
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-13a20b6b
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 6DCF879E-0A06-4C9A-A48B-571B61A08E8B
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-b17f23b3
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 22008309-86D2-4C07-B7B0-79C4D938D6BB
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-8e38c5d7
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 4DC01706-37E2-4F9C-9589-F64FEE0A1207
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-012581b0
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 54B5A093-BF90-402E-B411-CD186B9B29C6
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-ceeb7193
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 98A9548B-9551-4034-BF1B-139E2510DB60
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-6db1a50f
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: E949072C-BF6D-4D45-B6F5-29608B21F9E0
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-89e1a743
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: EA300E12-3070-4581-AC9C-B6990E901E97
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-eff75413
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: F325775D-6F81-4300-BA11-972F2A108E38
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-5ff2df16
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: D607C3AF-049C-4285-ADBB-A39F04452663
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-4aa38d7c
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - javascript
+  metadata:
+    source_rule_id: 4F979F3E-3FE0-43FB-BB13-5776E643C52C
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-5cdc6629
+  name: 'Weak Encryption: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - field:crypto
+  description: 检测 Weak Encryption 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - javascript
+  metadata:
+    source_rule_id: 824EC5FC-B8DF-4B4D-947E-C3B657BB2E1A
+    source_category: Weak Encryption
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: javascript-crypto-5cdc6629
+  name: 'Weak Encryption: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - javascript
+  patterns:
+  - field:crypto
+  description: 检测 Weak Encryption 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - javascript
+  metadata:
+    source_rule_id: 824EC5FC-B8DF-4B4D-947E-C3B657BB2E1A
+    source_category: Weak Encryption
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:12.269963'
+  total_rules: 14

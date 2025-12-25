@@ -1,0 +1,629 @@
+rules:
+- id: php-access-control-a2029aae
+  name: 'Access Control: Anonymous LDAP Bind'
+  rule_type: pattern
+  category: access-control
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_bind
+  description: 检测 Access Control 相关的安全风险（Anonymous LDAP Bind）
+  cwe_ids:
+  - CWE-285
+  - CWE-862
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 0C695FD2-AAF6-451A-A811-FCB1F82FA7D6
+    source_category: Access Control
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-967dc82b
+  name: 'Access Control: Anonymous LDAP Bind'
+  rule_type: pattern
+  category: access-control
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_bind_ext
+  description: 检测 Access Control 相关的安全风险（Anonymous LDAP Bind）
+  cwe_ids:
+  - CWE-285
+  - CWE-862
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: F3A404BE-2C37-4F4D-B37A-762E39B5FA29
+    source_category: Access Control
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-b8ecdf32
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - update
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 0D111055-D67F-41A5-BDC4-2396E1C57D1E
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-38a41f27
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - delete
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: B5ACBE9B-3EC6-4417-81F7-59D2015F991B
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-eb452888
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - init^
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 6531BAC7-FB33-437D-8B8F-F28F6550E867
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-c770b11c
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:query|fetchAll
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 1F07349F-BC1B-43A6-A747-115B890A298C
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-41c64d38
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:CacheExecute|CacheSelectLimit|CachePageExecute|CacheGetAssoc|CacheGet(One|Col)
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: F3CD484F-B46D-4BE7-86F2-E94E6BFF17F9
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-74f40e8b
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:Execute(Cursor)?|SelectLimit|PageExecute|GetAssoc|Get(One|Row|All|Col)|Prepare(SP)?
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 45BADAE2-7402-4BB4-B032-B2B8D30AF234
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-2c1919cd
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:create(Sequence|Trigger)
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: B85AA09D-C932-4648-8F4A-F15B2E617E38
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-cb78b4d8
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - DboMysqli._executeProcedure
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: FF905A3A-4173-403A-982B-C1DD22CDB9AC
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-de688f51
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - DboSource.update
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 6E77E158-CB9A-4699-953F-3E79FA422780
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-305b06fd
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:fetchAssociated|field|hasAny
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 4FA4FDA6-6010-4E96-BBCE-4E319CB1A081
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-dea853ba
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(_)?execute|fetch(All|Row)|query|rawQuery
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: DACA0F3B-FCCA-4129-AE06-83F70DBE1C04
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-08d80653
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:delete|update
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 4073AFF3-D48D-40D6-8E18-31E22DAA77BA
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-5c792ff1
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - DboSource.delete
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 0431E269-AA33-4238-B572-C51F995A5F59
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-93aeec36
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - Model.query
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: DAE3550B-81E4-4DF6-AB4F-EA3E1F2C7D9A
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-e19d8c00
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:pg_(send_)?prepare
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 3ABE5504-72DD-4068-B254-4877CD8C5553
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-66904b87
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:exec|prepare|query|fetchRow|delete|find
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: A53352D9-9ABF-45F9-AA37-F4A6CEF9597B
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-f11ce423
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysqli_(((multi_|real_)?query)|(stmt_)?prepare)
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 539DB603-8BC3-41E3-AB6F-9D7421CC0446
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-bcf42f9e
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - mysql_db_query
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 50DCD59F-7E21-4A31-AE26-512D1E7C9BB1
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-3939392d
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:pg_(exec|(send_)?(execute|query(_params)?))
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: F9689922-9555-48C5-8E49-3015C96BE42E
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-367ac23d
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - odbc_exec
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: FEA48935-A010-4211-BF75-3A763875370D
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-bd88255e
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysql_(query|(drop|create)_db)
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: DB09E133-5C49-49DB-8311-FF4B1AD16FD4
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-b073a646
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:oci_execute
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 6CB7EB9E-AA86-40D9-B10F-16BB7D4235BD
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-954ed4fe
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - mysqli_stmt.prepare
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 328DCDF6-D758-4D32-87D5-D6F46427C155
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-access-control-0940b84f
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(multi_|real_)?query|prepare
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - php
+  metadata:
+    source_rule_id: 77EC718E-A68C-4F8F-A8F5-D55FF4FC5E2A
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:13.756962'
+  total_rules: 26

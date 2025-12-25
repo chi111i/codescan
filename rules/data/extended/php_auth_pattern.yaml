@@ -1,0 +1,1474 @@
+rules:
+- id: php-auth-d0429583
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 0a12dbda-d996-4329-a92e-4898efcd6cc6
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-a73c74ad
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 8216d662-9f19-4143-894b-9222441e43f9
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-e37a1a07
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: fe49ac7b-d1d4-47c7-93de-0f26cfa5eb9f
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-2c7dbd54
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 08bee0c5-c410-41ec-af5f-a5e760696ce2
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-05ac5b0d
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: AFC1D050-9757-47ee-A028-12F4119733CD
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-92c6b9ca
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 6216CC0C-981E-4b53-8FFA-4A6ECC549509
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-66652d1f
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?.*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: c7c5ef89-467c-4f71-b17d-d75711f89c23
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-9845b8e8
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$.*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: d8021190-d50f-4e37-9e48-cafe2f4bf58d
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-f7f5306f
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?.*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: a8fec028-5e7c-4c61-aa9b-505a7ea0cca7
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-79304219
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$.*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 4f97a998-0df4-411c-83be-6429bf56855b
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-0466c0ce
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)(\$)?.*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: D49340BC-DA34-4D40-AA94-678278F037BF
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-0678ca93
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(?i)\$.*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 28B83A0E-9317-461C-A1AB-4CA88534A05C
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: php-auth-e863a9c1
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - imap_open
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: F2F459DD-1E68-41FA-8B4A-165EF5D6EBD4
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-29c3dfbb
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - imap_open
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 07425E17-2AE5-4BE3-A903-9BA75176A002
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-ea2d36df
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - imap_open
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 695EB16B-8077-4D01-8875-E9C8E1472A51
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-cbbec433
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:setHttp(Password|sCertPassphrase)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: E0C9E694-E7C4-4FBE-872C-75A32AE75B6B
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-03314754
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:setHttp(Password|sCertPassphrase)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 3FAB4B88-96C0-4929-AD90-CAEF768B94C5
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-dc15f14c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:setHttp(Password|sCertPassphrase)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 9392D22D-319F-4195-B54D-1FF54C594C1A
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-129e30f4
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - setPassphrase
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: EBAED16E-7D66-470D-B245-0995EC13F11A
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-b3ed6822
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - setPassphrase
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 2BCA0807-59A3-4020-ACA3-6900AF1A1986
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-65529440
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - setPassphrase
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 3F12C19E-4731-4764-98A7-AC91B2F204D0
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-3ee844ba
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(P|N)?Connect
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 627DB8FD-F325-40E1-A5B6-18905D65A0B1
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-2d910d36
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:(P|N)?Connect
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 811B106C-C6DD-42F8-A511-6FDD18C3423E
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-e62fc8a7
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:(P|N)?Connect
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 1C207478-3EF6-4BE0-9545-A5C36B793BF1
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-7a9116e1
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysql_connect|mysql_pconnect
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 8AC71D20-647F-4D7B-9F3F-E5D45E70A4EA
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-6ec99ee5
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:mysql_connect|mysql_pconnect
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 2725e259-40da-430a-8df1-3b24ba8763d8
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-e41df87a
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysql_connect|mysql_pconnect
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 8ec72a5a-e30a-452f-80cb-85b2d4cb196a
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-b67dfcd5
+  name: 'Cookie Security: Persistent Session Cookie'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - session_set_cookie_params
+  description: 检测 Cookie Security 相关的安全风险（Persistent Session Cookie）
+  cwe_ids:
+  - CWE-539
+  - CWE-200
+  owasp_ids:
+  - A04:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 0BF37D4D-B9DD-4E63-B904-3CB487C212E9
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-3afc5d39
+  name: 'Cookie Security: Session Cookie not Sent Over SSL'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - session_set_cookie_params
+  description: 检测 Cookie Security 相关的安全风险（Session Cookie not Sent Over SSL）
+  cwe_ids:
+  - CWE-614
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 93AC528F-0C5E-4D9E-B0D2-FF1FB8BA7838
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-0029883a
+  name: 'Cookie Security: HTTPOnly not Set on Session Cookie'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - session_set_cookie_params
+  description: 检测 Cookie Security 相关的安全风险（HTTPOnly not Set on Session Cookie）
+  cwe_ids:
+  - CWE-1004
+  - CWE-732
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 005D1781-8D70-4F11-A7E3-41BD61F17B7D
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-76612bf5
+  name: 'Cookie Security: Overly Broad Session Cookie Path'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - session_set_cookie_params
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Session Cookie Path）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 0B1AF0E5-81C9-480A-80F7-C9D629CFFEB6
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-57ab8b07
+  name: 'Cookie Security: Overly Broad Session Cookie Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - session_set_cookie_params
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Session Cookie Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 1BAEFDD9-1885-4BA1-B850-95C42B4D77C2
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-99d81a32
+  name: 'Cookie Security: Overly Broad Session Cookie Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - session_set_cookie_params
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Session Cookie Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 006F86D9-A127-4414-BD8F-AEAD37950B8C
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-6da9021e
+  name: 'Cookie Security: Persistent Cookie'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Cookie Security 相关的安全风险（Persistent Cookie）
+  cwe_ids:
+  - CWE-539
+  - CWE-200
+  owasp_ids:
+  - A04:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 1D1866B3-EE2E-4E2C-9EF0-8B96A509DEA3
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-ff693a53
+  name: 'Cookie Security: Cookie not Sent Over SSL'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Cookie Security 相关的安全风险（Cookie not Sent Over SSL）
+  cwe_ids:
+  - CWE-614
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: A8492D78-D309-4142-9EC0-215DB4497481
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-0bc9e804
+  name: 'Cookie Security: HTTPOnly not Set'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Cookie Security 相关的安全风险（HTTPOnly not Set）
+  cwe_ids:
+  - CWE-1004
+  - CWE-732
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 46213E11-F8A2-480F-8B7E-F5624761A51B
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-6d3dbd36
+  name: 'Cookie Security: Overly Broad Path'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Path）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: BAA25F47-9F96-4893-8C93-4C568BFA578D
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-e921b211
+  name: 'Cookie Security: Overly Broad Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: E23148E6-E6AF-4C0B-8753-538FB903C987
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-a88e71b5
+  name: 'Cookie Security: Overly Broad Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - regex:set(raw)?cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - php
+  metadata:
+    source_rule_id: 70543474-5D3F-49B9-83DB-8D3CA6A6D676
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-784ad9a9
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ftp_login
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: C98E0C97-B263-4E79-89FD-7F1AA6408FB2
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-496f1cc2
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ftp_login
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 57184357-9CAE-49AE-A7FA-EBA76C81BEA3
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-dbcadc7f
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ftp_login
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 3927B070-5E05-427C-A06F-FA9CFFA786B0
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-d2769e29
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ldap_bind
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: D3AF60F9-AE5F-4D69-9133-8CC2EEA29D6C
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-8e37f8fc
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ldap_bind_ext
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 6215B232-F089-42D9-9DBD-5C20C0716972
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-a2842d22
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ldap_exop_passwd
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 5F597071-E5A2-43F1-8E8C-65807645668C
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-862cd3c4
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_exop_passwd
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: DFF624A6-2855-40DF-B4F5-EAB20B764106
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-7e2b415a
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ldap_exop_passwd
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 399E158F-D13D-403E-8EEB-CF33B366F3CF
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-4f31a543
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ldap_exop_passwd
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 1EACB500-21FE-43FC-BFE1-19D62D4E8C7B
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-b129944d
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ZipArchive.setPassword
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 00E2470F-CBEC-4572-9674-B67DB8BCA5FB
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-7df8eeb4
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - php
+  patterns:
+  - ZipArchive.setPassword
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 0206212F-75D9-4930-ACDA-276AD9EFF73F
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-c6cf5675
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - imap_open
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 8989E28F-EDC5-4CAC-81BE-15D547F23973
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-ef263a38
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - imap_open
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 2D8B1F17-95A9-46BD-BBAA-95DA46503A02
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-d9a2cde4
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysql_connect|mysql_pconnect
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 3991BF36-9863-4799-AE3D-776EC77B2C86
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-081edd5f
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - regex:mysql_connect|mysql_pconnect
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 2DCC85E1-90F1-4FC5-BEB6-525CC825A4BF
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-d29185d2
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ftp_login
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: BEDEFF8C-795A-4A59-A34A-F67F10173BA0
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-49c67cc7
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ftp_login
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 10EC7242-5012-4557-85E0-6EC1DB43862B
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-edf31a16
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_bind
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: 3644E0E4-ECA2-4BA8-B8FC-0A4116D43F1F
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-9da7ef3d
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_bind
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: FAA470FF-C977-42D6-B0F7-CB0605A2DF5D
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-26740936
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_bind_ext
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: A99A7F75-79C0-4ACF-AF28-A7CB2703C890
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: php-auth-6af64f0c
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - php
+  patterns:
+  - ldap_bind_ext
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - php
+  metadata:
+    source_rule_id: EBD38C9B-63F1-49B6-9222-D738DD8E6C63
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:12.942340'
+  total_rules: 60

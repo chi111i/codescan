@@ -1,0 +1,605 @@
+rules:
+- id: python-access-control-792004d9
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - RawSQL.__init__
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 5E6A21BF-CE4C-4C54-90C3-06662FB714E7
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-966404a4
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - connection.query
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: FCB6E884-1144-44B0-87FC-4FF21A108E0E
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-2ee384d4
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - connection.query
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: DB5ACF80-A4C9-497B-A078-18777C59A7CA
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-0dbc54ff
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - connection.query
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 4414F831-73E3-49FD-928A-DCA99D8758D9
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-0dbc54ff
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - connection.query
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 4414F831-73E3-49FD-928A-DCA99D8758D9
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-cec6b116
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: F8161C40-ED69-48FC-84F0-A1B54C948AAE
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-0ceedc02
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: C6384299-5D05-4DBF-943A-B067D592CAF1
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-eeba7724
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 432CE704-B05C-4FC4-BCDC-1B0B3522ABC9
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-1db23055
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|copy_expert|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 22236BFE-0DF7-4B1A-8261-A5EA2E344B08
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-0a27aded
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|copy_expert|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: ADEB7E53-1DE4-485C-BD5C-C0B318937DC4
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-6c23f3d5
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|copy_expert|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 6A90A6EB-98FA-49FD-A610-FBF88ABAA1C8
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-c5e0e1ec
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|_query|_do_query|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 1208111A-CD66-410B-A668-E086E0F47EF3
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-3d8ae8ad
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|_query|_do_query|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: B814541F-468F-4EAD-AE1D-DABE15EE732F
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-8b12f49b
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|_query|_do_query|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: CF4CBD14-086F-4F83-BCFA-20D5B1FCCD11
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-8b12f49b
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|executemany|_query|_do_query|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: CF4CBD14-086F-4F83-BCFA-20D5B1FCCD11
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-bbf86bc2
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - execute
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 38584342-F89A-4D2B-B1A1-1C56ED5CFD7F
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-440d0230
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - execute
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: FAD315E2-EE21-482C-B4CD-EBBB5D44371F
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-9a8fd029
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - execute
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: BB5957CB-764C-4F0A-B1FD-29896BD79D07
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-9a8fd029
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - execute
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: BB5957CB-764C-4F0A-B1FD-29896BD79D07
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-95662189
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: F179F400-1C97-4220-B8B1-8A69A547DFB2
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-df4ebdcc
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 186639D2-FD2B-45BA-9EE5-216EE9E37C83
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-815bf461
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute|callproc
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: C28ECB24-818F-4FFC-8DD7-A780D3732FE5
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-0c361378
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:cmd_query(_iter)?
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: FCBF57BB-43FB-4522-9A7D-33BFA40E7C48
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-13c8845a
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:execute(many)?
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 708B47C7-0814-4E23-BD9C-F68DA8DFC9E0
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-access-control-e98ec702
+  name: 'Access Control: Database'
+  rule_type: pattern
+  category: access-control
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(create|replace|upsert|read)_(item|offer)
+  description: 检测 Access Control 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-566
+  - CWE-863
+  owasp_ids:
+  - A01:2021
+  tags:
+  - access_control
+  - python
+  metadata:
+    source_rule_id: 189BF925-CF4F-48DD-97C7-321090451A52
+    source_category: Access Control
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:11.685331'
+  total_rules: 25

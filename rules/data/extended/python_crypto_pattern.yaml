@@ -1,0 +1,1667 @@
+rules:
+- id: python-crypto-5bc04fa6
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: A698D4CD-3067-4206-A810-C88C1F1E1E59
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-448a4c11
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 17250CC3-7ED6-4790-B278-BD21C33ADE68
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-767882b0
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 0534C883-2735-49FB-AAE2-F75ABB5EEE06
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-3f059366
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 412E623D-C633-4915-A7C2-5081AF60B581
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-c53470b8
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: DD9B52E7-1810-44AF-B4F1-271DB8383F94
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-d2b05399
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)((enc|dec)(ryption|rypt)?|crypto)?(_)?key|passphrase
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: C9E2F79E-C897-4AE8-B620-1FCE6D4D99FF
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-fc1c7c6c
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: CF23B3E8-1411-4A2A-8189-5BCCECDBDB24
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-a33a320a
+  name: 'Key Management: Null Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Null Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 9C735F35-9A8E-4261-84E2-5561C5B6FC25
+    source_category: Key Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-fd8db998
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 07982182-6DFF-41FA-8E6A-E9FA23B61FD3
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-8208f7b9
+  name: 'Key Management: Empty Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Empty Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: ADA47BEF-61AA-4821-8902-E049A0A3FADA
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-ea70325f
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*((enc|dec)(?!e|o|y)(ryption|rypt)?|crypto).*key.*|.*passphrase.*
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 10556DA8-C3FD-449F-B0FF-A7DC8FBB8FCE
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-7fe1c3c2
+  name: 'Key Management: Hardcoded Encryption Key'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - __getitem__
+  description: 检测 Key Management 相关的安全风险（Hardcoded Encryption Key）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 9265F471-4BED-4C93-94B5-457457E00844
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-606860c0
+  name: 'Key Management: Empty PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Key Management 相关的安全风险（Empty PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 65B1305E-0240-46DD-A9B2-2F84C8B00456
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-b87beb3e
+  name: 'Key Management: Hardcoded PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Key Management 相关的安全风险（Hardcoded PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 321553ED-2C31-404D-8AD7-CC0521C05127
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-684b88c0
+  name: 'Key Management: Empty PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - pbkdf2_hmac
+  description: 检测 Key Management 相关的安全风险（Empty PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: D947AB08-D42C-49BF-9EA9-76B5E687E937
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-fb1736d2
+  name: 'Key Management: Hardcoded PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - pbkdf2_hmac
+  description: 检测 Key Management 相关的安全风险（Hardcoded PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 6B597621-BE06-4127-88D4-B6BA7762F642
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-b72c3223
+  name: 'Key Management: Empty PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:PBKDF(1|2)|scrypt|bcrypt|HKDF
+  description: 检测 Key Management 相关的安全风险（Empty PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 5C460AAC-9525-469B-B40C-803070775F20
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-637a998c
+  name: 'Key Management: Hardcoded PBE Password'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:PBKDF(1|2)|scrypt|bcrypt|HKDF|SP800_108_Counter
+  description: 检测 Key Management 相关的安全风险（Hardcoded PBE Password）
+  cwe_ids:
+  - CWE-321
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A02:2021
+  tags:
+  - key_management
+  - python
+  metadata:
+    source_rule_id: 0C564052-BD88-4A12-9FD9-DCC3F4183931
+    source_category: Key Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-191cdadc
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 3BA66B60-EFF7-4661-824F-804BAAE6D18B
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-7d833e9c
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 084C1987-1E53-4510-8186-E8B496DBA13F
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-ba623f94
+  name: 'Weak Encryption: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Weak Encryption 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - python
+  metadata:
+    source_rule_id: 36A981CF-FFDE-48D4-8115-C3339E8FBFD0
+    source_category: Weak Encryption
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-ce63acd1
+  name: 'Weak Cryptographic Hash: Null PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Null PBE Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 2531F1DA-5872-4F4D-9310-0F373466A596
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-017c3919
+  name: 'Weak Cryptographic Hash: Empty PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty PBE Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 3CF1F53D-E0BA-4933-A556-ABF7F255A99A
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-ab12f59a
+  name: 'Weak Cryptographic Hash: Hardcoded PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - pbkdf2
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded PBE Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: A0A061B6-166E-4187-BAC6-0292B63F4DD7
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-550dbcba
+  name: 'Weak Cryptographic Hash: Null Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - salted_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Null Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: AFC30BAE-4CBA-4C6A-825C-CC7F2EF5AC41
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-2f808f86
+  name: 'Weak Cryptographic Hash: Empty Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - salted_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 820FB7C2-63E8-4B30-8020-666617F5CAA4
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-cd543b85
+  name: 'Weak Cryptographic Hash: Hardcoded Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - salted_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 5CE824B7-714F-4954-AFAB-09CC62D7D436
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-896a1527
+  name: 'Weak Cryptographic Hash: Empty Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - get_signed_cookie
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: F6019911-FB47-4233-AA1F-A3BE54C4D2D5
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-dbfd2f67
+  name: 'Weak Cryptographic Hash: Hardcoded Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - get_signed_cookie
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 14A417F5-17D2-43DB-9BF1-BDBD2E4C04D5
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-ffe8f32d
+  name: 'Weak Cryptographic Hash: Empty Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 8215DA51-38E1-4B2F-A3FF-7B8F8DA12B9F
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-f7813e9c
+  name: 'Weak Cryptographic Hash: Hardcoded Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 5FCE53FA-AA9B-46D0-B6D7-2242CE193522
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-crypto-0de20951
+  name: 'Insecure SSL: Server Identity Verification Disabled'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:SSL_(VERIFYPEER|VERIFYHOST)
+  description: 检测 Insecure SSL 相关的安全风险（Server Identity Verification Disabled）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A07:2021
+  tags:
+  - insecure_ssl
+  - python
+  metadata:
+    source_rule_id: B787426A-6720-4E6C-979E-62FECEDFB4A4
+    source_category: Insecure SSL
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-ec60fb4c
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:PROTOCOL_(SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1)
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 8134B8CD-6059-4A40-A926-DD1F47BD3D2E
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-ec60fb4c
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:PROTOCOL_(SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1)
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 8134B8CD-6059-4A40-A926-DD1F47BD3D2E
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-e8e2fca1
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:PROTOCOL_(SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1)
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 5F0B0D88-544D-4948-AAED-28AF20328178
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-bc310644
+  name: 'Insecure SSL: Server Identity Verification Disabled'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - field:CERT_NONE
+  description: 检测 Insecure SSL 相关的安全风险（Server Identity Verification Disabled）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A07:2021
+  tags:
+  - insecure_ssl
+  - python
+  metadata:
+    source_rule_id: D1649FF0-03F5-402C-A839-5E7D6A2559F6
+    source_category: Insecure SSL
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-c2eeb577
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:PROTOCOL_(SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1)
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: A0D1D709-36DC-4661-94D3-6738641F77CD
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-06ca3f87
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:PROTOCOL_(SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1)
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 5B25AE50-CB36-40F5-A3EC-1B66EAC9306E
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-b052fbed
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:PROTOCOL_(SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1)
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 2018615E-74DE-4A9C-AAF4-DB157C308C9F
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-crypto-fd15250b
+  name: 'Insecure Transport: gRPC Server Credentials'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - ssl_server_credentials
+  description: 检测 Insecure Transport 相关的安全风险（gRPC Server Credentials）
+  cwe_ids:
+  - CWE-319
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 8978049D-6F7B-4AEF-812C-E5C18B0AFE7E
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-fd609dfc
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - hashlib.pbkdf2_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 0A2A470E-63B0-40E0-BCD7-A903E4EAAB8B
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-06ac97e7
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - hashlib.pbkdf2_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: BEBC7B7E-2243-4C33-88E4-B2B381660907
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-01cacc43
+  name: 'Weak Cryptographic Hash: Empty PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - hashlib.pbkdf2_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty PBE Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 628EF390-E394-4128-811A-4F2CB85E760D
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-0404d160
+  name: 'Weak Cryptographic Hash: Hardcoded PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - hashlib.pbkdf2_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded PBE Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 0140466E-2A85-4647-AFA1-A52ABA9D2F7E
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-287b9c88
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - hashlib.pbkdf2_hmac
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 396516AB-3187-470E-974C-141872CDBF82
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-3517cacf
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - __init__
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - python
+  metadata:
+    source_rule_id: 4D9BD1C0-6604-4BB3-BF7E-51C02C669D78
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-0e01820f
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - new
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - python
+  metadata:
+    source_rule_id: 1E15704F-5AD8-464A-95B4-4B0A9758BAA2
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-9d9355fc
+  name: 'Weak Encryption: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - RSAImplementation.generate
+  description: 检测 Weak Encryption 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - python
+  metadata:
+    source_rule_id: 65906750-4C67-485D-8D23-6291F2F20151
+    source_category: Weak Encryption
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-fb881cac
+  name: 'Weak Cryptographic Signature: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - DSAImplementation.generate
+  description: 检测 Weak Cryptographic Signature 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_signature
+  - python
+  metadata:
+    source_rule_id: 2D9E01F3-D273-4F92-B84B-7C2D51B13FF9
+    source_category: Weak Cryptographic Signature
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-9af648e7
+  name: 'Weak Cryptographic Signature: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Crypto.PublicKey.DSA.generate
+  description: 检测 Weak Cryptographic Signature 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_signature
+  - python
+  metadata:
+    source_rule_id: 1A8C9F01-444B-4584-8B37-D754E57CDF96
+    source_category: Weak Cryptographic Signature
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-b1a5988b
+  name: 'Weak Encryption: Insufficient Key Size'
+  rule_type: pattern
+  category: crypto
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - generate
+  description: 检测 Weak Encryption 相关的安全风险（Insufficient Key Size）
+  cwe_ids:
+  - CWE-326
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - python
+  metadata:
+    source_rule_id: C209655B-3C61-40B0-A24D-20E35541A890
+    source_category: Weak Encryption
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-ff0e64b8
+  name: 'Weak Cryptographic Hash: Empty PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:PBKDF(1|2)|scrypt
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Empty PBE Salt）
+  cwe_ids:
+  - CWE-759
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 26EFA09E-3573-461C-8A43-0B58160A6FB2
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-fbb1eeb0
+  name: 'Weak Cryptographic Hash: Hardcoded PBE Salt'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:PBKDF(1|2)|scrypt
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Hardcoded PBE Salt）
+  cwe_ids:
+  - CWE-760
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: C6D0C507-7CD3-4A0E-981F-CBC8D6103AA7
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-ae710925
+  name: Weak Encryption
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:strxor(_c)?
+  description: 检测 Weak Encryption 相关的安全风险
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_encryption
+  - python
+  metadata:
+    source_rule_id: D7A29493-E487-4C02-A8F7-DA2F9E7E80E0
+    source_category: Weak Encryption
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-4e6d0d0a
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:PBKDF(1|2)
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 6AEAE67E-B987-4D9F-8A8C-4194A0847873
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-d5fa9aed
+  name: 'Weak Cryptographic Hash: Insecure PBE Iteration Count'
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:PBKDF(1|2)
+  description: 检测 Weak Cryptographic Hash 相关的安全风险（Insecure PBE Iteration Count）
+  cwe_ids:
+  - CWE-916
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 35BFCE4D-3647-47E7-B952-E6172A9B7925
+    source_category: Weak Cryptographic Hash
+    source_severity: 3.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-3a8796a7
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - hashlib.new
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: B2AD45F8-5794-44AE-A89B-111E13BF4A97
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-3fd3cf4e
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:md5|sha1
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: D5838E86-8191-438E-A856-6BBAFE8F3875
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-773931bd
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - sha.new
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 4AE7CE8D-826E-4D38-BA7F-B5C2CF2C2E23
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-ef5e9dc5
+  name: Weak Cryptographic Hash
+  rule_type: pattern
+  category: crypto
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - md5.new
+  description: 检测 Weak Cryptographic Hash 相关的安全风险
+  cwe_ids:
+  - CWE-328
+  owasp_ids:
+  - A02:2021
+  tags:
+  - weak_cryptographic_hash
+  - python
+  metadata:
+    source_rule_id: 5453E162-AD6D-44A7-AAC9-70A04F26E751
+    source_category: Weak Cryptographic Hash
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-de5b17b2
+  name: 'Insecure Transport: Database'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - init^
+  description: 检测 Insecure Transport 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A05:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 1410913F-D4EC-43A4-BC06-E12FB967404B
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-fffc80da
+  name: 'Insecure Transport: Database'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:connect|set_config|config
+  description: 检测 Insecure Transport 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A05:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 98DCF71F-FFE7-4CCC-AF4C-61AC52C6EE50
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-790db8b1
+  name: 'Insecure Transport: Database'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - mysql.connector.connect
+  description: 检测 Insecure Transport 相关的安全风险（Database）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A05:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 5373D94D-2C94-40F5-A8B7-C938D7BB0A9F
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-87c43126
+  name: 'Insecure SSL: Server Identity Verification Disabled'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - init^
+  description: 检测 Insecure SSL 相关的安全风险（Server Identity Verification Disabled）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A07:2021
+  tags:
+  - insecure_ssl
+  - python
+  metadata:
+    source_rule_id: AE1D6693-CBE0-435A-A571-ADA0F9848CC8
+    source_category: Insecure SSL
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-dee5dfa6
+  name: 'Insecure SSL: Server Identity Verification Disabled'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:connect|set_config|config
+  description: 检测 Insecure SSL 相关的安全风险（Server Identity Verification Disabled）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A07:2021
+  tags:
+  - insecure_ssl
+  - python
+  metadata:
+    source_rule_id: 0CA56D5F-C3FC-4E94-BC4E-AA588599445F
+    source_category: Insecure SSL
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-66137950
+  name: 'Insecure SSL: Server Identity Verification Disabled'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - mysql.connector.connect
+  description: 检测 Insecure SSL 相关的安全风险（Server Identity Verification Disabled）
+  cwe_ids:
+  - CWE-297
+  - CWE-287
+  - CWE-295
+  owasp_ids:
+  - A07:2021
+  tags:
+  - insecure_ssl
+  - python
+  metadata:
+    source_rule_id: CC31AD07-BDA6-4812-93D4-EAFCF52D85E8
+    source_category: Insecure SSL
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-fd45a16a
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - init^
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 5C03CF05-6851-454A-8BBC-64F1916C9635
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-d590ddc2
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:connect|set_config|config
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: 9F45A570-63DC-4019-95E2-F4D3A1C1AF8C
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-bdbf89ee
+  name: 'Insecure Transport: Weak SSL Protocol'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - mysql.connector.connect
+  description: 检测 Insecure Transport 相关的安全风险（Weak SSL Protocol）
+  cwe_ids:
+  - CWE-327
+  owasp_ids:
+  - A02:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: B02503C0-D9CB-43D3-AC88-BD5E29236C3B
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-crypto-a807d79c
+  name: 'Insecure Transport: Mail Transmission'
+  rule_type: pattern
+  category: crypto
+  risk_level: critical
+  languages:
+  - python
+  patterns:
+  - regex:starttls
+  description: 检测 Insecure Transport 相关的安全风险（Mail Transmission）
+  cwe_ids:
+  - CWE-200
+  owasp_ids:
+  - A05:2021
+  tags:
+  - insecure_transport
+  - python
+  metadata:
+    source_rule_id: AAC4A30D-374C-4781-875F-DEC726D13936
+    source_category: Insecure Transport
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:11.621846'
+  total_rules: 70

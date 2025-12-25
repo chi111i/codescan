@@ -1,0 +1,2094 @@
+rules:
+- id: python-auth-5525b726
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - __setitem__
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: FF7E0A50-7D55-4A6B-A9B8-F5F7BC21193B
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-25e40b99
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - __setitem__
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 9FC7F479-C1D7-4137-830B-EF6C9A4A63E3
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-25e40b99
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - __setitem__
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 9FC7F479-C1D7-4137-830B-EF6C9A4A63E3
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-1ed15516
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: ADBF2A3A-DE87-47CB-8F62-670A086DACB3
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-ecf0bb5a
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 67FF7D91-F8BC-4686-8D2C-D89B16583FC2
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-8edb66eb
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 235278EF-6925-4B01-A58A-1F2817F12C60
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-e721cec5
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 78683FA3-DD87-47C4-9F14-138C08FE7C2A
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-ab955ac2
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 7F928706-8A33-4223-896C-DB99C2DD94B8
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-1cda9a1c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i)pass(wd|word)
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: A8738EDA-8778-48C3-8058-044A4E4B6B91
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-eb0ea797
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 55B45E57-AD43-47F5-AA0D-8A1EDF872F78
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-6716898a
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 8D9733BA-2002-4ACC-9B87-8B9CFD45232C
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-ffb456fd
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 4F8315CF-C2C8-4A5E-8BE8-A651D9F60DE7
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-1b52316c
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 1761FE17-4575-4B4C-B3F4-9BF1D9CEC8E2
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-b453b183
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 7F4D71B1-683C-4F02-BFB6-B41A33DFBE61
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-5e82f00d
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:(?i).*pass(wd|word).*
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: D99DB56E-EA0E-4589-BDA7-2DFACB7D4548
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-1f220cb0
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:create_(super)?user
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 04F9A2D3-EB7B-4D65-8EFA-52BFD5DB6FF1
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.8
+- id: python-auth-d6fca33c
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:create_(super)?user
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 09C1F9CE-3E6B-47D4-A9B8-069DE3267386
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.8
+- id: python-auth-8befe652
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:create_(super)?user
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 1BE85DBE-D8AE-4117-9BC8-EF1B48C7C73D
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.8
+- id: python-auth-54ffdce3
+  name: 'Cookie Security: Overly Broad Path'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Path）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: 1CFB5D4C-4487-4D00-AC35-C96426C91736
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-372144e4
+  name: 'Cookie Security: Overly Broad Path'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Path）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: B3A0507E-1E3B-4470-84F6-5D9F96696BF1
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-94505938
+  name: 'Cookie Security: Overly Broad Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: 4D7BAA70-8E6B-4D81-A416-B7D523796CC3
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-5369b545
+  name: 'Cookie Security: Overly Broad Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: DB377F85-31DB-4F98-AFCB-0756EDEDF790
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-fbd8e80f
+  name: 'Cookie Security: Overly Broad Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: AE7A7D71-393F-4F29-B0B4-E793707B8F41
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-933d8801
+  name: 'Cookie Security: Overly Broad Domain'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_cookie
+  description: 检测 Cookie Security 相关的安全风险（Overly Broad Domain）
+  cwe_ids: []
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: D70DDCE7-9A36-48AF-805C-5C4CDD4F8090
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-13f7685d
+  name: 'Cookie Security: Cookie not Sent Over SSL'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Cookie Security 相关的安全风险（Cookie not Sent Over SSL）
+  cwe_ids:
+  - CWE-614
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: FC28AF2A-7EEB-46EE-96C0-3552A8987109
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-989f75da
+  name: 'Cookie Security: Cookie not Sent Over SSL'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - set_cookie
+  description: 检测 Cookie Security 相关的安全风险（Cookie not Sent Over SSL）
+  cwe_ids:
+  - CWE-614
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: A64AD6EE-264C-428E-9CD0-0C243821371F
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-3952dc4d
+  name: 'Cookie Security: Persistent Cookie'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Cookie Security 相关的安全风险（Persistent Cookie）
+  cwe_ids:
+  - CWE-539
+  - CWE-200
+  owasp_ids:
+  - A04:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: B9023C10-CA56-4571-9E5D-37BA26A682F2
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-b0e8089a
+  name: 'Cookie Security: Persistent Cookie'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - set_cookie
+  description: 检测 Cookie Security 相关的安全风险（Persistent Cookie）
+  cwe_ids:
+  - CWE-539
+  - CWE-200
+  owasp_ids:
+  - A04:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: 7B6865B8-0C17-48A0-83B2-CB3C1918054B
+    source_category: Cookie Security
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-f8faf009
+  name: 'Cookie Security: HTTPOnly not Set'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_signed_cookie
+  description: 检测 Cookie Security 相关的安全风险（HTTPOnly not Set）
+  cwe_ids:
+  - CWE-1004
+  - CWE-732
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: DC4175A7-9B8D-4E70-96BE-6FAEF999782E
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-068fa42d
+  name: 'Cookie Security: HTTPOnly not Set'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - set_cookie
+  description: 检测 Cookie Security 相关的安全风险（HTTPOnly not Set）
+  cwe_ids:
+  - CWE-1004
+  - CWE-732
+  owasp_ids:
+  - A05:2021
+  tags:
+  - cookie_security
+  - python
+  metadata:
+    source_rule_id: 350CD905-BFD6-4422-8489-DBD650FC6D82
+    source_category: Cookie Security
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.75
+- id: python-auth-1bffb274
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - field:USERPWD
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: C212128C-B8FE-460B-A7C2-7B141910AA2F
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-41100393
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - field:USERPWD
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: C60D8AAD-70F4-472A-9562-28683594E801
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-b95162b4
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - field:USERPWD
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 9AFFFD58-5FAA-4C22-A355-5DC011DF9C2F
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: heuristic
+    conversion_confidence: 0.7
+- id: python-auth-213fccb9
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - __init__
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: DFAEBDCD-12CC-4C67-B5C0-67BFED49B109
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-d7265b2c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - __init__
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 6A3EA827-AFD8-47D2-B193-6172BF41265F
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-7c77890c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:login|login_cram_md5
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 247F1C16-5064-48E9-AF0C-B359666CA39D
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-47d8e2f6
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:login|login_cram_md5
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: F43631F7-65DB-4117-AEC0-991263732791
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-15c99c13
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:login|login_cram_md5
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 385E7B2F-0B5F-42A8-BB9D-228BA9666BF5
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-3826461c
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:pass_|apop
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: DB1F1E02-5ACF-4385-A4BE-B7A7258FB88A
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-4149c45b
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:pass_|apop
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: B9F0F519-E342-4905-93E8-FE7A189CFE95
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-0fcddf53
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:pass_|apop
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: D7266F4C-8037-4A60-B200-53103F910E36
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-3a1dda73
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - SMTP.login
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 1E84D1BE-45A7-4037-B511-D4D0650C7DE6
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-049d40b5
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - SMTP.login
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 25AEC8D3-C3A4-411E-BF02-B2CFE2237973
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-c9888bdb
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - SMTP.login
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 5E6CEF45-7354-48CE-8952-2096179D3E14
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-6fe1b303
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - _mysql.connect
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: FE5E8D26-A146-475C-9E73-8A5DF21D54C9
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-63aed98d
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - _mysql.connect
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 6E34865C-DE24-4478-8671-EFDCBEFC1937
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-b734e2c4
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - _mysql.connect
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: F73F0949-AAD0-490F-AA17-891112E28820
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-a26fbc65
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:connect|Connect|Connection
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: D66D067D-4FA0-4400-AF93-01BB3E305C04
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-74e19696
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:connect|Connect|Connection
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 324EC929-1B33-42C4-A944-1E45A152E554
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-cc34bfc8
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - regex:connect|Connect|Connection
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 711918A4-2E44-45BD-9DF2-2465DB1E8FB0
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-4baa937f
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - Http.add_credentials
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 827EF8B4-2930-4C88-A692-9625C1BB6E88
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-c15257a6
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Http.add_credentials
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 40BFCB4D-4666-4EFF-9B9B-1C875E6A8A86
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-ce222fe8
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - Http.add_credentials
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 5E401349-1C01-4FBF-9684-0DC8CBF07AA0
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-53e902a1
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ftplib.login
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 14476ED2-4352-4D76-8D5D-30F5070C4EA4
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-71b79465
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - ftplib.login
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 742CE42B-E755-4911-9BF4-820BE1854861
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-1a4b7c81
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - ftplib.login
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 25C9A69E-989C-4EDE-8873-8219C3D02AA1
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-fd8eff95
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ftplib.__init__
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 91DE55D8-C87B-42F5-8928-83F23C4FE202
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-ef20cbdf
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - ftplib.__init__
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 6822B048-85C0-4A35-9728-1991B108A62F
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-3d51f09e
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - ftplib.__init__
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: E36F64C2-4622-43CE-8E4E-0C5C05FFEE70
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-b07fd141
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - urllib2.add_password
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 6DC1B712-282F-4DF6-BCB1-7B1FD780B645
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-bd4db83f
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib2.add_password
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 562B90F8-CC5F-4A7A-944D-581C724B2F7E
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-6bf434c3
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - urllib2.add_password
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 10F2FE6B-106A-4ED5-B0D4-E84E2AA6851E
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-dc81a33a
+  name: 'Password Management: Null Password'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ZipFile.setpassword
+  description: 检测 Password Management 相关的安全风险（Null Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: C1CD8604-206F-41AB-AF11-ABB2EBF464EA
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-05ec43b6
+  name: 'Password Management: Empty Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - ZipFile.setpassword
+  description: 检测 Password Management 相关的安全风险（Empty Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-287
+  - CWE-798
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: D5217C14-C4DC-4C35-A63E-2E47F8B03E3D
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-33cab92b
+  name: 'Password Management: Hardcoded Password'
+  rule_type: pattern
+  category: auth
+  risk_level: high
+  languages:
+  - python
+  patterns:
+  - ZipFile.setpassword
+  description: 检测 Password Management 相关的安全风险（Hardcoded Password）
+  cwe_ids:
+  - CWE-259
+  - CWE-798
+  - CWE-287
+  owasp_ids:
+  - A07:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 9DC12918-E115-4CCE-B997-F4EAA613DF61
+    source_category: Password Management
+    source_severity: 4.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-07df3d0c
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:login|login_cram_md5
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 43FF44CC-003C-482D-8344-015C3935A0EE
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-bb80c649
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:login|login_cram_md5
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 25E631DE-66C9-4106-81E2-B3C286DD80A8
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-1a4f90d2
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:pass_|apop
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 22DFAAFC-3C4D-4BEA-A601-140C5A2E36A6
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-1b1b59ce
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:pass_|apop
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 2AD0D108-9BE1-42CB-8B6C-3800735F506A
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-29f2ffbd
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - SMTP.login
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: A5004BA7-4C0B-4B95-85ED-73834E074366
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-632790a5
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - SMTP.login
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 58579100-0FDC-4407-AB94-8228D984DAC4
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-1ddb49ac
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - _mysql.connect
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 2B30310D-B51E-4752-B36A-C817F3562EF9
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-9652a458
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - _mysql.connect
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: BA296632-AA2A-41A9-925D-607E176D314B
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-dfeca9a6
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:connect|Connect|Connection
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 5811648E-AFFF-4913-B3E1-009C0058132E
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-e09bd2a4
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - regex:connect|Connect|Connection
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 5B20E5E5-69FE-4E67-82F1-4532E52B6B5D
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-772c5eec
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ftplib.login
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: E6751153-A79E-4CD2-B0E6-6CDEA5EDCF03
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-fdadb6e4
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ftplib.login
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: F5042984-7E74-495E-855F-908C8B125B09
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-0acfa9e6
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ftplib.__init__
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 4E39658A-5058-4F82-8CE5-05E9AF892859
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-59a83a07
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ftplib.__init__
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 1B675F53-8BD9-4FD7-B2C8-CD072C697AE2
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-e6f7becb
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - Http.add_credentials
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: A15766AD-295E-48AD-A3AF-34BD3576456F
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-276373a8
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - Http.add_credentials
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 8F841F60-724E-49AC-ADE4-20E6A4B825ED
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-639840dd
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - urllib2.add_password
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 2B3858A0-DE49-4CBA-9B35-9C88ECD1F45A
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-112fc7f2
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - urllib2.add_password
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: DEC838FB-A6FD-4971-99C1-21B454B37832
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-12a7e932
+  name: 'Password Management: Weak Cryptography'
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ZipFile.setpassword
+  description: 检测 Password Management 相关的安全风险（Weak Cryptography）
+  cwe_ids:
+  - CWE-261
+  - CWE-287
+  owasp_ids:
+  - A02:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 7C8D3155-B3F8-4AEB-A67B-EF130ADFC19A
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: python-auth-c300b95b
+  name: Password Management
+  rule_type: pattern
+  category: auth
+  risk_level: medium
+  languages:
+  - python
+  patterns:
+  - ZipFile.setpassword
+  description: 检测 Password Management 相关的安全风险
+  cwe_ids:
+  - CWE-256
+  - CWE-287
+  - CWE-522
+  owasp_ids:
+  - A04:2021
+  tags:
+  - password_management
+  - python
+  metadata:
+    source_rule_id: 371AE405-7016-40D4-8ED9-2474CEC3824F
+    source_category: Password Management
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:11.539219'
+  total_rules: 85

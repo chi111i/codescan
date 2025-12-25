@@ -55,17 +55,31 @@ class RuleManager:
 
         return count
 
-    def load_from_directory(self, dir_path: str) -> int:
-        """从目录加载所有规则文件"""
+    def load_from_directory(self, dir_path: str, recursive: bool = True) -> int:
+        """从目录加载所有规则文件
+
+        Args:
+            dir_path: 规则目录路径
+            recursive: 是否递归加载子目录 (默认True)
+
+        Returns:
+            加载的规则数量
+        """
         path = Path(dir_path)
         if not path.exists():
             logger.warning(f"Rules directory not found: {dir_path}")
             return 0
 
         count = 0
-        for file_path in path.glob("*.yaml"):
+
+        # 使用递归glob模式
+        glob_pattern = "**/*.yaml" if recursive else "*.yaml"
+
+        for file_path in path.glob(glob_pattern):
             count += self.load_from_file(str(file_path))
-        for file_path in path.glob("*.yml"):
+
+        glob_pattern = "**/*.yml" if recursive else "*.yml"
+        for file_path in path.glob(glob_pattern):
             count += self.load_from_file(str(file_path))
 
         return count

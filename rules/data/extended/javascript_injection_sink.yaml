@@ -1,0 +1,735 @@
+rules:
+- id: javascript-injection-074f454f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - executeSql
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - javascript
+  metadata:
+    source_rule_id: 52EBFB7C-9942-476C-80CF-576DE52273B1
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: fallback
+    conversion_confidence: 0.5
+- id: javascript-injection-074f454f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - executeSql
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - javascript
+  metadata:
+    source_rule_id: 52EBFB7C-9942-476C-80CF-576DE52273B1
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: fallback
+    conversion_confidence: 0.5
+- id: javascript-injection-074f454f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - executeSql
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - javascript
+  metadata:
+    source_rule_id: 52EBFB7C-9942-476C-80CF-576DE52273B1
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: fallback
+    conversion_confidence: 0.5
+- id: javascript-injection-074f454f
+  name: SQL Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - executeSql
+  description: 检测 SQL Injection 相关的安全风险
+  cwe_ids:
+  - CWE-89
+  - CWE-089
+  owasp_ids:
+  - A03:2021
+  tags:
+  - sql_injection
+  - javascript
+  metadata:
+    source_rule_id: 52EBFB7C-9942-476C-80CF-576DE52273B1
+    source_category: SQL Injection
+    source_severity: 2.0
+    conversion_method: fallback
+    conversion_confidence: 0.5
+- id: javascript-injection-1fe43b64
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - regex:Worker|SharedWorker
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: CC289E2F-B322-4B91-A5B6-CC46B1AA6AB0
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-42398d4a
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - EventSource
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: F5543873-7BFD-4E8A-938D-F53E0F9F8E3E
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-d2af2a2d
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - WebSocket
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: 50FB050E-DBA5-4708-B8BD-9720DA193787
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-82b16cad
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - regex:Worker|SharedWorker
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 3E1AE9E4-C70E-4F1B-BB2B-7867B0264C6E
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-1fe43b64
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: CC289E2F-B322-4B91-A5B6-CC46B1AA6AB0
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-82b16cad
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 3E1AE9E4-C70E-4F1B-BB2B-7867B0264C6E
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-42398d4a
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - EventSource.init^
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: F5543873-7BFD-4E8A-938D-F53E0F9F8E3E
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-d2af2a2d
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - WebSocket.init^
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: 50FB050E-DBA5-4708-B8BD-9720DA193787
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-82b16cad
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 3E1AE9E4-C70E-4F1B-BB2B-7867B0264C6E
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-1fe43b64
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: CC289E2F-B322-4B91-A5B6-CC46B1AA6AB0
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-42398d4a
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - EventSource.init^
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: F5543873-7BFD-4E8A-938D-F53E0F9F8E3E
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-d2af2a2d
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - WebSocket.init^
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: 50FB050E-DBA5-4708-B8BD-9720DA193787
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-42398d4a
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - EventSource
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: F5543873-7BFD-4E8A-938D-F53E0F9F8E3E
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-d2af2a2d
+  name: Resource Injection
+  rule_type: sink
+  category: injection
+  risk_level: medium
+  languages:
+  - javascript
+  patterns:
+  - WebSocket
+  description: 检测 Resource Injection 相关的安全风险
+  cwe_ids:
+  - CWE-99
+  owasp_ids:
+  - A03:2021
+  tags:
+  - resource_injection
+  - javascript
+  metadata:
+    source_rule_id: 50FB050E-DBA5-4708-B8BD-9720DA193787
+    source_category: Resource Injection
+    source_severity: 2.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-82b16cad
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - regex:Worker|SharedWorker
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 3E1AE9E4-C70E-4F1B-BB2B-7867B0264C6E
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-1fe43b64
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - regex:Worker|SharedWorker
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: CC289E2F-B322-4B91-A5B6-CC46B1AA6AB0
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-1fe43b64
+  name: 'Dynamic Code Evaluation: Script Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - regex:Worker|SharedWorker
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Script Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: CC289E2F-B322-4B91-A5B6-CC46B1AA6AB0
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-36bcb698
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function.init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 9B5887B1-8619-449F-B6B1-B86FDAA0F2C6
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-02032f20
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function.init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: FA3B470D-27A1-467A-8DB4-FE2E3FA1E174
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-36bcb698
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function.init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 9B5887B1-8619-449F-B6B1-B86FDAA0F2C6
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-02032f20
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function.init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: FA3B470D-27A1-467A-8DB4-FE2E3FA1E174
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-02032f20
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function.init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: FA3B470D-27A1-467A-8DB4-FE2E3FA1E174
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-02032f20
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: FA3B470D-27A1-467A-8DB4-FE2E3FA1E174
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-36bcb698
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function.init^
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 9B5887B1-8619-449F-B6B1-B86FDAA0F2C6
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-36bcb698
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 9B5887B1-8619-449F-B6B1-B86FDAA0F2C6
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+- id: javascript-injection-36bcb698
+  name: 'Dynamic Code Evaluation: Code Injection'
+  rule_type: sink
+  category: injection
+  risk_level: critical
+  languages:
+  - javascript
+  patterns:
+  - Function
+  description: 检测 Dynamic Code Evaluation 相关的安全风险（Code Injection）
+  cwe_ids:
+  - CWE-95
+  - CWE-494
+  - CWE-094
+  owasp_ids:
+  - A03:2021
+  tags:
+  - dynamic_code_evaluation
+  - javascript
+  metadata:
+    source_rule_id: 9B5887B1-8619-449F-B6B1-B86FDAA0F2C6
+    source_category: Dynamic Code Evaluation
+    source_severity: 5.0
+    conversion_method: direct
+    conversion_confidence: 1.0
+_metadata:
+  source: Enterprise Security Rules
+  converted_at: '2025-12-24T21:29:12.285126'
+  total_rules: 30
