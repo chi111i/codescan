@@ -12,9 +12,19 @@ const routes = [
     component: () => import('./views/Dashboard.vue'),
   },
   {
+    path: '/audit',
+    name: 'UnifiedAudit',
+    component: () => import('./views/UnifiedAudit.vue'),
+  },
+  {
     path: '/scan',
     name: 'Scan',
     component: () => import('./views/Scan.vue'),
+  },
+  {
+    path: '/interactive',
+    name: 'InteractiveAudit',
+    component: () => import('./views/InteractiveAudit.vue'),
   },
   {
     path: '/results/:scanId?',

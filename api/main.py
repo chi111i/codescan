@@ -72,6 +72,9 @@ class AppState:
         # WebSocket 连接
         self.websocket_connections: Dict[str, WebSocket] = {}
 
+        # 交互式审计会话管理器（延迟初始化）
+        self.interactive_session_manager = None
+
     def initialize(self, config_path: Optional[str] = None):
         """初始化组件"""
         self.config = load_config(config_path=config_path)
@@ -157,6 +160,14 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+# 注册交互式审计路由
+from .interactive_router import router as interactive_router
+app.include_router(interactive_router)
+
+# 注册统一智能体路由
+from .agent_router import router as agent_router
+app.include_router(agent_router)
 
 
 # ============ 静态文件 ============
@@ -548,6 +559,12 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                 scan_id, f"使用 {analysis_mode} 模式进行安全分析"
             )
 
+        # 转换用户选择的漏洞类型为字符串列表
+        vuln_type_strs = None
+        if request.vuln_types:
+            vuln_type_strs = [vt.value for vt in request.vuln_types]
+            logger.info(f"扫描任务 {scan_id}: 用户选择的漏洞类型: {vuln_type_strs}")
+
         # 使用线程池执行同步的分析操作（可能调用 LLM）
         # 始终传递 code_units 使用直接分析模式，避免依赖不可靠的向量搜索
         findings = await asyncio.to_thread(
@@ -560,6 +577,8 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             code_units,  # code_units - 直接传递代码单元进行模式匹配
             request.use_chain_analysis,  # use_chain_analysis - 是否使用链级分析
             request.max_chain_depth,  # max_chain_depth - 最大调用链深度
+            vuln_type_strs,  # vuln_types - 用户选择的漏洞类型
+            30,  # max_llm_calls - 最大 LLM 调用次数
         )
         logger.info(f"扫描任务 {scan_id}: 安全规则扫描完成，发现 {len(findings)} 个问题")
 

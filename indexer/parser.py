@@ -670,8 +670,8 @@ class PHPParser(BaseLanguageParser):
         imports: List[str]
     ) -> List[CodeUnit]:
         """解析内联 PHP 代码块（用于处理没有函数/类定义的 PHP 文件）"""
-        print(f"[PHP_PARSER] 开始解析内联 PHP: {file_path}")
-        print(f"[PHP_PARSER] 原始内容长度: {len(content)} 字符")
+        logger.debug("[PHP_PARSER] 开始解析内联 PHP: %s", file_path)
+        logger.debug("[PHP_PARSER] 原始内容长度: %s 字符", len(content))
         units = []
 
         # 提取所有 PHP 代码块: <?php ... ?> 或 <? ... ?> 或 <?= ... ?>
@@ -685,8 +685,13 @@ class PHPParser(BaseLanguageParser):
                 end_pos = match.end()
                 start_line = self._get_line_number(content, start_pos)
                 end_line = self._get_line_number(content, end_pos)
-                print(f"[PHP_PARSER] 找到 PHP 块: 行 {start_line}-{end_line}, 长度: {len(php_code)} 字符")
-                print(f"[PHP_PARSER] PHP 代码预览: {php_code[:500]}...")
+                logger.debug(
+                    "[PHP_PARSER] 找到 PHP 块: 行 %s-%s, 长度: %s 字符",
+                    start_line,
+                    end_line,
+                    len(php_code),
+                )
+                logger.debug("[PHP_PARSER] PHP 代码预览: %s...", php_code[:500])
                 php_blocks.append({
                     'code': php_code,
                     'full_match': match.group(0),
@@ -697,10 +702,10 @@ class PHPParser(BaseLanguageParser):
                 })
 
         if not php_blocks:
-            print(f"[PHP_PARSER] 未找到任何 PHP 代码块")
+            logger.debug("[PHP_PARSER] 未找到任何 PHP 代码块")
             return units
 
-        print(f"[PHP_PARSER] 共找到 {len(php_blocks)} 个 PHP 代码块")
+        logger.debug("[PHP_PARSER] 共找到 %s 个 PHP 代码块", len(php_blocks))
 
         # 如果只有一个或几个小的 PHP 块，合并为一个代码单元
         # 如果有多个较大的块，分别创建
@@ -726,9 +731,9 @@ class PHPParser(BaseLanguageParser):
             code_content += f"\n// Block {i+1} (line {block['start_line']}-{block['end_line']}):\n"
             code_content += block['code'] + "\n"
 
-        print(f"[PHP_PARSER] 最终代码内容长度: {len(code_content)} 字符")
-        print(f"[PHP_PARSER] 提取的函数调用: {calls}")
-        print(f"[PHP_PARSER] 危险函数调用: {dangerous_calls}")
+        logger.debug("[PHP_PARSER] 最终代码内容长度: %s 字符", len(code_content))
+        logger.debug("[PHP_PARSER] 提取的函数调用: %s", calls)
+        logger.debug("[PHP_PARSER] 危险函数调用: %s", dangerous_calls)
 
         # 确定代码单元类型
         unit_type = CodeUnitType.FUNCTION  # 默认为脚本类型

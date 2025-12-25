@@ -519,33 +519,60 @@ class OpenAICompatibleClient(BaseLLMClient):
 
         self._log_request("/embeddings", use_model, len(texts), payload=payload)
 
-        # 使用嵌入模型专用的客户端和 base_url
-        result = self._request_with_retry(
-            "POST",
-            "/embeddings",
-            payload,
-            client=self._embedding_client,
-            base_url=self.embedding_base_url
-        )
+        try:
+            # 使用嵌入模型专用的客户端和 base_url
+            result = self._request_with_retry(
+                "POST",
+                "/embeddings",
+                payload,
+                client=self._embedding_client,
+                base_url=self.embedding_base_url,
+            )
 
-        # 解析嵌入向量
-        embeddings = [item["embedding"] for item in result["data"]]
-        usage = result.get("usage", {})
+            # 解析嵌入向量
+            embeddings = [item["embedding"] for item in result["data"]]
+            usage = result.get("usage", {})
 
-        logger.info(
-            f"Embedding Response: model={result.get('model', use_model)}, "
-            f"texts_count={len(texts)}, embedding_dim={len(embeddings[0]) if embeddings else 0}, "
-            f"total_tokens={usage.get('total_tokens', 'N/A')}"
-        )
+            logger.info(
+                f"Embedding Response: model={result.get('model', use_model)}, "
+                f"texts_count={len(texts)}, embedding_dim={len(embeddings[0]) if embeddings else 0}, "
+                f"total_tokens={usage.get('total_tokens', 'N/A')}"
+            )
 
-        return EmbeddingResponse(
-            embeddings=embeddings,
-            model=result.get("model", use_model),
-            usage={
-                "prompt_tokens": usage.get("prompt_tokens", 0),
-                "total_tokens": usage.get("total_tokens", 0),
-            },
-        )
+            return EmbeddingResponse(
+                embeddings=embeddings,
+                model=result.get("model", use_model),
+                usage={
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                },
+            )
+
+        except Exception as e:
+            # 可选：本地降级嵌入（无外部依赖），用于离线/内网无法访问 embedding 服务时。
+            # 注意：这是退化方案，检索质量会低于真实向量模型。
+            enable_fallback = getattr(self.config, "enable_local_embeddings_fallback", True)
+            if enable_fallback:
+                try:
+                    from .local_embedding import embed_texts
+
+                    embeddings = embed_texts(texts, dim=use_dimensions)
+                    logger.warning(
+                        "Embedding 请求失败，已使用本地哈希嵌入作为回退方案。"
+                        f" 原因: {type(e).__name__}: {e}"
+                    )
+                    return EmbeddingResponse(
+                        embeddings=embeddings,
+                        model=f"local-hash-{use_dimensions}",
+                        usage={"prompt_tokens": 0, "total_tokens": 0},
+                    )
+                except Exception as fallback_err:
+                    logger.error(
+                        "本地嵌入回退失败，将重新抛出原始异常。"
+                        f" fallback_error={type(fallback_err).__name__}: {fallback_err}"
+                    )
+
+            raise
 
     def chat_completion_stream(
         self,
@@ -755,9 +782,12 @@ class MockLLMClient(BaseLLMClient):
             "encoding_format": encoding_format,
         })
 
-        # 返回模拟嵌入（零向量），使用指定的维度或默认 1536
+        # 返回本地哈希嵌入（确定性、无依赖）。
+        # 这比零向量更适合做离线检索/演示。
         dim = dimensions or 1536
-        embeddings = [[0.0] * dim for _ in texts]
+        from .local_embedding import embed_texts
+
+        embeddings = embed_texts(texts, dim=dim)
 
         return EmbeddingResponse(
             embeddings=embeddings,

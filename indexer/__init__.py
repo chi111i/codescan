@@ -48,6 +48,11 @@ from .code_graph import (
     NodeType as GraphNodeType,
     EdgeType as GraphEdgeType,
 )
+from .file_filter import (
+    FileFilter,
+    FilterStats,
+    create_default_auditignore,
+)
 
 __all__ = [
     # 代码单元
@@ -99,4 +104,8 @@ __all__ = [
     "GraphEdge",
     "GraphNodeType",
     "GraphEdgeType",
+    # 文件过滤
+    "FileFilter",
+    "FilterStats",
+    "create_default_auditignore",
 ]

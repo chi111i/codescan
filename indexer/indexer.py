@@ -385,38 +385,43 @@ class CodeIndexer:
                         excluded_examples.append(str(path))
                     logger.debug(f"Excluded file: {path}")
 
-        print(f"[SCAN] 文件扫描完成: 总计 {total_files}, 包含 {included_files}, 排除 {excluded_files}")
+        logger.info(
+            "[SCAN] 文件扫描完成: 总计 %s, 包含 %s, 排除 %s",
+            total_files,
+            included_files,
+            excluded_files,
+        )
         if excluded_examples:
-            print(f"[SCAN] 排除示例: {excluded_examples}")
+            logger.debug("[SCAN] 排除示例: %s", excluded_examples)
 
     def _parse_file(self, file_path: Path, root_path: Path) -> List[CodeUnit]:
         """解析单个文件"""
         parser = get_parser_for_file(str(file_path))
         if not parser:
-            print(f"[PARSE] 没有找到解析器: {file_path}")
+            logger.debug("[PARSE] 没有找到解析器: %s", file_path)
             return []
 
-        print(f"[PARSE] 使用解析器 {parser.__class__.__name__} 解析: {file_path}")
+        logger.debug(
+            "[PARSE] 使用解析器 %s 解析: %s",
+            parser.__class__.__name__,
+            file_path,
+        )
 
         try:
             content = file_path.read_text(encoding="utf-8", errors="ignore")
-            print(f"[PARSE] 文件内容长度: {len(content)} 字符")
-            print(f"[PARSE] 文件内容预览: {content[:200]}...")
+            logger.debug("[PARSE] 文件内容长度: %s 字符", len(content))
 
             rel_path = str(file_path.relative_to(root_path)).replace("\\", "/")
             units = parser.parse_file(rel_path, content)
-            print(f"[PARSE] 解析结果: {len(units)} 个代码单元")
+            logger.debug("[PARSE] 解析结果: %s 个代码单元", len(units))
 
-            if units:
+            if units and logger.isEnabledFor(logging.DEBUG):
                 for u in units[:3]:
-                    print(f"[PARSE]   - {u.unit_type.value}: {u.symbol}")
+                    logger.debug("[PARSE]   - %s: %s", u.unit_type.value, u.symbol)
 
             return units
-        except Exception as e:
-            import traceback
-            print(f"[PARSE] 解析失败: {file_path}")
-            print(f"[PARSE] 错误: {e}")
-            print(f"[PARSE] 堆栈: {traceback.format_exc()}")
+        except Exception:
+            logger.exception("[PARSE] 解析失败: %s", file_path)
             return []
 
     def _chunk_units(self, units: List[CodeUnit], max_tokens: int = 2000) -> List[CodeUnit]:

@@ -489,7 +489,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import * as api from '../api'
@@ -845,6 +845,77 @@ const viewResults = () => {
     router.push(`/results/${currentScan.value.scan_id}`)
   }
 }
+
+// 恢复正在进行的扫描状态
+const restoreRunningScan = async () => {
+  try {
+    const result = await api.listScans()
+    if (result.success && result.data.tasks) {
+      // 查找正在运行的扫描任务（状态不是 completed 或 failed）
+      const runningScan = result.data.tasks.find(
+        task => task.status !== 'completed' && task.status !== 'failed'
+      )
+
+      if (runningScan) {
+        addLog(`恢复扫描任务: ${runningScan.scan_id}`, 'info')
+
+        // 获取完整的扫描状态
+        const scanResult = await api.getScanResult(runningScan.scan_id)
+        if (scanResult.success) {
+          currentScan.value = {
+            scan_id: runningScan.scan_id,
+            status: scanResult.data.status,
+            progress: scanResult.data.progress || 0,
+            current_step: scanResult.data.current_step || '恢复中...',
+            findings: scanResult.data.findings || [],
+            vuln_findings: scanResult.data.vuln_findings || [],
+            total_units: scanResult.data.total_units || 0,
+          }
+
+          // 如果扫描还在进行中，重新连接 WebSocket
+          if (runningScan.status !== 'completed' && runningScan.status !== 'failed') {
+            try {
+              ws = api.createScanWebSocket(runningScan.scan_id)
+              ws.onmessage = (event) => {
+                const data = JSON.parse(event.data)
+                if (data.type === 'progress') {
+                  currentScan.value = { ...currentScan.value, ...data }
+                  if (data.log) {
+                    addLog(data.log, data.log_level || 'info')
+                  }
+                } else if (data.type === 'interaction') {
+                  handleInteraction(data.data)
+                } else if (data.type === 'llm_stream') {
+                  if (data.content) {
+                    addLog(data.content, 'info', true)
+                  }
+                } else if (data.type === 'analysis_detail') {
+                  if (data.data && data.data.message) {
+                    addLog(`[${data.detail_type}] ${data.data.message}`, 'info')
+                  }
+                }
+              }
+              ws.onerror = () => {
+                addLog('WebSocket 重连失败，切换到轮询模式', 'warning')
+                startPolling(runningScan.scan_id)
+              }
+              addLog('已重新连接 WebSocket', 'success')
+            } catch {
+              startPolling(runningScan.scan_id)
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('恢复扫描状态失败:', error)
+  }
+}
+
+onMounted(() => {
+  // 页面加载时检查是否有正在进行的扫描
+  restoreRunningScan()
+})
 
 onUnmounted(() => {
   if (ws) ws.close()

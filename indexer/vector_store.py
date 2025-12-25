@@ -947,20 +947,35 @@ class InMemoryVectorStore(BaseVectorStore):
         return results
 
 
-def create_vector_store(config: VectorStoreConfig, embedding_dim: int = 1536) -> BaseVectorStore:
+def create_vector_store(
+    config: VectorStoreConfig,
+    embedding_dim: Optional[int] = None,
+) -> BaseVectorStore:
     """创建向量存储工厂函数
 
     Args:
         config: 向量存储配置
-        embedding_dim: 嵌入向量维度，默认 1536
+        embedding_dim: 嵌入向量维度（可选）。
+            - 若不传入，则优先使用 config.embedding_dim
+            - 否则回退到 1536
 
     Returns:
         向量存储实例
     """
     provider = config.provider.lower()
+    dim = embedding_dim or getattr(config, "embedding_dim", None) or 1536
 
     if provider == "qdrant":
-        return QdrantVectorStore(config, embedding_dim=embedding_dim)
+        # Qdrant 依赖为可选项：未安装 qdrant-client 时自动回退到内存向量存储。
+        try:
+            from qdrant_client import QdrantClient  # noqa: F401
+        except ImportError:
+            logger.warning(
+                "qdrant-client 未安装，但 provider=qdrant。将回退到 InMemoryVectorStore（memory）"
+            )
+            return InMemoryVectorStore(config)
+
+        return QdrantVectorStore(config, embedding_dim=dim)
     elif provider in ("memory", "inmemory", "in-memory"):
         return InMemoryVectorStore(config)
     else:

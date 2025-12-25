@@ -15,12 +15,13 @@
 
     <!-- 导航菜单 -->
     <nav class="flex-1 space-y-1.5">
+      <!-- 主菜单项 -->
       <router-link
-        v-for="item in menuItems"
+        v-for="item in mainMenuItems"
         :key="item.path"
         :to="item.path"
         class="nav-item group"
-        :class="{ 'active': isActive(item.path) }"
+        :class="{ 'active': isActive(item.path), 'highlight': item.highlight }"
       >
         <div class="nav-icon" :class="item.iconBg">
           <component :is="item.icon" class="w-5 h-5" />
@@ -29,6 +30,73 @@
         <span v-if="item.badge" class="ml-auto px-2 py-0.5 text-xs rounded-full" :class="item.badgeClass">
           {{ item.badge }}
         </span>
+        <span v-if="item.isNew" class="ml-auto px-1.5 py-0.5 text-xs rounded bg-gradient-to-r from-violet-500 to-purple-500 text-white">
+          NEW
+        </span>
+      </router-link>
+
+      <!-- 高级工具子菜单 -->
+      <div class="mt-2">
+        <button
+          @click="toggleAdvancedMenu"
+          class="nav-item group w-full justify-between"
+          :class="{ 'active': isAdvancedActive }"
+        >
+          <div class="flex items-center gap-3">
+            <div class="nav-icon bg-gradient-to-br from-slate-500 to-slate-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+              </svg>
+            </div>
+            <span>高级工具</span>
+          </div>
+          <svg
+            class="w-4 h-4 text-white/50 transition-transform duration-300"
+            :class="{ 'rotate-180': isAdvancedMenuOpen }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <!-- 子菜单项 -->
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 max-h-0"
+          enter-to-class="opacity-100 max-h-96"
+          leave-from-class="opacity-100 max-h-96"
+          leave-to-class="opacity-0 max-h-0"
+        >
+          <div v-if="isAdvancedMenuOpen" class="ml-4 mt-1 space-y-1 overflow-hidden">
+            <router-link
+              v-for="item in advancedMenuItems"
+              :key="item.path"
+              :to="item.path"
+              class="nav-item-sub group"
+              :class="{ 'active': isActive(item.path) }"
+            >
+              <div class="nav-icon-sub" :class="item.iconBg">
+                <component :is="item.icon" class="w-4 h-4" />
+              </div>
+              <span>{{ item.name }}</span>
+            </router-link>
+          </div>
+        </transition>
+      </div>
+
+      <!-- 安全规则 -->
+      <router-link
+        to="/rules"
+        class="nav-item group"
+        :class="{ 'active': isActive('/rules') }"
+      >
+        <div class="nav-icon bg-gradient-to-br from-yellow-500 to-orange-500">
+          <RulesIcon class="w-5 h-5" />
+        </div>
+        <span>安全规则</span>
       </router-link>
     </nav>
 
@@ -86,17 +154,30 @@
 </template>
 
 <script setup>
-import { computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted, h } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '../stores/app'
 
 const route = useRoute()
 const appStore = useAppStore()
 
+// 子菜单状态
+const isAdvancedMenuOpen = ref(false)
+
+const toggleAdvancedMenu = () => {
+  isAdvancedMenuOpen.value = !isAdvancedMenuOpen.value
+}
+
 // 图标组件
 const DashboardIcon = {
   render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
     h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' })
+  ])
+}
+
+const SmartAuditIcon = {
+  render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' })
   ])
 }
 
@@ -142,14 +223,19 @@ const VariantIcon = {
   ])
 }
 
-const menuItems = [
+// 主菜单项（精简后的核心功能）
+const mainMenuItems = [
   { name: '仪表盘', path: '/', icon: DashboardIcon, iconBg: 'bg-gradient-to-br from-blue-500 to-blue-600' },
-  { name: '开始扫描', path: '/scan', icon: ScanIcon, iconBg: 'bg-gradient-to-br from-green-500 to-emerald-600' },
+  { name: '智能审计', path: '/audit', icon: SmartAuditIcon, iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600', highlight: true, isNew: true },
+  { name: '批量扫描', path: '/scan', icon: ScanIcon, iconBg: 'bg-gradient-to-br from-green-500 to-emerald-600' },
   { name: '扫描结果', path: '/results', icon: ResultsIcon, iconBg: 'bg-gradient-to-br from-orange-500 to-red-500', badge: appStore.pendingFindings || null, badgeClass: 'bg-red-500/20 text-red-400' },
-  { name: '调用链', path: '/callgraph', icon: CallGraphIcon, iconBg: 'bg-gradient-to-br from-purple-500 to-pink-500' },
-  { name: '代码图', path: '/code-graph', icon: CodeGraphIcon, iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600' },
+]
+
+// 高级工具子菜单
+const advancedMenuItems = [
+  { name: '调用链分析', path: '/callgraph', icon: CallGraphIcon, iconBg: 'bg-gradient-to-br from-purple-500 to-pink-500' },
+  { name: '代码结构图', path: '/code-graph', icon: CodeGraphIcon, iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600' },
   { name: '变体分析', path: '/variant-analysis', icon: VariantIcon, iconBg: 'bg-gradient-to-br from-rose-500 to-red-600' },
-  { name: '安全规则', path: '/rules', icon: RulesIcon, iconBg: 'bg-gradient-to-br from-yellow-500 to-orange-500' },
   { name: '代码搜索', path: '/search', icon: SearchIcon, iconBg: 'bg-gradient-to-br from-cyan-500 to-blue-500' },
 ]
 
@@ -170,6 +256,16 @@ const isActive = (path) => {
   return route.path.startsWith(path)
 }
 
+// 检查高级工具是否有活动项
+const isAdvancedActive = computed(() => {
+  return advancedMenuItems.some(item => route.path.startsWith(item.path))
+})
+
+// 当高级工具的子路由激活时，自动展开菜单
+if (isAdvancedActive.value) {
+  isAdvancedMenuOpen.value = true
+}
+
 const formatNumber = (num) => {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
@@ -179,6 +275,11 @@ const formatNumber = (num) => {
 onMounted(() => {
   appStore.fetchStats()
   appStore.checkHealth()
+
+  // 如果当前路由在高级工具中，展开菜单
+  if (isAdvancedActive.value) {
+    isAdvancedMenuOpen.value = true
+  }
 })
 </script>
 
@@ -198,6 +299,14 @@ onMounted(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
+.nav-item.highlight {
+  @apply ring-1 ring-violet-400/30;
+}
+
+.nav-item.highlight:not(.active) {
+  @apply bg-violet-500/10;
+}
+
 .nav-icon {
   @apply w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform duration-300;
 }
@@ -207,6 +316,27 @@ onMounted(() => {
 }
 
 .nav-item.active .nav-icon {
+  @apply scale-105;
+}
+
+/* 子菜单样式 */
+.nav-item-sub {
+  @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-white/60 text-sm transition-all duration-200;
+}
+
+.nav-item-sub:hover {
+  @apply bg-white/10 text-white/90;
+}
+
+.nav-item-sub.active {
+  @apply bg-white/15 text-white font-medium;
+}
+
+.nav-icon-sub {
+  @apply w-7 h-7 rounded-lg flex items-center justify-center text-white/90 shadow transition-transform duration-200;
+}
+
+.nav-item-sub:hover .nav-icon-sub {
   @apply scale-105;
 }
 </style>
