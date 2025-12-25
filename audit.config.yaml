@@ -1,0 +1,48 @@
+# CodeScan - 默认项目配置
+#
+# 提示：
+# - 建议通过环境变量设置 Key：
+#   - AUDIT_LLM_API_KEY 或 OPENAI_API_KEY
+# - 用户私有配置（如 base_url、api_key）建议写入：
+#   ~/.config/codescan/user_config.yaml
+#
+# 说明：本默认配置选择 memory 向量存储，开箱即用。
+
+llm:
+  provider: openai-compatible
+  base_url: "https://api.openai.com/v1"
+  api_key: ""  # 推荐使用环境变量或用户配置文件
+  model: "gpt-4"
+  embedding_model: "text-embedding-3-small"
+  embedding_dim: 1536
+  temperature: 0.0
+  timeout: 60
+  max_retries: 3
+
+vector_store:
+  # memory: 无需外部服务
+  # qdrant: 需要安装 qdrant-client 并配置 host/port
+  provider: memory
+  collection_name: code_audit
+  enable_cache: true
+  cache_dir: ".audit_cache"
+  cache_ttl_days: 30
+
+scan:
+  target_path: "."
+  mode: full
+  max_concurrent: 4
+  chunk_size: 2000
+
+rules:
+  rules_dir: "rules/data"
+  custom_rules_dir: null
+  risk_threshold: low
+  min_confidence: 0.5
+
+report:
+  output_format: json
+  output_path: "./audit_report"
+  include_evidence: true
+  include_fix_suggestions: true
+  min_confidence: 0.5

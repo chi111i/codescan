@@ -59,11 +59,18 @@ class LLMConfig:
     enable_multi_round: bool = True       # 是否启用多轮分析
     max_rounds: int = 2                   # 最大分析轮数
 
+    # 离线/降级配置
+    # 当嵌入接口不可用（网络/鉴权/服务异常）时，是否使用本地哈希向量作为退化方案。
+    # 该方案可保证工具在离线环境仍能运行，但检索质量会低于真实嵌入模型。
+    enable_local_embeddings_fallback: bool = True
+
 
 @dataclass
 class VectorStoreConfig:
     """向量数据库配置"""
-    provider: str = "qdrant"
+    # 默认使用内存向量存储，开箱即用、无外部依赖。
+    # 如需使用 Qdrant，请将 provider 设置为 "qdrant" 并安装可选依赖 qdrant-client。
+    provider: str = "memory"
     host: str = "localhost"
     port: int = 6333
     collection_name: str = "code_audit"
@@ -242,6 +249,38 @@ class AuditConfig:
             return "****"
         return key[:mask_len] + "*" * (len(key) - mask_len)
 
+    # ---------------------------------------------------------------------
+    # 便捷的序列化/反序列化接口（面向脚本/测试）
+    # ---------------------------------------------------------------------
+
+    @classmethod
+    def from_yaml(
+        cls,
+        config_path: str = "audit.config.yaml",
+        target_path: Optional[str] = None,
+        use_user_config: bool = True,
+    ) -> "AuditConfig":
+        """从 YAML 配置文件加载 AuditConfig。
+
+        该方法是对 `load_config` 的轻量封装，主要用于测试脚本与快速调用。
+
+        Args:
+            config_path: 配置文件路径
+            target_path: 扫描目标路径（覆盖配置文件）
+            use_user_config: 是否合并用户配置（见 load_config）
+
+        Returns:
+            AuditConfig
+        """
+        # 延迟导入，避免循环依赖
+        return load_config(config_path=config_path, target_path=target_path, use_user_config=use_user_config)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为可序列化 dict（用于调试/持久化）。"""
+        from dataclasses import asdict
+
+        return asdict(self)
+
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     """深度合并两个字典，override 优先"""
@@ -336,8 +375,29 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
 # 用户配置持久化
 # =============================================================================
 
-# 用户本地配置文件路径
-USER_CONFIG_FILE = Path(__file__).parent.parent / ".user_config.yaml"
+# -----------------------------------------------------------------------------
+# 用户配置持久化
+# -----------------------------------------------------------------------------
+#
+# 说明：.user_config.yaml 属于“用户私有配置”（如 API Key、私有 base_url），
+# 不应存放在项目仓库根目录中（避免误提交/泄露）。
+#
+# 默认保存位置：
+# - Linux/macOS:   ~/.config/codescan/user_config.yaml (遵循 XDG_CONFIG_HOME)
+# - Windows:       %USERPROFILE%\.config\codescan\user_config.yaml (由 Path.home() 推导)
+#
+# 兼容：若检测到旧版路径 <repo>/.user_config.yaml，将在读取时兼容并提示迁移。
+
+_XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+_DEFAULT_USER_CONFIG_DIR = _XDG_CONFIG_HOME / "codescan"
+
+# 可通过环境变量强制指定用户配置路径
+USER_CONFIG_FILE = Path(
+    os.environ.get("CODESCAN_USER_CONFIG", str(_DEFAULT_USER_CONFIG_DIR / "user_config.yaml"))
+)
+
+# 旧版（不推荐）路径：项目根目录下的 .user_config.yaml
+LEGACY_USER_CONFIG_FILE = Path(__file__).parent.parent / ".user_config.yaml"
 
 
 def save_user_config(config_updates: Dict[str, Any]) -> bool:
@@ -350,6 +410,9 @@ def save_user_config(config_updates: Dict[str, Any]) -> bool:
         是否保存成功
     """
     try:
+        # 确保目录存在
+        USER_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
         # 读取现有配置
         existing_config = {}
         if USER_CONFIG_FILE.exists():
@@ -376,16 +439,31 @@ def load_user_config() -> Dict[str, Any]:
     Returns:
         用户配置字典
     """
-    if not USER_CONFIG_FILE.exists():
-        return {}
+    # 1) 新位置
+    if USER_CONFIG_FILE.exists():
+        try:
+            with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"加载用户配置失败: {e}")
+            return {}
 
-    try:
-        with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"加载用户配置失败: {e}")
-        return {}
+    # 2) 兼容旧位置（项目根目录）
+    if LEGACY_USER_CONFIG_FILE.exists():
+        try:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"检测到旧版用户配置文件: {LEGACY_USER_CONFIG_FILE}。建议迁移到: {USER_CONFIG_FILE}"
+            )
+            with open(LEGACY_USER_CONFIG_FILE, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"加载旧版用户配置失败: {e}")
+            return {}
+
+    return {}
 
 
 def clear_user_config() -> bool:
@@ -397,6 +475,12 @@ def clear_user_config() -> bool:
     try:
         if USER_CONFIG_FILE.exists():
             USER_CONFIG_FILE.unlink()
+        # 不主动删除旧文件，避免用户误删；仅在存在时提示用户自行处理
+        if LEGACY_USER_CONFIG_FILE.exists():
+            import logging
+            logging.getLogger(__name__).warning(
+                f"旧版用户配置文件仍存在: {LEGACY_USER_CONFIG_FILE}（未删除）。可手动迁移/删除。"
+            )
         return True
     except Exception as e:
         import logging
@@ -404,7 +488,11 @@ def clear_user_config() -> bool:
         return False
 
 
-def load_config(config_path: Optional[str] = None, target_path: Optional[str] = None) -> AuditConfig:
+def load_config(
+    config_path: Optional[str] = None,
+    target_path: Optional[str] = None,
+    use_user_config: bool = True,
+) -> AuditConfig:
     """加载配置
 
     优先级（从低到高）：
@@ -417,6 +505,7 @@ def load_config(config_path: Optional[str] = None, target_path: Optional[str] = 
     Args:
         config_path: 配置文件路径，默认查找 audit.config.yaml
         target_path: 扫描目标路径，覆盖配置文件中的设置
+        use_user_config: 是否合并用户配置文件（默认 True）
 
     Returns:
         AuditConfig 配置对象
@@ -443,9 +532,10 @@ def load_config(config_path: Optional[str] = None, target_path: Optional[str] = 
             config_dict = _deep_merge(config_dict, file_config)
 
     # 3. 加载用户本地配置文件（高优先级）
-    user_config = load_user_config()
-    if user_config:
-        config_dict = _deep_merge(config_dict, user_config)
+    if use_user_config:
+        user_config = load_user_config()
+        if user_config:
+            config_dict = _deep_merge(config_dict, user_config)
 
     # 4. 应用环境变量覆盖
     config_dict = _apply_env_overrides(config_dict)
@@ -533,7 +623,10 @@ llm:
 # 向量数据库配置
 # =============================================================================
 vector_store:
-  provider: qdrant
+  # 默认使用内存向量存储（无需外部服务）。
+  # 如需使用 Qdrant，请将 provider 改为 qdrant，并安装可选依赖: pip install qdrant-client
+  provider: memory
+  # host/port/api_key 仅在 provider=qdrant 时使用
   host: localhost
   port: 6333
   collection_name: code_audit

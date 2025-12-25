@@ -1,0 +1,26 @@
+# CodeScan - 用户私有配置示例（请不要提交到仓库）
+#
+# 默认保存位置：
+#   ~/.config/codescan/user_config.yaml
+#
+# 作用：覆盖 audit.config.yaml（项目共享配置）中的敏感/个性化部分。
+# 建议只放：api_key、base_url、embedding_* 等。
+
+llm:
+  # 主模型
+  api_key: ""  # 推荐使用环境变量 AUDIT_LLM_API_KEY / OPENAI_API_KEY
+  base_url: "https://api.openai.com/v1"  # 或你的 OpenAI-Compatible 地址
+  model: "gpt-4"
+  temperature: 0.0
+  timeout: 60
+  max_retries: 3
+
+  # 嵌入模型（可选：如果你希望嵌入走独立的服务）
+  embedding_api_key: ""  # 为空则复用 api_key
+  embedding_base_url: "" # 为空则复用 base_url
+  embedding_model: "text-embedding-3-small"
+  embedding_dim: 1536
+
+scan:
+  # 仅示例：你可以在本地把模式改成 fast-rule / llm-deep / full
+  mode: full

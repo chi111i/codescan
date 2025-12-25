@@ -24,6 +24,11 @@ from .settings import (
     USER_CONFIG_FILE,
 )
 
+from .validator import (
+    ConfigValidator,
+    validate_config,
+)
+
 __all__ = [
     # 枚举
     "ScanMode",
@@ -46,4 +51,7 @@ __all__ = [
     "load_user_config",
     "clear_user_config",
     "USER_CONFIG_FILE",
+    # 验证器
+    "ConfigValidator",
+    "validate_config",
 ]

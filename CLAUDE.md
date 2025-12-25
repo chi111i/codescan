@@ -1,409 +1,387 @@
-# 项目：LLM 驱动的代码审计工具（侧重逻辑漏洞）
+# CLAUDE.md
 
-## Claude 在本仓库中的角色
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- 你是本项目的 **安全研发助理 + 架构顾问**，和人类一起设计和实现一个基于 LLM 的代码审计工具。
-- 工具目标：
-  - 使用 **OpenAI 兼容 API**（自定义 `base_url` / `api_key` / `model`）调用任意 LLM；
-  - 利用 **嵌入 + 向量检索** 构建代码索引和安全规则知识库；
-  - 聚焦传统静态分析/规则工具难以检测的 **业务逻辑 / 权限 / 流程漏洞**；
-  - 保持架构干净、模块化，便于后续扩展和替换模型/向量库/语言解析器。
+## 项目概述
 
-在协助开发时，请你：
-- 优先保证设计清晰可维护，而不是一次性“写完所有功能”；
-- 主动拆分模块、提炼接口，给出合理目录结构和命名；
-- 对安全相关的设计给出简短理由（例如：为什么这样可以减少幻觉、减少误报等）。
+**CodeScan** 是一个 LLM 驱动的代码安全审计工具，专注于检测传统静态分析工具难以发现的**业务逻辑漏洞、权限控制问题和高危安全缺陷**（RCE、任意文件读写、反序列化、SSRF、鉴权绕过、IDOR、状态机绕过等）。
 
----
+### 北极星目标
 
-## 项目愿景与核心功能
+**核心使命**：挖掘深层次高危逻辑漏洞，通过：
 
-### 1. 功能目标
+1. 扫描所有危险函数（sinks）触发点
+2. 找到每个 sink 的所有调用链（入口点 → ... → 触发 sink 的函数）
+3. 自动收集调用链涉及的代码上下文
+4. 交给 LLM 做链级逐步推理与结构化结论输出
 
-1. **OpenAI 格式 LLM 接入层**
-   - 通过配置使用任意 OpenAI 格式的模型服务：
-     - 官方 OpenAI；
-     - 自建 vLLM / OpenLLM 等 OpenAI-Compatible 服务器；
-     - 第三方聚合/代理（如 One-API 等）。  
-   - 可以在配置中自由设置：
-     - `base_url`
-     - `api_key`
-     - `model`
-     - `embedding_model`
-
-2. **代码向量索引**
-   - 将代码按 **函数 / 方法 / 类 / 处理器** 等粒度切分；
-   - 使用嵌入模型做向量化，存入可替换的向量库；
-   - 支持按：
-     - 文件路径
-     - 语言
-     - 框架/模块
-     - 调用关系（caller/callee）
-     进行检索，以减少上下文长度和幻觉。
-
-3. **危险函数 & 安全规则知识库**
-   - 使用独立的配置/数据库维护：
-     - 危险函数（sinks）；
-     - 典型外部输入源（sources）；
-     - 数据校验/过滤函数（sanitizers）；
-     - 语言/框架特有模式（如路由、ORM、权限中间件等）。
-   - 支持配置级别的元数据：
-     - 语言语言/框架
-     - 风险等级
-     - 相关 CWE / OWASP 类型
-   - 有扩展空间，可以结合静态分析工具（如 CodeQL/Semgrep 等）的结果作为候选点输入，再交给 LLM 深度分析。:contentReference[oaicite:1]{index=1}  
-
-4. **LLM 驱动的逻辑漏洞分析**
-   - 工具根据索引 + 规则筛出“疑似危险调用/路径”，构造紧凑上下文；
-   - 调用 LLM 做 **多步逻辑推理**（重点是：
-     - 认证与授权；
-     - 对象级权限（IDOR）；
-     - 业务流程与状态机；
-     - 资金/资产/敏感操作；
-     - 微服务之间的信任边界。
-   - 输出结构化 JSON 结果，包含：
-     - 是否存在问题
-     - 问题类型
-     - 风险等级 / 置信度
-     - 涉及文件和符号
-     - 简要说明
-     - 修复建议
-   - 所有分析结果只作为安全工程师的辅助输入，不替代人工审核。
-
-5. **可扩展与可继续开发**
-   - 模块式架构（配置 / 索引 / 规则 / 分析 / LLM 客户端 / 报告 / CLI）；
-   - 各模块通过接口/抽象基类解耦；
-   - 容易增加新语言、新规则、新后端模型、新输出格式（例如 SARIF）。
+**衡量标准**：能否在中大型仓库里高召回地输出 sink 触发点、调用链路径、链上代码证据 + LLM 结构化审计结论。
 
 ---
 
-## 技术栈与约定
+## 常用命令
 
-> 如果人类没有特别指定语言，默认使用 **Python 3.x** 实现核心工具。  
-> 若用户明确指定其它语言（如 TypeScript/Go），请按用户指示切换，同时保持架构思想不变。
+### 开发启动
 
-推荐（非强制）技术栈：
+```bash
+# 安装依赖
+pip3 install -r requirements.txt
+cd frontend && npm install
 
-- **核心语言**：Python 3.x
-- **LLM 调用**：
-  - 官方 `openai` Python SDK 或兼容实现；
-  - 对各类 OpenAI-Compatible 服务做配置适配（如 vLLM、OpenLLM、One-API 等）。:contentReference[oaicite:2]{index=2}  
-- **解析 & 索引**：
-  - 文件遍历：标准库 + `.gitignore` 解析；
-  - 语法解析：`tree-sitter` 或语言特定解析库；
-  - 向量库：抽象接口 + 实现（如 SQLite + pgvector / Chroma / Qdrant 等）。
-- **CLI**：`typer` 或 `click`
-- **配置文件**：YAML/JSON + 环境变量
+# 同时启动前后端（开发模式）
+python3 start.py all
 
-编码风格：
+# 仅后端 API (端口 8000)
+python3 start.py api --host 0.0.0.0 --port 8000
 
-- 清晰的模块边界，避免巨型文件；
-- 使用类型注解；
-- 所有外部 I/O（网络、文件）要有错误处理；
-- 核心模块尽量可单元测试（索引、规则加载、LLM 调用封装、分析协调器）。
+# 仅前端开发服务器 (端口 3000)
+python3 start.py frontend
+```
 
----
+### CLI 命令
 
-## 项目架构要求（Claude 必须遵守）
+```bash
+# 初始化配置
+python3 -m codescan init -o audit.config.yaml
 
-从一开始就按如下模块拆分代码结构（目录命名可微调，但保持语义一致）：
+# 索引项目
+python3 -m codescan index ./project-path
+python3 -m codescan index ./project-path --clear  # 清空重建
 
-### 1. `config/` —— 配置与初始化
+# 安全扫描
+python3 -m codescan scan ./project-path -l python -f json -o report.json
 
-职责：
+# 高危漏洞扫描
+python3 -m codescan vulnscan ./project-path -t rce,sql_injection,file_read
+python3 -m codescan vulnscan ./project-path --no-llm  # 不使用 LLM
 
-- 加载和合并配置：
-  - LLM & Embedding：
-    - `provider` / `base_url` / `api_key` / `model` / `embedding_model`
-  - 扫描配置：
-    - 目标路径、包含/排除模式、语言列表；
-    - 最大并发数、最大 tokens 限制；
-  - 规则配置：
-    - 危险函数、source/sink/sanitizer、分类标签。
-- 支持：
-  - 默认配置 + 项目级配置文件（例如 `audit.config.yaml`）；
-  - 环境变量覆盖；
-  - 基础校验（字段类型、必填项等）。
+# 调用链分析
+python3 -m codescan callgraph ./project-path -d 15 -o call_graph.json
 
-设计目标：
+# 代码搜索
+python3 -m codescan search "用户认证逻辑" -l python -n 20
 
-- 任何模块都只依赖统一的配置对象，而不是直接读取环境变量；
-- 可以很容易增加新的配置项，而不破坏已有逻辑。
+# 规则管理
+python3 -m codescan rules list -l python
+python3 -m codescan rules stats
+```
 
----
+### 测试
 
-### 2. `indexer/` —— 代码遍历与向量索引
+```bash
+# 运行所有测试
+python3 tests/
 
-职责：
-
-- 遍历目标路径（支持 `.gitignore` / 自定义 ignore 文件）；
-- 对每种语言使用对应的解析器（推荐 tree-sitter）生成抽象表示：
-  - 文件 → 顶层声明（函数/类/方法）；
-  - 提取：
-    - 名称
-    - 参数列表
-    - 返回值（如果可推断）
-    - 内部调用（调用了哪些函数/方法/API）
-    - 注释/Docstring
-- 定义统一的“分析单元”结构，例如 `CodeUnit`：
-  - `id`（全局唯一）
-  - `language`
-  - `file_path`
-  - `symbol`（函数/方法/类名）
-  - `span`（起始/结束行号）
-  - `signature`
-  - `calls`（调用的函数/方法）
-  - `code`（原始代码片段）
-- 将 `CodeUnit` 序列化成用于嵌入的文本描述，调用嵌入模型生成向量，写入向量库。
-
-扩展性：
-
-- 用接口/抽象基类定义 `LanguageIndexer`；
-- 每种语言单独实现，统一注册到一个工厂中；
-- 向量库通过 `VectorStore` 接口抽象，便于后续替换实现。
-
-幻觉/上下文控制相关要求：
-
-- embedding 文本中必须包含原始代码片段或紧邻代码摘录，避免仅靠摘要；
-- 限制每个单元的 token 数，超出则切块（chunking），并在元数据中标清楚序号。
+# 单个测试文件
+python3 tests/test_parser.py -v
+```
 
 ---
 
-### 3. `rules/` —— 危险函数与安全规则知识库
+## 核心架构
 
-职责：
+```
+后端: Python 3.x + FastAPI + Qdrant
+前端: Vue 3 + Vite + Pinia
+```
 
-- 使用 **YAML/JSON** 配置文件维护安全规则，例如：
+### 核心数据流
 
-  - 按语言划分：
-    - `language: python`
-    - `language: java`
-  - 危险函数（sinks）：
-    - 名称匹配（精确/正则/前缀）；
-    - 所属库/模块；
-    - 描述、风险等级、示例。
-  - 输入源（sources）：
-    - HTTP 请求参数、Header、Cookie、环境变量、消息队列内容等。
-  - 消毒函数（sanitizers）：
-    - 校验/过滤/编码/转义函数；
-    - 说明其防护范围（例如仅处理 SQL 注入，不防 XSS）。
+```
+目标代码 → indexer/parser.py (AST解析)
+        → indexer/indexer.py (生成 CodeUnit)
+        → llm_client/client.py (嵌入向量)
+        → indexer/vector_store.py (Qdrant/内存存储)
+        → analyzer/call_chain.py (构建调用图)
+        → analyzer/engine.py (候选点发现 + LLM 分析)
+        → api/main.py (WebSocket 进度推送)
+        → 前端展示
+```
 
-- 预留字段：
-  - `category`: `auth`, `access-control`, `business-logic`, `injection`, `deserialization`, 等；
-  - `risk_level`: `low | medium | high | critical`；
-  - `framework`: `django`, `spring`, `laravel`, `express`, 等；
-  - `tags`: 例如 `money`, `user-delete`, `password-reset` 等业务标签。
+### 核心抽象
 
-扩展性与检索：
+| 概念 | 文件 | 职责 |
+|------|------|------|
+| **CodeUnit** | `indexer/models.py` | 代码分析单元（函数/方法/类），包含 id、symbol、calls、span、code |
+| **SecurityRule** | `rules/models.py` | 安全规则（sink/source/sanitizer），支持 patterns、risk_level、CWE |
+| **Finding** | `analyzer/models.py` | 分析发现结果，包含 severity、confidence、evidence、attack_scenario |
+| **CallGraph** | `analyzer/call_chain.py` | 函数调用图，用于求入口点到 sink 的路径 |
+| **TaintPath** | `analyzer/taint_analysis.py` | 污点传播路径 source → sink |
 
-- 提供加载/合并接口，允许用户添加自定义规则文件；
-- 可以为规则条目生成嵌入向量，用于模糊匹配命名相似的函数；
-- 支持根据 `category` / `framework` / `language` 快速筛选，将精简后的规则摘要提供给 LLM。
+### 模块职责
 
----
-
-### 4. `analyzer/` —— 分析与 LLM 协调
-
-分为两个主要阶段：
-
-#### 4.1 候选点发现（Candidate Discovery）
-
-- 基于静态信息和规则：
-  - 从 `CodeUnit` 中找到调用危险函数 / 关键业务 API 的位置；
-  - 识别可能的入口点（如 Web handler、Controller、RPC handler 等）；
-  - 建立粗略的调用链（caller → callee）；
-- 对每个候选点：
-  - 使用向量检索找到相关的：
-    - 调用者/被调用者代码；
-    - 模型/实体定义；
-    - 配置文件（如权限、中间件、路由）；
-  - 组合成一个**紧凑的上下文包**，供 LLM 使用。
-
-#### 4.2 LLM 深度审计（LLM Reasoning）
-
-- 将上下文包 + 规则摘要 + 业务提示组成提示词；
-- 引导模型重点分析：
-  - 认证与授权是否完整；
-  - 对象级授权（IDOR）是否存在；
-  - 业务流程与状态机是否可被绕过/跳步/重复；
-  - 资金/计费/优惠/积分等逻辑是否存在利用空间；
-  - 微服务/内部 API 是否错误信任外部传入的身份信息；
-- 分析结果需要结构化 JSON 输出（见后面“LLM 分析提示词模板”）。
-
-其他要求：
-
-- `analyzer` 仅负责编排 LLM 调用与结果合并，不耦合 HTTP 客户端实现；
-- 支持多轮分析（例如：先粗判是否有问题，再在同一个上下文里追问细节）；
-- 对于不确定的情况，允许 LLM 标记为“待人工确认”，而不是强行给结论。
+- **`config/`** - 配置加载（YAML + 环境变量），LLM/向量库/扫描参数
+- **`llm_client/`** - OpenAI 兼容 API 封装（chat_completion、embed），支持任意 base_url
+- **`indexer/`** - 代码解析（Python AST、JS/PHP 正则）+ 向量存储 + 嵌入缓存
+- **`rules/`** - 安全规则管理（sink/source/sanitizer），内置 + 自定义规则
+- **`analyzer/`** - 核心分析引擎：候选点发现、调用链、污点分析、LLM 深度审计
+- **`agent/`** - LLM Function Calling 代理，支持自主代码探索
+- **`storage/`** - SQLite 持久化存储：扫描任务、发现结果、LLM 交互日志
+- **`api/`** - FastAPI 后端，WebSocket 实时进度
+- **`frontend/`** - Vue 3 界面，磨砂玻璃风格 UI
 
 ---
 
-### 5. `llm_client/` —— OpenAI 兼容客户端封装
+## LLM Agent 工具系统
 
-职责：
+### 核心理念
 
-- 提供统一接口，例如：
+**让 LLM 像人类安全专家使用 IDE 一样进行代码审计**：可以主动搜索文件、查找函数定义、查看指定行号范围的代码、追踪调用链和数据流。
 
-  - `embed(texts: List[str], model: Optional[str] = None) -> List[Vector]`
-  - `chat_completion(messages, model=None, temperature=0, tools=None, extra_body=None)`
+### 已实现的 Function Calling 工具
 
-- 内部根据配置生成 HTTP 请求：
-  - 使用 OpenAI 格式 `POST /v1/chat/completions`、`/v1/embeddings`；
-  - 支持覆盖：
-    - `base_url`
-    - `api_key`
-    - `model`
-  - 允许通过 `extra_body` 传递额外参数（如 top_k 等 OpenAI 未定义参数，由 vLLM 等后端扩展）。:contentReference[oaicite:3]{index=3}  
+#### 代码导航工具 (`agent/tools/registry.py`)
 
-- 封装基础能力：
-  - 超时/重试；
-  - 简单的速率限制（例如基于时间窗口的 sleep）；
-  - 错误处理与可读的错误信息。
+| 工具名称 | 功能描述 |
+|---------|---------|
+| `search_code` | 语义搜索查找相关代码片段 |
+| `read_file` | 读取文件内容（支持行号范围） |
+| `get_function` | 获取函数/方法完整代码 |
+| `list_functions` | 列出文件中的所有函数和类 |
+| `get_callers` | 查找调用指定函数的位置 |
+| `get_callees` | 查找函数调用的其他函数 |
 
-安全要求：
+#### 安全分析工具
 
-- 不在日志中输出完整请求内容，可以只输出摘要（模型名、tokens 数、调用栈位置）；
-- 支持通过环境变量关闭所有远程调用（例如在离线测试模式下）。
+| 工具名称 | 功能描述 |
+|---------|---------|
+| `analyze_taint_path` | 分析 Source → Sink 的污点传播路径 |
+| `check_auth` | 检查函数是否有认证授权检查 |
+| `find_entry_points` | 查找项目入口点（HTTP 路由、API 端点） |
 
----
+### Agent 执行流程
 
-### 6. `reporting/` —— 报告与输出
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. 初始化：提供项目概览 + 安全规则 + 可用工具列表                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. LLM 决策：分析当前信息，决定下一步                           │
+│    - 需要更多上下文？→ 调用工具                                 │
+│    - 发现问题？→ 调用 report_finding                           │
+│    - 分析完成？→ 结束循环                                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           ▼                  ▼                  ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│ 调用工具      │   │ 报告发现      │   │ 结束分析      │
+│ - 执行工具    │   │ - 保存到 DB   │   │ - 汇总结果    │
+│ - 记录日志    │   │ - WebSocket   │   │ - 更新状态    │
+│ - 返回结果    │   │   推送        │   │               │
+└───────────────┘   └───────────────┘   └───────────────┘
+```
 
-职责：
+### 关键模块
 
-- 将分析结果统一为一个内部中间结构，例如 `Finding`：
-  - `id`
-  - `file`
-  - `symbol`
-  - `category`
-  - `severity`
-  - `confidence`
-  - `summary`
-  - `details`
-  - `evidence`（包含片段和原因）
-  - `attack_scenario`（高层次描述）
-  - `fix_suggestion`
-  - `notes`
-- 提供多种输出方式：
-  - 终端彩色输出（人类可读）；
-  - JSON 文件；
-  - 可选：SARIF 或其他安全工具通用格式，便于 CI 集成。
-
----
-
-### 7. `cli/` 或 `main.py` —— 用户入口
-
-建议子命令：
-
-- `index`：对项目进行索引；支持增量更新；
-- `scan`：
-  - 执行完整审计流程（索引→候选点→LLM 分析→报告）；
-  - 支持参数：
-    - `--path`
-    - `--language`
-    - `--rule-set`
-    - `--output`（json/sarif/console）
-- `explain <finding-id>`：对已有发现生成更详细的解释；
-- `rules list|show|test`：查看和验证规则。
-
-CLI 层要非常薄，复杂逻辑尽量放到各模块。
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| **ToolRegistry** | `agent/tools/registry.py` | OpenAI Function Calling 格式的工具定义管理 |
+| **ToolExecutor** | `agent/tools/executor.py` | 工具调用执行 + 日志记录 |
+| **LoggedSecurityAgent** | `agent/logged_agent.py` | 带日志记录的安全审计 Agent |
 
 ---
 
-## 逻辑漏洞审计重点（Claude 生成规则与提示词时请优先关注）
+## 数据持久化层
 
-1. **认证与授权**
-   - 未检查登录状态/令牌；
-   - 授权检查顺序错误，或可以通过条件分支绕过；
-   - 依赖于用户可控字段（如 `role`、`isAdmin`）而不是服务端状态；
+### 存储模块 (`storage/`)
 
-2. **对象级授权（IDOR）与资源隔离**
-   - 使用用户可控的资源 ID（如 `user_id`、`order_id`）直接查询数据，却未校验资源属于当前用户；
-   - 列表/搜索接口暴露超出本用户的数据（跨租户、跨账号）；
-   - 批量操作 API（批量删除/更新）缺少粒度校验。
+扫描结果使用 SQLite 持久化存储，服务重启不丢失。
 
-3. **业务流程与状态机**
-   - 支付/退款/优惠券/积分等关键路径的状态检查缺失；
-   - 允许跳过中间步骤直接调用终态操作（如直接标记订单为已支付）；
-   - 关键数据（价格、折扣、数量）完全信任客户端传入。
+| 模块 | 职责 |
+|------|------|
+| `database.py` | SQLite 连接管理，自动创建 schema |
+| `scan_repository.py` | 扫描任务 CRUD |
+| `finding_repository.py` | 发现结果 CRUD（支持分页、过滤） |
+| `interaction_repository.py` | LLM 交互日志 CRUD |
 
-4. **敏感操作保护不足**
-   - 修改密码/邮箱/手机号/2FA 设置未进行二次验证；
-   - 删除账号/重置关键配置时没有审计日志/操作记录；
-   - 关键操作缺乏频率限制和重放保护。
+### 数据库位置
 
-5. **跨服务调用与信任边界**
-   - 内部服务根据可伪造的 header/claim 直接信任调用者身份；
-   - 不验证下游服务响应，直接把敏感信息带回用户；  
-   - MQ/事件处理逻辑假定消息来源可信。
+```
+.audit_data/audit.db    # 扫描结果、发现、交互日志
+.audit_cache/           # 嵌入缓存、文件追踪
+```
 
-生成规则或分析提示词时，请尽量围绕“**业务场景 + 数据流/控制流**”来引导模型，而不是单纯查找危险函数。
+### 新增 API 端点
+
+```
+GET  /api/scan/{id}/findings?page=1&limit=20&severity=high
+GET  /api/scan/{id}/interactions?page=1&limit=50
+GET  /api/scan/{id}/findings/latest?since_id={last_id}
+GET  /api/scan/{id}/timeline
+```
 
 ---
 
-## LLM 分析提示词模板（供实现时参考）
+## 实时展示系统
 
-> 注意：下面是供工具侧调用 LLM 时使用的“系统消息 / 用户消息”模板示例。  
-> Claude 在本仓库中生成与 LLM 调用相关的代码时，请尽量沿用类似结构，并做必要精简以节省 tokens。  
-> 同时，**不要要求模型输出可直接利用的攻击 payload**，而是侧重检测和修复建议。
+### WebSocket 消息类型
 
-### 系统消息模板（示例）
+```typescript
+// 扫描进度
+{ type: 'progress', scan_id, status, progress, current_step }
 
-> 你是一名资深安全工程师，专长是代码审计和业务逻辑漏洞挖掘。  
-> 你将收到：  
-> - 若干段源代码（包含当前函数、相关调用方/被调用方、模型定义、路由、配置片段等）；  
-> - 与当前语言/框架相关的安全规则摘要（危险函数、输入源、消毒函数等）；  
-> - 额外的业务上下文说明（如“这是支付回调处理函数”、“这是删除用户的接口”等）。  
->
-> 你的任务是：  
-> 1. 从**逻辑与权限控制**角度分析这些代码是否存在安全隐患，尤其关注：  
->    - 身份认证/授权是否正确、完整；  
->    - 访问控制是否可被低权限用户绕过；  
->    - 业务流程是否可被跳过、重复或篡改关键参数；  
->    - 跨服务调用中的信任边界问题。  
-> 2. 如果你认为存在问题，请给出：  
->    - 问题的大致类型（例如：水平越权、业务逻辑绕过、缺少二次验证等）；  
->    - 形成漏洞的关键代码位置和简要原因；  
->    - 攻击者可能利用该问题的**高层次思路**（不要给出具体 payload）；  
->    - 建议的修复思路。  
-> 3. 如果你不确定是否构成漏洞，也要明确说明不确定的原因，并指出需要额外人工确认的点。  
->
-> 输出时请使用严格的 JSON 格式，字段包括：  
-> - `has_issue`: boolean  
-> - `issue_type`: string  
-> - `severity`: "low" | "medium" | "high" | "critical"  
-> - `confidence`: 0~1 之间的小数  
-> - `summary`: 对问题的简要中文描述  
-> - `details`: 更详细的分析说明（可分点）  
-> - `evidence`: 代码位置和关键片段说明列表  
-> - `attack_scenario`: 高层次攻击思路文本（不包含具体 payload）  
-> - `fix_suggestion`: 修复建议文本  
-> - `notes`: 需要人工进一步确认的事项  
->
-> 如果你没有足够信息判断，请显式说明“信息不足”，不要臆造代码或逻辑。
+// LLM 交互（工具调用、思考过程）
+{ type: 'interaction', data: { type, tool_name, tool_input, tool_output, content } }
 
-### 用户消息模板（示例）
+// 新发现推送
+{ type: 'new_finding', finding: {...} }
+```
 
-工具在调用 LLM 时可以构造类似如下的用户消息内容：
+### 前端组件
 
-```text
-【待分析代码】
-<在此插入若干段相关代码，每段前附上文件路径与起止行号标注>
+- **LLM 交互面板** (`Scan.vue`): 显示 LLM 每一步分析过程
+- **工具调用日志**: 显示每次工具调用的输入输出
+- **发现列表实时更新**: 新发现自动添加到列表顶部
 
-【静态分析与规则摘要】
-- 语言: <例如 Python>
-- 框架: <例如 Django>
-- 检出的可疑调用:
-  - <函数A> 在 <file/path.py:line> 调用了 <危险函数X>
-  - ...
-- 相关 source/sink/sanitizer:
-  - sources: ...
-  - sinks: ...
-  - sanitizers: ...
+---
 
-【业务上下文】
-本函数处理的业务为: "<例如: 用户发起余额转账接口>"。
-请特别检查:
-- 是否验证了转出账号所有者与当前登录用户一致;
-- 是否有金额上限/频率限制, 是否可能绕过;
-- 是否存在跨租户/跨用户的越权风险。
+## 向量搜索优化
+
+### 嵌入缓存 (`indexer/embedding_cache.py`)
+
+- **LRU 淘汰策略**: 基于 `accessed_at` 追踪访问时间
+- **压缩存储**: `struct.pack` + `zlib` 压缩嵌入向量
+- **持久化统计**: 命中率、淘汰次数等统计信息
+
+### 增量索引 (`indexer/indexer.py`)
+
+- **FileTracker**: 基于 mtime + 内容哈希追踪文件变更
+- **index_directory_incremental()**: 只处理新增/修改的文件
+
+### 高级重排序 (`indexer/vector_store.py`)
+
+```python
+RerankerConfig(
+    enable_reranking=True,
+    vector_weight=0.4,           # 向量相似度权重
+    keyword_weight=0.25,         # 关键词匹配权重
+    security_weight=0.2,         # 安全相关性权重
+    context_weight=0.15,         # 上下文相关性权重
+    security_priority_mode=True, # 安全相关代码提升 1.5x
+    prefer_entry_points=True,    # 优先 handler/controller
+)
+```
+
+**CodeReranker** 评分因素：
+1. 高危模式检测（exec/eval/SQL/文件操作等正则匹配）
+2. 敏感符号名（auth/login/password/admin/delete/payment）
+3. 入口点识别（handler/controller/route 等）
+4. 代码长度偏好（更短更聚焦的函数优先）
+
+---
+
+## 关键设计原则
+
+### 1. 候选点发现必须确定性
+
+**当前问题**：向量搜索作为主召回手段会导致漏报。
+
+**正确做法**：
+- 使用 **SinkCallScanner** 做确定性扫描（AST/regex 匹配 sink patterns）
+- 向量检索仅用于**上下文补充**（相似代码、配置定义、变体分析）
+- `discover_candidates_from_units` 直接遍历 CodeUnit 匹配规则 patterns
+
+### 2. 调用链驱动的分析
+
+LLM 分析单位是**调用链**而非单个函数：
+- 链上下文包含：入口点 → 中间节点 → sink 触发点的所有函数代码
+- 链级 Finding 输出：chain_id、evidence（按节点列出）、exploitability_conditions
+- 爆炸控制：max_depth、max_chains_per_sink、路径去重
+
+### 3. calls 提取与规则匹配
+
+**关键**：Python AST 提取的 `calls` 需要完整限定名：
+- `os.system("id")` → 提取 `os.system`（不仅是 `system`）
+- 规则 patterns 支持：精确匹配、prefix:、suffix:、contains:、regex:
+
+### 4. 异步任务不阻塞
+
+FastAPI 后台任务使用 `asyncio.to_thread()` 包装同步重操作：
+```python
+code_units = await asyncio.to_thread(indexer.parse_directory_without_index, path)
+findings = await asyncio.to_thread(analyzer.analyze, ...)
+```
+
+---
+
+## LLM 分析输出格式
+
+LLM 必须输出结构化 JSON：
+
+```json
+{
+  "has_issue": true,
+  "issue_type": "command_injection",
+  "severity": "critical",
+  "confidence": 0.85,
+  "summary": "用户输入直接传入 os.system",
+  "details": "...",
+  "evidence": [
+    {"file_path": "app.py", "line_start": 45, "code_snippet": "...", "reason": "..."}
+  ],
+  "attack_scenario": "高层次攻击思路（不含 payload）",
+  "fix_suggestion": "使用 subprocess + shlex.quote",
+  "notes": "需要确认的点"
+}
+```
+
+---
+
+## 开发注意事项
+
+### 安全审计重点领域
+
+1. **认证授权**：未检查登录状态、授权可绕过、信任客户端字段
+2. **IDOR**：用户可控 ID 直接查询、缺少资源归属验证
+3. **业务流程**：状态机可跳步、关键参数信任客户端
+4. **敏感操作**：缺少二次验证、无审计日志、无频率限制
+5. **跨服务信任**：内部 API 信任可伪造的 header/claim
+
+### 高危 Sink 类别
+
+| 类别 | Python 示例 | PHP 示例 |
+|------|-------------|----------|
+| RCE | `os.system`, `eval`, `exec`, `subprocess.*` | `exec`, `eval`, `system`, `shell_exec` |
+| 文件读 | `open`, `Path.read_text`, `send_file` | `file_get_contents`, `fopen`, `readfile` |
+| 文件写 | `open(..., 'w')`, `Path.write_text` | `file_put_contents`, `fwrite` |
+| 反序列化 | `pickle.loads`, `yaml.load` | `unserialize` |
+| SSRF | `requests.get`, `urllib.request.urlopen` | `curl_exec`, `file_get_contents` |
+| SQLi | `cursor.execute`, `raw()` | `mysql_query`, `mysqli_query` |
+
+### API 端点
+
+```
+POST /api/scan          # 创建扫描任务
+GET  /api/scan/{id}     # 获取结果
+WS   /ws/scan/{id}      # 实时进度
+POST /api/index         # 索引项目
+GET  /api/rules         # 列出规则
+POST /api/settings      # 更新配置
+```
+
+---
+
+## 优先级指南
+
+### P0 - 必须正确
+
+1. LLM base_url 拼接不能重复 `/v1`（client.py）
+2. FastAPI 异步任务使用 `asyncio.to_thread` 不阻塞事件循环
+3. 候选点发现用确定性扫描，不依赖向量检索
+4. calls 提取要有完整限定名，与规则 patterns 匹配
+
+### P1 - 结果可信
+
+1. 调用图 `build_call_graph()` 每次重置状态
+2. Pydantic 模型使用 `Field(default_factory=list)` 不用 `=[]`
+3. 污点分析要基于 AST 变量关系，不是字符串包含
+
+### 反目标（Anti-goals）
+
+在核心链路分析跑通前，不要投入：
+- 复杂多模型路由、复杂权限系统
+- 重前端功能（工单、评论、仪表盘大而全）
+- 只靠 embedding 就下结论的"语义审计"
