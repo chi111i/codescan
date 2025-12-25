@@ -27,9 +27,14 @@ const routes = [
     component: () => import('./views/InteractiveAudit.vue'),
   },
   {
+    path: '/chat-history',
+    name: 'ChatHistory',
+    component: () => import('./views/ChatHistory.vue'),
+  },
+  {
+    // 兼容性重定向：/results 重定向到 /chat-history
     path: '/results/:scanId?',
-    name: 'Results',
-    component: () => import('./views/Results.vue'),
+    redirect: '/chat-history',
   },
   {
     path: '/callgraph',

@@ -428,8 +428,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import * as api from '../api'
 import ScanConfigPanel from '../components/ScanConfigPanel.vue'
+
+const route = useRoute()
+const router = useRouter()
 
 // ============ 状态 ============
 
@@ -576,6 +580,30 @@ const loadSession = async (sessionId) => {
   } catch (error) {
     console.error('加载会话失败:', error)
     alert('加载会话失败')
+  }
+}
+
+// 从 URL 参数恢复会话
+const restoreFromUrl = async () => {
+  const sessionId = route.query.session
+  if (sessionId) {
+    try {
+      // 先尝试恢复会话（如果未激活）
+      await api.restoreUnifiedSession(sessionId)
+      // 加载会话
+      await loadSession(sessionId)
+      // 清除 URL 参数
+      router.replace({ path: '/audit' })
+    } catch (error) {
+      console.error('从 URL 恢复会话失败:', error)
+      // 如果恢复失败，仍然尝试直接加载（可能已激活）
+      try {
+        await loadSession(sessionId)
+        router.replace({ path: '/audit' })
+      } catch (e) {
+        console.error('加载会话失败:', e)
+      }
+    }
   }
 }
 
@@ -907,23 +935,53 @@ const handleWebSocketMessage = (data) => {
       }
       break
     case 'message_chunk':
-      // 流式响应处理
+      // 流式响应处理 - 实时更新正在生成的消息
+      if (data.data?.content) {
+        // 查找或创建流式消息
+        const lastMsg = chatMessages.value[chatMessages.value.length - 1]
+        if (lastMsg && lastMsg.role === 'assistant' && lastMsg._streaming) {
+          // 追加到现有流式消息
+          lastMsg.content += data.data.content
+        } else {
+          // 创建新的流式消息
+          chatMessages.value.push({
+            role: 'assistant',
+            content: data.data.content,
+            tool_calls: [],
+            timestamp: new Date(),
+            _streaming: true,  // 标记为流式消息
+          })
+        }
+        scrollToBottom()
+      }
       break
     case 'message_complete':
       if (data.data) {
-        chatMessages.value.push({
-          role: 'assistant',
-          content: data.data.content,
-          tool_calls: data.data.tool_calls || [],
-          timestamp: new Date(),
-        })
+        // 查找并更新流式消息，或创建新消息
+        const lastMsg = chatMessages.value[chatMessages.value.length - 1]
+        if (lastMsg && lastMsg._streaming) {
+          // 更新流式消息为完成状态
+          lastMsg.content = data.data.content
+          lastMsg.tool_calls = data.data.tool_calls || []
+          delete lastMsg._streaming
+        } else {
+          // 直接添加完成消息
+          chatMessages.value.push({
+            role: 'assistant',
+            content: data.data.content,
+            tool_calls: data.data.tool_calls || [],
+            timestamp: new Date(),
+          })
+        }
         scrollToBottom()
       }
       isProcessing.value = false
+      currentProcessingStep.value = ''
       break
     case 'error':
       console.error('WebSocket error:', data.data?.error)
       isProcessing.value = false
+      currentProcessingStep.value = ''
       break
   }
 }
@@ -987,7 +1045,10 @@ const getSessionStatusText = (status) => {
 
 // ============ 生命周期 ============
 
-onMounted(() => {
+onMounted(async () => {
+  // 先检查 URL 参数，恢复历史会话
+  await restoreFromUrl()
+  // 加载会话列表
   fetchExistingSessions()
 })
 

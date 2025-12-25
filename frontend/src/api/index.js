@@ -107,7 +107,9 @@ export const createInteractiveWebSocket = (sessionId) => {
 export const createUnifiedSession = (data) => api.post('/agent/session/create', data)
 export const getUnifiedSession = (sessionId) => api.get(`/agent/session/${sessionId}`)
 export const deleteUnifiedSession = (sessionId) => api.delete(`/agent/session/${sessionId}`)
-export const listUnifiedSessions = () => api.get('/agent/sessions')
+export const listUnifiedSessions = (params = {}) => api.get('/agent/sessions', { params })
+export const listActiveUnifiedSessions = () => api.get('/agent/sessions/active')
+export const restoreUnifiedSession = (sessionId) => api.post(`/agent/session/${sessionId}/restore`)
 
 // 对话交互
 export const chatWithAgent = (sessionId, message) => api.post(`/agent/session/${sessionId}/chat`, { message })
