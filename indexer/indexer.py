@@ -254,6 +254,8 @@ class CodeIndexer:
             config.vector_store,
             embedding_dim=config.llm.embedding_dim
         )
+        # 当前索引的目标路径（在 index_directory 时更新）
+        self._current_target_path: Optional[Path] = None
 
         # 初始化嵌入缓存
         if config.vector_store.enable_cache:
@@ -547,6 +549,9 @@ class CodeIndexer:
         if not path.exists():
             raise FileNotFoundError(f"目标路径不存在: {path}")
 
+        # 更新当前目标路径
+        self._current_target_path = path
+
         logger.info(f"Starting index of: {path}")
 
         # 收集所有文件
@@ -619,6 +624,9 @@ class CodeIndexer:
 
         if not path.exists():
             raise FileNotFoundError(f"目标路径不存在: {path}")
+
+        # 更新当前目标路径
+        self._current_target_path = path
 
         logger.info(f"Starting incremental index of: {path}")
 
@@ -871,6 +879,29 @@ class CodeIndexer:
             return self.embedding_cache.cleanup_expired()
         return 0
 
+    def get_current_target_path(self) -> Optional[Path]:
+        """获取当前索引的目标路径
+
+        Returns:
+            当前索引路径，如果未索引则返回 None
+        """
+        return self._current_target_path
+
+    def set_target_path(self, target_path: str) -> None:
+        """设置当前目标路径（不执行索引）
+
+        用于在不重新索引的情况下更新目标路径。
+
+        Args:
+            target_path: 目标路径
+        """
+        path = Path(target_path).resolve()
+        if path.exists():
+            self._current_target_path = path
+            logger.info(f"已设置目标路径: {path}")
+        else:
+            logger.warning(f"目标路径不存在: {path}")
+
     def get_all_units(self, limit: int = 10000) -> List[CodeUnit]:
         """获取所有代码单元
 
@@ -923,8 +954,11 @@ class CodeIndexer:
             文件内容字符串，如果文件不存在返回 None
         """
         try:
+            # 优先使用当前索引路径，其次使用配置路径
+            base_path = self._current_target_path or Path(self.scan_config.target_path)
+
             # 尝试作为相对路径处理
-            target_path = Path(self.scan_config.target_path) / file_path
+            target_path = base_path / file_path
             if not target_path.exists():
                 # 尝试作为绝对路径
                 target_path = Path(file_path)
@@ -961,7 +995,8 @@ class CodeIndexer:
             文件路径列表（相对于 target_path）
         """
         try:
-            root_path = Path(self.scan_config.target_path).resolve()
+            # 优先使用当前索引路径，其次使用配置路径
+            root_path = self._current_target_path or Path(self.scan_config.target_path).resolve()
             if not root_path.exists():
                 return []
 

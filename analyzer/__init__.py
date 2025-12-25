@@ -71,6 +71,22 @@ from .sink_scanner import (
     SinkCallSite,
     SinkCategory as SinkScanCategory,
 )
+from .prescan import (
+    RuleScanPreprocessor,
+    PreScanConfig,
+    PreScanResult,
+    PreScanStatus,
+    RiskSummary,
+    CategorySummary,
+)
+from .enhancer import (
+    DeepAnalysisEnhancer,
+    EnhancementConfig,
+    EnhancementResult,
+    EnhancedSite,
+    CallChainInfo,
+    TaintInfo,
+)
 from .chain_context import (
     ChainContextCollector,
     ChainContext,
@@ -154,6 +170,20 @@ __all__ = [
     "SinkCallScanner",
     "SinkCallSite",
     "SinkScanCategory",
+    # 预扫描预处理器
+    "RuleScanPreprocessor",
+    "PreScanConfig",
+    "PreScanResult",
+    "PreScanStatus",
+    "RiskSummary",
+    "CategorySummary",
+    # 深度分析增强器
+    "DeepAnalysisEnhancer",
+    "EnhancementConfig",
+    "EnhancementResult",
+    "EnhancedSite",
+    "CallChainInfo",
+    "TaintInfo",
     # 调用链上下文收集
     "ChainContextCollector",
     "ChainContext",

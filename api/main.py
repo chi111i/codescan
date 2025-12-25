@@ -209,8 +209,10 @@ app.include_router(variant_router)
 # 前端静态文件目录
 FRONTEND_DIR = PROJECT_ROOT / "frontend" / "dist"
 
-if FRONTEND_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
+# 只有当 assets 目录确实存在时才挂载
+assets_dir = FRONTEND_DIR / "assets"
+if assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 
 @app.get("/")

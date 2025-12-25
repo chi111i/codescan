@@ -15,6 +15,7 @@ class UnifiedSessionStatus(str, Enum):
     PROCESSING = "processing"
     IDLE = "idle"
     ERROR = "error"
+    ARCHIVED = "archived"  # 历史会话（未激活）
 
 
 class ToolCallStatusEnum(str, Enum):
@@ -33,6 +34,13 @@ class CreateUnifiedSessionRequest(BaseModel):
     languages: Optional[List[str]] = Field(None, description="限定语言列表")
     enable_call_chain: bool = Field(True, description="是否启用调用链分析")
     enable_variant_analysis: bool = Field(True, description="是否启用变体分析")
+    # === 预扫描配置 ===
+    enable_prescan: bool = Field(True, description="是否启用规则预扫描")
+    prescan_risk_levels: List[str] = Field(
+        default=["high", "critical"],
+        description="预扫描风险等级过滤 (low/medium/high/critical)"
+    )
+    enable_deep_enhancement: bool = Field(True, description="是否启用深度增强分析")
 
 
 class UnifiedChatRequest(BaseModel):
@@ -74,8 +82,9 @@ class AgentMessageSchema(BaseModel):
 class UnifiedSessionInfoSchema(BaseModel):
     """统一会话信息"""
     session_id: str
-    target_path: str
+    target_path: Optional[str] = None
     status: UnifiedSessionStatus
+    title: Optional[str] = None  # 会话标题
     created_at: datetime
     updated_at: datetime
 
@@ -142,6 +151,12 @@ class WSEventType(str, Enum):
     ERROR = "error"
     PING = "ping"
     PONG = "pong"
+    # === 预扫描事件 ===
+    PRESCAN_START = "prescan_start"
+    PRESCAN_PROGRESS = "prescan_progress"
+    PRESCAN_COMPLETE = "prescan_complete"
+    ENHANCEMENT_START = "enhancement_start"
+    ENHANCEMENT_COMPLETE = "enhancement_complete"
 
 
 class WSEvent(BaseModel):

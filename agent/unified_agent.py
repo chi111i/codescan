@@ -22,6 +22,19 @@ from indexer import CodeUnit, CodeIndexer
 
 from .tools.manager import AgentToolManager, ToolResult
 from .tools.registry import CODE_NAVIGATION_TOOLS, SECURITY_ANALYSIS_TOOLS
+
+
+def _json_serializer(obj):
+    """自定义 JSON 序列化器，处理 datetime 和其他不可序列化类型"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if hasattr(obj, 'to_dict'):
+        return obj.to_dict()
+    if hasattr(obj, '__dict__'):
+        return obj.__dict__
+    return str(obj)
+
+
 from .tools.callchain_tools import (
     get_callchain_tool_definitions,
     create_callchain_executor,
@@ -30,6 +43,10 @@ from .tools.variant_tools import (
     get_variant_tool_definitions,
     create_variant_executor,
 )
+
+# 预扫描和深度增强相关导入
+from analyzer.prescan import RuleScanPreprocessor, PreScanConfig, PreScanResult
+from analyzer.enhancer import DeepAnalysisEnhancer, EnhancementConfig, EnhancementResult
 
 logger = logging.getLogger(__name__)
 
@@ -107,9 +124,25 @@ class UnifiedAgentConfig:
     max_context_tokens: int = 100000  # 最大上下文 token 数
     context_window_messages: int = 20  # 保留的最近消息数
 
-    # 回调
+    # 性能优化配置
+    enable_parallel_tool_execution: bool = True  # 并行执行工具
+    enable_streaming: bool = True  # 启用流式响应
+    stream_chunk_size: int = 10  # 流式响应缓冲字符数
+
+    # === 预扫描增强配置 ===
+    enable_prescan: bool = True  # 启用规则预扫描
+    prescan_risk_levels: List[str] = field(default_factory=lambda: ["high", "critical"])
+    enable_deep_enhancement: bool = True  # 启用深度增强分析
+    prescan_context_injection: bool = True  # 主动注入预扫描上下文
+    max_prescan_sites_in_prompt: int = 20  # 系统提示中最多包含的触发点数
+
+    # 回调（支持同步和异步）
     on_tool_call: Optional[Callable[[ToolCallEvent], None]] = None
+    on_tool_call_async: Optional[Callable[[ToolCallEvent], Any]] = None  # 异步回调
     on_stream: Optional[Callable[[str], None]] = None
+    on_stream_async: Optional[Callable[[str], Any]] = None  # 异步流式回调
+    on_prescan_complete: Optional[Callable[[PreScanResult], None]] = None  # 预扫描完成回调
+    on_enhancement_complete: Optional[Callable[[EnhancementResult], None]] = None  # 深度增强完成回调
 
 
 class UnifiedAuditAgent:
@@ -192,6 +225,11 @@ class UnifiedAuditAgent:
         self.total_tool_calls = 0
         self.total_tokens_used = 0
 
+        # === 预扫描和深度增强状态 ===
+        self.prescan_result: Optional[PreScanResult] = None
+        self.enhancement_result: Optional[EnhancementResult] = None
+        self._prescan_context: str = ""  # 缓存的预扫描上下文
+
         logger.info(f"[UnifiedAgent] 创建会话: {session_id}")
 
     async def initialize(self):
@@ -231,11 +269,95 @@ class UnifiedAuditAgent:
         if self.config.enable_security_tools:
             self._register_security_tools()
 
+        # === 执行预扫描和深度增强 ===
+        if self.config.enable_prescan and code_units:
+            await self._run_prescan(code_units)
+
         self._initialized = True
 
         logger.info(
             f"[UnifiedAgent] 初始化完成，注册了 {self.tool_manager.count()} 个工具"
         )
+
+    async def _run_prescan(self, code_units: List[CodeUnit]):
+        """执行规则预扫描和深度增强分析
+
+        Args:
+            code_units: 代码单元列表
+        """
+        from rules import RuleManager
+
+        logger.info("[UnifiedAgent] 开始执行规则预扫描...")
+
+        try:
+            rule_manager = RuleManager()
+
+            # 1. 规则预扫描
+            prescan_config = PreScanConfig(
+                enabled_risk_levels=self.config.prescan_risk_levels,
+            )
+            preprocessor = RuleScanPreprocessor(rule_manager, prescan_config)
+
+            # 获取项目路径
+            project_path = self.indexer.project_path if hasattr(self.indexer, 'project_path') else ""
+
+            # 使用线程池执行同步扫描操作，避免阻塞事件循环
+            self.prescan_result = await asyncio.to_thread(
+                preprocessor.scan,
+                code_units=code_units,
+                project_path=project_path,
+                language=None,  # 自动检测
+            )
+
+            logger.info(
+                f"[UnifiedAgent] 预扫描完成: "
+                f"发现 {len(self.prescan_result.sink_sites)} 个触发点, "
+                f"过滤后 {len(self.prescan_result.filtered_sites)} 个"
+            )
+
+            # 回调通知
+            if self.config.on_prescan_complete:
+                self.config.on_prescan_complete(self.prescan_result)
+
+            # 2. 深度增强分析（可选）
+            if self.config.enable_deep_enhancement and self.prescan_result.filtered_sites:
+                enhance_config = EnhancementConfig(
+                    enable_call_chain=self.config.enable_call_chain,
+                    enable_taint_analysis=True,
+                )
+                enhancer = DeepAnalysisEnhancer(rule_manager, enhance_config)
+
+                # 使用线程池执行同步增强操作
+                self.enhancement_result = await asyncio.to_thread(
+                    enhancer.enhance,
+                    prescan_result=self.prescan_result,
+                    code_units=code_units,
+                )
+
+                logger.info(
+                    f"[UnifiedAgent] 深度增强完成: "
+                    f"高置信度触发点 {self.enhancement_result.high_confidence_count} 个"
+                )
+
+                # 生成增强上下文
+                self._prescan_context = enhancer.get_context_for_agent(
+                    self.enhancement_result,
+                    max_sites=self.config.max_prescan_sites_in_prompt,
+                )
+
+                # 回调通知
+                if self.config.on_enhancement_complete:
+                    self.config.on_enhancement_complete(self.enhancement_result)
+            else:
+                # 仅使用预扫描结果生成上下文
+                self._prescan_context = preprocessor.get_context_for_agent(
+                    self.prescan_result,
+                    max_sites=self.config.max_prescan_sites_in_prompt,
+                )
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] 预扫描失败: {e}")
+            self._prescan_context = ""
 
     def _register_code_navigation_tools(self):
         """注册代码导航工具"""
@@ -481,6 +603,61 @@ class UnifiedAuditAgent:
             category="project",
         )
 
+        # === 预扫描结果查询工具 ===
+        self.tool_manager.register_tool(
+            name="get_prescan_summary",
+            description="获取规则预扫描结果摘要，包括发现的危险函数触发点统计、风险等级分布和类别分布。",
+            parameters={
+                "type": "object",
+                "properties": {}
+            },
+            executor=self._execute_get_prescan_summary,
+            category="prescan",
+        )
+
+        self.tool_manager.register_tool(
+            name="get_prescan_sites",
+            description="获取预扫描发现的危险函数触发点列表。可以按风险等级或类别过滤。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "risk_level": {
+                        "type": "string",
+                        "description": "过滤风险等级: critical, high, medium, low",
+                        "enum": ["critical", "high", "medium", "low"]
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "过滤 Sink 类别: command_exec, code_exec, sql_injection, file_read, file_write, ssrf, deserialization"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "返回数量限制，默认 20",
+                        "default": 20
+                    }
+                }
+            },
+            executor=self._execute_get_prescan_sites,
+            category="prescan",
+        )
+
+        self.tool_manager.register_tool(
+            name="get_site_details",
+            description="获取单个预扫描触发点的详细信息，包括调用链分析和污点分析结果。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "site_id": {
+                        "type": "string",
+                        "description": "触发点 ID（如 sink-0001）"
+                    }
+                },
+                "required": ["site_id"]
+            },
+            executor=self._execute_get_site_details,
+            category="prescan",
+        )
+
         logger.debug("[UnifiedAgent] 安全分析工具已注册")
 
     # ============ 核心对话接口 ============
@@ -545,7 +722,7 @@ class UnifiedAuditAgent:
                     for tc, result in zip(response.tool_calls, tool_results):
                         messages.append(ChatMessage(
                             role="tool",
-                            content=json.dumps(result.result or {"error": result.error}, ensure_ascii=False),
+                            content=json.dumps(result.result or {"error": result.error}, ensure_ascii=False, default=_json_serializer),
                             tool_call_id=tc.id,  # ToolCall 对象直接访问 id 属性
                         ))
                 else:
@@ -594,17 +771,168 @@ class UnifiedAuditAgent:
     async def chat_stream(self, user_message: str):
         """流式对话（生成器）
 
+        实现真正的流式响应，在 LLM 生成过程中实时返回内容块。
+        支持工具调用的实时状态推送。
+
         Args:
             user_message: 用户消息
 
         Yields:
-            Dict: 事件对象 {"type": "...", "data": ...}
+            Dict: 事件对象
+                - {"type": "start", "data": {}}  # 开始处理
+                - {"type": "tool_call_start", "data": {...}}  # 工具调用开始
+                - {"type": "tool_call_end", "data": {...}}  # 工具调用结束
+                - {"type": "chunk", "content": "..."}  # 内容块
+                - {"type": "message", "data": {...}}  # 完整消息
         """
-        # TODO: 实现流式响应
-        # 目前先返回完整响应
-        response = await self.chat(user_message)
+        if not self._initialized:
+            await self.initialize()
 
-        yield {"type": "message", "data": response.to_dict()}
+        if self._is_processing:
+            yield {"type": "error", "data": {"error": "正在处理上一个请求，请稍候..."}}
+            return
+
+        self._is_processing = True
+        yield {"type": "start", "data": {"timestamp": datetime.now().isoformat()}}
+
+        try:
+            # 添加用户消息
+            user_msg = AgentMessage(role="user", content=user_message)
+            self.messages.append(user_msg)
+
+            # 构建 LLM 消息
+            messages = self._build_llm_messages(user_message)
+            tools = self.tool_manager.get_tools_for_llm()
+
+            # 多轮工具调用循环
+            tool_calls_this_turn: List[ToolCallEvent] = []
+            final_response = ""
+            accumulated_content = ""
+
+            for turn in range(self.config.max_tool_calls_per_turn):
+                # 检查是否使用流式响应（仅最后一轮无工具调用时使用流式）
+                response = await self._call_llm_with_tools(messages, tools)
+                self.total_llm_calls += 1
+
+                if response.tool_calls:
+                    # 执行工具调用（带实时推送）
+                    for tc in response.tool_calls:
+                        event = ToolCallEvent(
+                            id=tc.id,
+                            tool_name=tc.name,
+                            arguments=tc.arguments if isinstance(tc.arguments, dict) else {},
+                            status=ToolCallStatus.RUNNING,
+                            started_at=datetime.now(),
+                        )
+                        yield {"type": "tool_call_start", "data": event.to_dict()}
+
+                        try:
+                            result = await self.tool_manager.execute(tc.name, event.arguments)
+                            event.status = ToolCallStatus.SUCCESS if result.success else ToolCallStatus.FAILED
+                            event.result = result.data
+                            event.error = result.error
+                            event.finished_at = datetime.now()
+                            event.duration_ms = result.duration_ms
+                            self.total_tool_calls += 1
+                        except Exception as e:
+                            event.status = ToolCallStatus.FAILED
+                            event.error = str(e)
+                            event.finished_at = datetime.now()
+
+                        yield {"type": "tool_call_end", "data": event.to_dict()}
+                        tool_calls_this_turn.append(event)
+                        self.tool_call_history.append(event)
+
+                    # 更新消息
+                    messages.append(ChatMessage(
+                        role="assistant",
+                        content=response.content or "",
+                        tool_calls=response.tool_calls,
+                    ))
+
+                    for tc, event in zip(response.tool_calls, tool_calls_this_turn[-len(response.tool_calls):]):
+                        messages.append(ChatMessage(
+                            role="tool",
+                            content=json.dumps(event.result or {"error": event.error}, ensure_ascii=False, default=_json_serializer),
+                            tool_call_id=tc.id,
+                        ))
+                else:
+                    # 没有工具调用，使用流式响应获取最终结果
+                    if self.config.enable_streaming and hasattr(self.llm_client, 'chat_completion_stream'):
+                        # 使用流式响应
+                        async for chunk in self._stream_final_response(messages, tools):
+                            if chunk.get("type") == "chunk":
+                                accumulated_content += chunk.get("content", "")
+                                yield chunk
+                        final_response = accumulated_content
+                    else:
+                        final_response = response.content or ""
+                        # 分块返回（模拟流式效果）
+                        chunk_size = self.config.stream_chunk_size
+                        for i in range(0, len(final_response), chunk_size):
+                            yield {"type": "chunk", "content": final_response[i:i+chunk_size]}
+                            await asyncio.sleep(0)  # 让出控制权
+                    break
+
+            # 如果循环结束仍有工具调用，再获取最终响应
+            if not final_response and tool_calls_this_turn:
+                final_resp = await self._call_llm_with_tools(messages, tools)
+                final_response = final_resp.content or ""
+                # 分块返回
+                chunk_size = self.config.stream_chunk_size
+                for i in range(0, len(final_response), chunk_size):
+                    yield {"type": "chunk", "content": final_response[i:i+chunk_size]}
+                    await asyncio.sleep(0)
+
+            # 构建最终消息
+            assistant_msg = AgentMessage(
+                role="assistant",
+                content=final_response,
+                tool_calls=tool_calls_this_turn,
+                metadata={
+                    "llm_calls": self.total_llm_calls,
+                    "tool_calls_count": len(tool_calls_this_turn),
+                },
+            )
+
+            self.messages.append(assistant_msg)
+            self.conversation_history.append(ChatMessage(role="user", content=user_message))
+            self.conversation_history.append(ChatMessage(role="assistant", content=final_response))
+            self._trim_conversation_history()
+
+            yield {"type": "message", "data": assistant_msg.to_dict()}
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] 流式对话失败: {e}")
+            yield {"type": "error", "data": {"error": str(e)}}
+
+        finally:
+            self._is_processing = False
+
+    async def _stream_final_response(self, messages: List[ChatMessage], tools: List[Dict[str, Any]]):
+        """使用 LLM 流式接口获取最终响应"""
+        try:
+            # 使用 asyncio.to_thread 包装同步调用
+            response = await asyncio.to_thread(
+                self.llm_client.chat_completion,
+                messages=messages,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+            )
+
+            # 分块返回完整响应
+            content = response.content or ""
+            chunk_size = self.config.stream_chunk_size
+            for i in range(0, len(content), chunk_size):
+                yield {"type": "chunk", "content": content[i:i+chunk_size]}
+                await asyncio.sleep(0)
+
+        except Exception as e:
+            logger.warning(f"[UnifiedAgent] 流式响应失败，回退到普通响应: {e}")
+            # 回退到普通调用
+            response = await self._call_llm_with_tools(messages, tools)
+            content = response.content or ""
+            yield {"type": "chunk", "content": content}
 
     def _build_llm_messages(self, user_message: str) -> List[ChatMessage]:
         """构建 LLM 消息列表"""
@@ -628,7 +956,8 @@ class UnifiedAuditAgent:
         # 获取工具摘要
         tool_summary = self.tool_manager.get_tool_summary()
 
-        return f"""你是一名资深安全工程师和代码审计专家。你正在使用一个智能代码审计系统，可以通过各种工具来分析代码。
+        # 基础提示
+        base_prompt = f"""你是一名资深安全工程师和代码审计专家。你正在使用一个智能代码审计系统，可以通过各种工具来分析代码。
 
 ## 你的能力
 
@@ -664,9 +993,23 @@ class UnifiedAuditAgent:
 - 会话 ID: {self.session_id}
 - 已索引代码单元: {len(self.indexer.code_units) if self.indexer.code_units else 0}
 - 可用工具数: {self.tool_manager.count()}
-
-使用中文回复。
 """
+
+        # === 注入预扫描上下文 ===
+        if self.config.prescan_context_injection and self._prescan_context:
+            base_prompt += f"""
+
+## 📋 规则预扫描结果（自动检测的危险函数触发点）
+
+系统已对代码库进行规则扫描，发现以下高危触发点供优先分析：
+
+{self._prescan_context}
+
+**建议**：从上述高优先级触发点开始深入分析，使用 `read_file` 查看完整上下文，使用 `get_callers`/`get_callees` 追踪调用链，使用 `analyze_taint_path` 分析数据流。
+"""
+
+        base_prompt += "\n使用中文回复。"
+        return base_prompt
 
     async def _call_llm_with_tools(
         self,
@@ -692,15 +1035,15 @@ class UnifiedAuditAgent:
         return response
 
     async def _execute_tool_calls(self, tool_calls: List[ToolCall]) -> List[ToolCallEvent]:
-        """执行工具调用"""
-        results = []
+        """执行工具调用（支持并行执行优化）"""
+        if not tool_calls:
+            return []
 
+        # 创建所有事件对象
+        events = []
         for tc in tool_calls:
-            # ToolCall 是 dataclass，直接访问属性
             tool_name = tc.name
             arguments = tc.arguments if isinstance(tc.arguments, dict) else {}
-
-            # 创建事件
             event = ToolCallEvent(
                 id=tc.id,
                 tool_name=tool_name,
@@ -708,39 +1051,101 @@ class UnifiedAuditAgent:
                 status=ToolCallStatus.RUNNING,
                 started_at=datetime.now(),
             )
+            events.append((tc, event))
 
-            # 通知回调
-            if self.config.on_tool_call:
-                self.config.on_tool_call(event)
-
+            # 异步通知回调（开始状态）
+            await self._notify_tool_call(event)
             logger.info(f"[UnifiedAgent] 执行工具: {tool_name}")
 
-            try:
-                # 执行工具
-                result = await self.tool_manager.execute(tool_name, arguments)
+        # 根据配置决定串行或并行执行
+        if self.config.enable_parallel_tool_execution and len(tool_calls) > 1:
+            # 并行执行所有工具
+            results = await self._execute_tools_parallel(events)
+        else:
+            # 串行执行
+            results = await self._execute_tools_sequential(events)
 
+        return results
+
+    async def _execute_tools_parallel(self, events: List[tuple]) -> List[ToolCallEvent]:
+        """并行执行多个工具"""
+        async def execute_single(tc_event_pair):
+            tc, event = tc_event_pair
+            try:
+                result = await self.tool_manager.execute(event.tool_name, event.arguments)
                 event.status = ToolCallStatus.SUCCESS if result.success else ToolCallStatus.FAILED
                 event.result = result.data
                 event.error = result.error
                 event.finished_at = datetime.now()
                 event.duration_ms = result.duration_ms
-
                 self.total_tool_calls += 1
-
             except Exception as e:
-                logger.error(f"[UnifiedAgent] 工具执行失败 {tool_name}: {e}")
+                logger.error(f"[UnifiedAgent] 工具执行失败 {event.tool_name}: {e}")
                 event.status = ToolCallStatus.FAILED
                 event.error = str(e)
                 event.finished_at = datetime.now()
 
-            # 通知回调（完成状态）
-            if self.config.on_tool_call:
-                self.config.on_tool_call(event)
+            # 异步通知回调（完成状态）
+            await self._notify_tool_call(event)
+            self.tool_call_history.append(event)
+            return event
 
+        # 并行执行所有工具
+        results = await asyncio.gather(*[execute_single(pair) for pair in events], return_exceptions=True)
+
+        # 处理异常结果
+        final_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                event = events[i][1]
+                event.status = ToolCallStatus.FAILED
+                event.error = str(result)
+                event.finished_at = datetime.now()
+                final_results.append(event)
+            else:
+                final_results.append(result)
+
+        return final_results
+
+    async def _execute_tools_sequential(self, events: List[tuple]) -> List[ToolCallEvent]:
+        """串行执行工具"""
+        results = []
+        for tc, event in events:
+            try:
+                result = await self.tool_manager.execute(event.tool_name, event.arguments)
+                event.status = ToolCallStatus.SUCCESS if result.success else ToolCallStatus.FAILED
+                event.result = result.data
+                event.error = result.error
+                event.finished_at = datetime.now()
+                event.duration_ms = result.duration_ms
+                self.total_tool_calls += 1
+            except Exception as e:
+                logger.error(f"[UnifiedAgent] 工具执行失败 {event.tool_name}: {e}")
+                event.status = ToolCallStatus.FAILED
+                event.error = str(e)
+                event.finished_at = datetime.now()
+
+            # 异步通知回调（完成状态）
+            await self._notify_tool_call(event)
             results.append(event)
             self.tool_call_history.append(event)
 
         return results
+
+    async def _notify_tool_call(self, event: ToolCallEvent):
+        """通知工具调用事件（支持同步和异步回调）"""
+        # 异步回调优先
+        if self.config.on_tool_call_async:
+            try:
+                await self.config.on_tool_call_async(event)
+            except Exception as e:
+                logger.warning(f"[UnifiedAgent] 异步回调失败: {e}")
+        # 同步回调
+        elif self.config.on_tool_call:
+            try:
+                self.config.on_tool_call(event)
+            except Exception as e:
+                logger.warning(f"[UnifiedAgent] 同步回调失败: {e}")
 
     def _trim_conversation_history(self):
         """裁剪对话历史"""
@@ -1007,6 +1412,121 @@ class UnifiedAuditAgent:
         self.conversation_history.clear()
         self.tool_call_history.clear()
         logger.info(f"[UnifiedAgent] 已清空会话 {self.session_id} 的历史")
+
+    # ============ 预扫描工具执行器 ============
+
+    def _execute_get_prescan_summary(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """获取预扫描结果摘要"""
+        if not self.prescan_result:
+            return {
+                "success": False,
+                "error": "预扫描未执行或无结果",
+            }
+
+        result = self.prescan_result
+        summary = {
+            "success": True,
+            "total_units_scanned": result.total_units_scanned,
+            "total_sites_found": len(result.sink_sites),
+            "filtered_sites_count": len(result.filtered_sites),
+            "risk_summary": result.risk_summary.to_dict(),
+            "category_summaries": [cs.to_dict() for cs in result.category_summaries],
+            "scan_duration_ms": result.scan_duration_ms,
+        }
+
+        # 添加深度增强摘要
+        if self.enhancement_result:
+            summary["enhancement"] = {
+                "high_confidence_count": self.enhancement_result.high_confidence_count,
+                "call_graph_stats": self.enhancement_result.call_graph_stats,
+                "taint_flow_count": self.enhancement_result.taint_flow_count,
+            }
+
+        return summary
+
+    def _execute_get_prescan_sites(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """获取预扫描触发点列表"""
+        if not self.prescan_result:
+            return {
+                "success": False,
+                "error": "预扫描未执行或无结果",
+            }
+
+        risk_level = args.get("risk_level")
+        category = args.get("category")
+        limit = args.get("limit", 20)
+
+        sites = self.prescan_result.filtered_sites
+
+        # 过滤
+        if risk_level:
+            sites = [s for s in sites if s.risk_level.value == risk_level]
+        if category:
+            sites = [s for s in sites if s.sink_category.value == category]
+
+        # 截取
+        sites = sites[:limit]
+
+        return {
+            "success": True,
+            "sites": [
+                {
+                    "id": s.id,
+                    "file_path": s.file_path,
+                    "line_start": s.line_start,
+                    "line_end": s.line_end,
+                    "symbol": s.symbol,
+                    "risk_level": s.risk_level.value,
+                    "sink_category": s.sink_category.value,
+                    "matched_patterns": s.matched_patterns,
+                    "confidence": s.confidence,
+                    "call_snippet": s.call_snippet[:200] if s.call_snippet else "",
+                }
+                for s in sites
+            ],
+            "total": len(sites),
+        }
+
+    def _execute_get_site_details(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """获取单个触发点详情"""
+        site_id = args.get("site_id", "")
+        if not site_id:
+            return {"success": False, "error": "site_id 是必需参数"}
+
+        if not self.prescan_result:
+            return {"success": False, "error": "预扫描未执行或无结果"}
+
+        # 查找触发点
+        site = None
+        for s in self.prescan_result.filtered_sites:
+            if s.id == site_id:
+                site = s
+                break
+
+        if not site:
+            return {"success": False, "error": f"未找到触发点: {site_id}"}
+
+        result = {
+            "success": True,
+            "site": site.to_dict(),
+        }
+
+        # 添加深度增强信息
+        if self.enhancement_result:
+            for enhanced in self.enhancement_result.enhanced_sites:
+                if enhanced.site.id == site_id:
+                    result["enhancement"] = {
+                        "enhanced_score": enhanced.enhanced_score,
+                        "priority_rank": enhanced.priority_rank,
+                        "analysis_notes": enhanced.analysis_notes,
+                    }
+                    if enhanced.call_chain_info:
+                        result["call_chain"] = enhanced.call_chain_info.to_dict()
+                    if enhanced.taint_info:
+                        result["taint_info"] = enhanced.taint_info.to_dict()
+                    break
+
+        return result
 
 
 def create_unified_agent(
