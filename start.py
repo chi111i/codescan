@@ -21,7 +21,8 @@ def run_backend():
         "api.main:app",
         "--host", "0.0.0.0",
         "--port", "8000",
-        "--reload"
+        "--reload",
+        "--log-level", "info",  # 确保日志级别为 info
     ])
 
 

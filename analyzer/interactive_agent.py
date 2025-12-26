@@ -338,7 +338,7 @@ class InteractiveAuditAgent:
             )
 
         except Exception as e:
-            logger.error(f"[InteractiveAgent] 分析失败: {e}")
+            logger.exception(f"[InteractiveAgent] 分析失败: {e}")
             return AgentResponse(
                 response_type=AgentResponseType.ERROR,
                 content="",
@@ -393,7 +393,7 @@ class InteractiveAuditAgent:
             )
 
         except Exception as e:
-            logger.error(f"[InteractiveAgent] 对话失败: {e}")
+            logger.exception(f"[InteractiveAgent] 对话失败: {e}")
             return AgentResponse(
                 response_type=AgentResponseType.ERROR,
                 content="",
@@ -456,7 +456,7 @@ class InteractiveAuditAgent:
             )
 
         except Exception as e:
-            logger.error(f"[InteractiveAgent] 深入分析失败: {e}")
+            logger.exception(f"[InteractiveAgent] 深入分析失败: {e}")
             return AgentResponse(
                 response_type=AgentResponseType.ERROR,
                 content="",
@@ -491,7 +491,7 @@ class InteractiveAuditAgent:
             )
 
         except Exception as e:
-            logger.error(f"[InteractiveAgent] 生成总结失败: {e}")
+            logger.exception(f"[InteractiveAgent] 生成总结失败: {e}")
             return AgentResponse(
                 response_type=AgentResponseType.ERROR,
                 content="",

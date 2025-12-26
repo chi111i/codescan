@@ -156,16 +156,16 @@ class FileFilter:
             try:
                 if Path(rel_path).match(pattern):
                     return True
-            except:
-                pass
+            except (ValueError, IndexError) as e:
+                logger.debug(f"Path.match() 模式匹配出错: {pattern}, {e}")
 
         # ** 递归模式 - 使用 Path.match()
         if "**" in pattern:
             try:
                 if Path(rel_path).match(pattern):
                     return True
-            except:
-                pass
+            except (ValueError, IndexError) as e:
+                logger.debug(f"Path.match() 递归模式匹配出错: {pattern}, {e}")
             # 回退到简化模式
             # **/*_test.py -> *_test.py 匹配文件名
             # **/tests/** -> tests/ 匹配路径包含

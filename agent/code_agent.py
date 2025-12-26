@@ -18,6 +18,8 @@ from llm_client import BaseLLMClient, ChatMessage, ChatResponse, ToolCall
 from indexer import CodeReader
 from .tools.registry import CODE_NAVIGATION_TOOLS
 
+from serialization import safe_json_dumps
+
 # 向后兼容别名
 CODE_READER_TOOLS = CODE_NAVIGATION_TOOLS
 
@@ -196,7 +198,8 @@ class CodeAnalysisAgent:
                         # 添加工具结果消息
                         messages.append(ChatMessage(
                             role="tool",
-                            content=json.dumps(result, ensure_ascii=False),
+                            # 工具结果可能包含 datetime/path 等对象，直接 json.dumps 会导致序列化失败
+                            content=safe_json_dumps(result, ensure_ascii=False),
                             tool_call_id=tool_call.id,
                             name=tool_call.name,
                         ))
@@ -219,7 +222,7 @@ class CodeAnalysisAgent:
                     )
 
             except Exception as e:
-                logger.error(f"Agent iteration failed: {e}")
+                logger.exception(f"Agent iteration failed: {e}")
                 return AgentResult(
                     content="",
                     tool_calls_history=tool_calls_history,
@@ -280,7 +283,7 @@ class CodeAnalysisAgent:
             success = result.get("success", True) if isinstance(result, dict) else True
             return result, success
         except Exception as e:
-            logger.error(f"Tool execution failed: {tool_call.name} - {e}")
+            logger.exception(f"Tool execution failed: {tool_call.name} - {e}")
             return {"error": str(e)}, False
 
     def _execute_search_code(self, args: Dict[str, Any]) -> Dict[str, Any]:

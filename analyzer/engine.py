@@ -348,7 +348,7 @@ class SecurityAnalyzer:
                             f"{finding.title} in {finding.file_path}"
                         )
                 except Exception as e:
-                    logger.error(f"分析错误 {candidate.symbol}: {e}")
+                    logger.exception(f"分析错误 {candidate.symbol}: {e}")
 
         # 4. 排序和过滤
         findings = self._filter_and_sort_findings(findings)
@@ -469,12 +469,12 @@ class SecurityAnalyzer:
         if self.call_chain_analyzer is None:
             self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
 
-        if self._call_graph is None:
-            self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
-            logger.info(
-                f"[P0-2] 调用图: {len(self._call_graph.nodes)} 节点, "
-                f"{len(self._call_graph.edges)} 边"
-            )
+        # 每次分析都重建调用图，避免复用过期结果
+        self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+        logger.info(
+            f"[P0-2] 调用图: {len(self._call_graph.nodes)} 节点, "
+            f"{len(self._call_graph.edges)} 边"
+        )
 
         # ============================================================
         # P0-3 & P0-4: 枚举调用链并收集上下文
@@ -528,7 +528,7 @@ class SecurityAnalyzer:
                             f"{finding.title} (置信度: {finding.confidence:.2f})"
                         )
                 except Exception as e:
-                    logger.error(f"分析错误 {ctx.sink_site.symbol}: {e}")
+                    logger.exception(f"分析错误 {ctx.sink_site.symbol}: {e}")
 
         # 排序和过滤
         findings = self._filter_and_sort_findings(findings)
@@ -570,7 +570,7 @@ class SecurityAnalyzer:
                     if finding:
                         findings.append(finding)
                 except Exception as e:
-                    logger.error(f"Fallback 分析错误: {e}")
+                    logger.exception(f"Fallback 分析错误: {e}")
 
         return self._filter_and_sort_findings(findings)
 
@@ -659,7 +659,7 @@ class SecurityAnalyzer:
                             f"{finding.title} in {finding.file_path}"
                         )
                 except Exception as e:
-                    logger.error(f"分析错误 {ctx.sink_site.symbol}: {e}")
+                    logger.exception(f"分析错误 {ctx.sink_site.symbol}: {e}")
 
         # 5. 排序和过滤
         findings = self._filter_and_sort_findings(findings)
@@ -858,7 +858,7 @@ class SecurityAnalyzer:
             return finding
 
         except Exception as e:
-            logger.error(f"调用链分析错误 {chain_context.sink_site.symbol}: {e}")
+            logger.exception(f"调用链分析错误 {chain_context.sink_site.symbol}: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return None
@@ -1594,27 +1594,27 @@ class SecurityAnalyzer:
             logger.info("Initializing call chain analyzer...")
             self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
 
-        if self._call_graph is None:
-            logger.info("Building call graph...")
-            self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
-            logger.info(
-                f"Call graph built: {len(self._call_graph.nodes)} nodes, "
-                f"{len(self._call_graph.edges)} edges"
-            )
+        # 每次都重建调用图，避免复用过期结果
+        logger.info("Building call graph...")
+        self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+        logger.info(
+            f"Call graph built: {len(self._call_graph.nodes)} nodes, "
+            f"{len(self._call_graph.edges)} edges"
+        )
 
         # 执行污点分析
         if self.taint_analyzer is None:
             logger.info("Initializing taint analyzer...")
             self.taint_analyzer = TaintAnalyzer(self.rule_manager, self._call_graph)
 
-        if self._taint_flows is None:
-            logger.info("Running interprocedural taint analysis...")
-            self._taint_flows = self.taint_analyzer.analyze_interprocedural(
-                code_units,
-                max_depth=10,
-                use_topological=True,
-            )
-            logger.info(f"Taint analysis complete: {len(self._taint_flows)} flows")
+        # 每次都重新运行污点分析
+        logger.info("Running interprocedural taint analysis...")
+        self._taint_flows = self.taint_analyzer.analyze_interprocedural(
+            code_units,
+            max_depth=10,
+            use_topological=True,
+        )
+        logger.info(f"Taint analysis complete: {len(self._taint_flows)} flows")
 
     def _analyze_candidate_with_agent(self, candidate: Candidate) -> Optional[Finding]:
         """使用 Agent 分析候选点（带日志记录）"""

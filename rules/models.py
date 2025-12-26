@@ -44,7 +44,9 @@ class RuleCategory(Enum):
     DESERIALIZATION = "deserialization"  # 反序列化
     CRYPTO = "crypto"  # 加密相关
     SSRF = "ssrf"  # 服务端请求伪造
+    FILE = "file"  # 文件操作（读/写/路径遍历）
     FILE_UPLOAD = "file-upload"  # 文件上传
+    XSS = "xss"  # 跨站脚本
     XXE = "xxe"  # XML外部实体
     OTHER = "other"
 

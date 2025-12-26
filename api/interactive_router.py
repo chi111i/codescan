@@ -17,6 +17,8 @@ from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Depends
 
+from serialization import to_jsonable
+
 from .schemas_interactive import (
     # 请求模型
     CreateSessionRequest,
@@ -611,7 +613,7 @@ async def broadcast_to_session(session_id: str, message: dict):
     if session_id in _interactive_ws_connections:
         ws = _interactive_ws_connections[session_id]
         try:
-            await ws.send_json(message)
+            await ws.send_json(to_jsonable(message))
         except Exception as e:
             logger.warning(f"WebSocket 广播失败: {e}")
 

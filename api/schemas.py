@@ -108,10 +108,10 @@ class CodeUnitSchema(BaseModel):
     span: CodeSpanSchema
     code: str
     docstring: Optional[str] = None
-    calls: List[str] = []
+    calls: List[str] = Field(default_factory=list)
     parent_class: Optional[str] = None
-    decorators: List[str] = []
-    imports: List[str] = []
+    decorators: List[str] = Field(default_factory=list)
+    imports: List[str] = Field(default_factory=list)
 
 
 class FindingSchema(BaseModel):
@@ -127,13 +127,13 @@ class FindingSchema(BaseModel):
     category: str
     summary: str
     details: str
-    evidence: List[Dict[str, Any]] = []
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
     attack_scenario: str
     fix_suggestion: str
     code_snippet: Optional[str] = None
     notes: Optional[str] = None
     rule_id: Optional[str] = None
-    cwe_ids: List[str] = []
+    cwe_ids: List[str] = Field(default_factory=list)
 
 
 class VulnFindingSchema(BaseModel):
@@ -187,9 +187,9 @@ class ScanResultSchema(BaseModel):
     completed_at: Optional[datetime] = None
     total_files: int = 0
     total_units: int = 0
-    findings: List[FindingSchema] = []
-    vuln_findings: List[VulnFindingSchema] = []
-    taint_paths: List[TaintPathSchema] = []
+    findings: List[FindingSchema] = Field(default_factory=list)
+    vuln_findings: List[VulnFindingSchema] = Field(default_factory=list)
+    taint_paths: List[TaintPathSchema] = Field(default_factory=list)
     call_graph_stats: Optional[CallGraphStatsSchema] = None
     error_message: Optional[str] = None
     progress: float = 0.0
@@ -216,8 +216,8 @@ class StatsSchema(BaseModel):
     """统计信息"""
     total_units: int
     collection_name: str
-    languages: Dict[str, int] = {}
-    unit_types: Dict[str, int] = {}
+    languages: Dict[str, int] = Field(default_factory=dict)
+    unit_types: Dict[str, int] = Field(default_factory=dict)
 
 
 class RuleSchema(BaseModel):

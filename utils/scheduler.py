@@ -24,6 +24,8 @@ import threading
 
 from llm_client import BaseLLMClient, ChatMessage
 
+from serialization import safe_json_dumps
+
 logger = logging.getLogger(__name__)
 
 
@@ -263,36 +265,40 @@ class RateLimiter:
             等待的秒数
         """
         waited = 0.0
-        current_time = time.time()
+        wait_time_needed = 0.0
 
-        with self._lock:
-            # 清理过期记录
-            cutoff = current_time - 60
-            while self._request_times and self._request_times[0] < cutoff:
-                self._request_times.popleft()
-            while self._token_counts and self._token_counts[0][0] < cutoff:
-                self._token_counts.popleft()
+        while True:
+            current_time = time.time()
+            wait_time_needed = 0.0
 
-            # 检查请求限制
-            if len(self._request_times) >= self.requests_per_minute:
-                wait_time = self._request_times[0] + 60 - current_time
-                if wait_time > 0:
-                    waited = wait_time
-                    time.sleep(wait_time)
+            with self._lock:
+                # 清理过期记录
+                cutoff = current_time - 60
+                while self._request_times and self._request_times[0] < cutoff:
+                    self._request_times.popleft()
+                while self._token_counts and self._token_counts[0][0] < cutoff:
+                    self._token_counts.popleft()
 
-            # 检查token限制
-            total_tokens = sum(t[1] for t in self._token_counts)
-            if total_tokens + estimated_tokens > self.tokens_per_minute:
-                wait_time = self._token_counts[0][0] + 60 - time.time()
-                if wait_time > 0:
-                    waited = max(waited, wait_time)
-                    time.sleep(wait_time)
+                # 检查请求限制
+                if len(self._request_times) >= self.requests_per_minute:
+                    wait_time_needed = self._request_times[0] + 60 - current_time
 
-            # 记录此次请求
-            self._request_times.append(time.time())
-            self._token_counts.append((time.time(), estimated_tokens))
+                # 检查token限制
+                if wait_time_needed <= 0:
+                    total_tokens = sum(t[1] for t in self._token_counts)
+                    if total_tokens + estimated_tokens > self.tokens_per_minute:
+                        wait_time_needed = max(wait_time_needed, self._token_counts[0][0] + 60 - current_time)
 
-        return waited
+                # 如果不需要等待，记录请求并返回
+                if wait_time_needed <= 0:
+                    self._request_times.append(time.time())
+                    self._token_counts.append((time.time(), estimated_tokens))
+                    return waited
+
+            # 在锁外 sleep，避免阻塞其他线程
+            if wait_time_needed > 0:
+                time.sleep(min(wait_time_needed, 1.0))  # 最多等待1秒后重新检查
+                waited += min(wait_time_needed, 1.0)
 
     def record_actual_tokens(self, tokens: int) -> None:
         """记录实际使用的tokens"""
@@ -812,7 +818,7 @@ class TieredAnalysisExecutor:
             enhanced_messages = messages.copy()
             enhanced_messages.append(ChatMessage(
                 role="assistant",
-                content=f"初步分析结果：{json.dumps(result, ensure_ascii=False)}"
+                content=f"初步分析结果：{safe_json_dumps(result, ensure_ascii=False)}"
             ))
             enhanced_messages.append(ChatMessage(
                 role="user",

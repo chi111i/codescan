@@ -864,82 +864,82 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 agent = _active_agents[session_id]["agent"]
 
                 if use_stream:
-                        # 使用流式响应
-                        try:
-                            async for event in agent.chat_stream(message):
-                                event_type = event.get("type", "")
+                    # 使用流式响应
+                    try:
+                        async for event in agent.chat_stream(message):
+                            event_type = event.get("type", "")
 
-                                if event_type == "start":
-                                    # 开始处理
-                                    pass
-                                elif event_type == "tool_call_start":
-                                    await _safe_send_json(websocket,
-                                        WSEvent(
-                                            type=WSEventType.TOOL_CALL_START,
-                                            session_id=session_id,
-                                            data=event.get("data", {}),
-                                        ).model_dump(mode='json')
-                                    )
-                                elif event_type == "tool_call_end":
-                                    await _safe_send_json(websocket,
-                                        WSEvent(
-                                            type=WSEventType.TOOL_CALL_END,
-                                            session_id=session_id,
-                                            data=event.get("data", {}),
-                                        ).model_dump(mode='json')
-                                    )
-                                elif event_type == "chunk":
-                                    # 发送内容块
-                                    await _safe_send_json(websocket,
-                                        WSEvent(
-                                            type=WSEventType.MESSAGE_CHUNK,
-                                            session_id=session_id,
-                                            data={"content": event.get("content", "")},
-                                        ).model_dump(mode='json')
-                                    )
-                                elif event_type == "message":
-                                    # 发送完成消息
-                                    await _safe_send_json(websocket,
-                                        WSEvent(
-                                            type=WSEventType.MESSAGE_COMPLETE,
-                                            session_id=session_id,
-                                            data=event.get("data", {}),
-                                        ).model_dump(mode='json')
-                                    )
-                                elif event_type == "error":
-                                    await _safe_send_json(websocket,
-                                        WSEvent(
-                                            type=WSEventType.ERROR,
-                                            session_id=session_id,
-                                            data=event.get("data", {}),
-                                        ).model_dump(mode='json')
-                                    )
-                        except Exception as e:
-                            import traceback
-                            error_trace = traceback.format_exc()
-                            logger.error(f"流式响应失败: {type(e).__name__}: {e}")
-                            logger.error(f"错误堆栈:\n{error_trace}")
-                            await _safe_send_json(websocket,
-                                WSEvent(
-                                    type=WSEventType.ERROR,
-                                    session_id=session_id,
-                                    data={
-                                        "error": f"{type(e).__name__}: {str(e)}",
-                                        "error_type": type(e).__name__,
-                                        "error_trace": error_trace,
-                                    },
-                                ).model_dump(mode='json')
-                            )
-                    else:
-                        # 非流式响应（保持向后兼容）
-                        response = await agent.chat(message)
+                            if event_type == "start":
+                                # 开始处理
+                                pass
+                            elif event_type == "tool_call_start":
+                                await _safe_send_json(websocket,
+                                    WSEvent(
+                                        type=WSEventType.TOOL_CALL_START,
+                                        session_id=session_id,
+                                        data=event.get("data", {}),
+                                    ).model_dump(mode='json')
+                                )
+                            elif event_type == "tool_call_end":
+                                await _safe_send_json(websocket,
+                                    WSEvent(
+                                        type=WSEventType.TOOL_CALL_END,
+                                        session_id=session_id,
+                                        data=event.get("data", {}),
+                                    ).model_dump(mode='json')
+                                )
+                            elif event_type == "chunk":
+                                # 发送内容块
+                                await _safe_send_json(websocket,
+                                    WSEvent(
+                                        type=WSEventType.MESSAGE_CHUNK,
+                                        session_id=session_id,
+                                        data={"content": event.get("content", "")},
+                                    ).model_dump(mode='json')
+                                )
+                            elif event_type == "message":
+                                # 发送完成消息
+                                await _safe_send_json(websocket,
+                                    WSEvent(
+                                        type=WSEventType.MESSAGE_COMPLETE,
+                                        session_id=session_id,
+                                        data=event.get("data", {}),
+                                    ).model_dump(mode='json')
+                                )
+                            elif event_type == "error":
+                                await _safe_send_json(websocket,
+                                    WSEvent(
+                                        type=WSEventType.ERROR,
+                                        session_id=session_id,
+                                        data=event.get("data", {}),
+                                    ).model_dump(mode='json')
+                                )
+                    except Exception as e:
+                        import traceback
+                        error_trace = traceback.format_exc()
+                        logger.error(f"流式响应失败: {type(e).__name__}: {e}")
+                        logger.error(f"错误堆栈:\n{error_trace}")
                         await _safe_send_json(websocket,
                             WSEvent(
-                                type=WSEventType.MESSAGE_COMPLETE,
+                                type=WSEventType.ERROR,
                                 session_id=session_id,
-                                data=response.to_dict(),
+                                data={
+                                    "error": f"{type(e).__name__}: {str(e)}",
+                                    "error_type": type(e).__name__,
+                                    "error_trace": error_trace,
+                                },
                             ).model_dump(mode='json')
                         )
+                else:
+                    # 非流式响应（保持向后兼容）
+                    response = await agent.chat(message)
+                    await _safe_send_json(websocket,
+                        WSEvent(
+                            type=WSEventType.MESSAGE_COMPLETE,
+                            session_id=session_id,
+                            data=response.to_dict(),
+                        ).model_dump(mode='json')
+                    )
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket 连接断开: {session_id}")

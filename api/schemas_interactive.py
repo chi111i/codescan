@@ -101,7 +101,7 @@ class SessionInfoSchema(BaseModel):
     rejected_findings_count: int = 0
 
     # 配置
-    languages: List[str] = []
+    languages: List[str] = Field(default_factory=list)
     max_chain_depth: int = 5
 
     # 错误信息
@@ -130,7 +130,7 @@ class InteractiveFindingSchema(BaseModel):
     symbol: str
     summary: str
     details: str
-    evidence: List[EvidenceSchema] = []
+    evidence: List[EvidenceSchema] = Field(default_factory=list)
     attack_scenario: str = ""
     fix_suggestion: str = ""
 
@@ -149,9 +149,9 @@ class AgentResponseSchema(BaseModel):
     """代理响应"""
     response_type: AgentResponseTypeEnum
     content: str
-    findings: List[InteractiveFindingSchema] = []
-    suggestions: List[str] = []
-    metadata: Dict[str, Any] = {}
+    findings: List[InteractiveFindingSchema] = Field(default_factory=list)
+    suggestions: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
 
 
@@ -183,11 +183,11 @@ class ChainContextSchema(BaseModel):
     """调用链上下文"""
     id: str
     sink_site: SinkSiteSchema
-    chain_nodes: List[ChainNodeSchema] = []
+    chain_nodes: List[ChainNodeSchema] = Field(default_factory=list)
     entry_point: Optional[ChainNodeSchema] = None
     chain_length: int
     has_user_input: bool
-    sanitizers_on_path: List[str] = []
+    sanitizers_on_path: List[str] = Field(default_factory=list)
     risk_level: str
     confidence: float
     prompt_text: str = ""
@@ -215,10 +215,10 @@ class CodeUnitDetailSchema(BaseModel):
     span: Dict[str, int]
     code: str
     docstring: Optional[str] = None
-    calls: List[str] = []
+    calls: List[str] = Field(default_factory=list)
     parent_class: Optional[str] = None
-    decorators: List[str] = []
-    imports: List[str] = []
+    decorators: List[str] = Field(default_factory=list)
+    imports: List[str] = Field(default_factory=list)
 
 
 class SinkSiteBriefSchema(BaseModel):
@@ -235,9 +235,9 @@ class SinkSiteBriefSchema(BaseModel):
 
 class FindingsGroupSchema(BaseModel):
     """发现分组"""
-    pending: List[InteractiveFindingSchema] = []
-    confirmed: List[InteractiveFindingSchema] = []
-    rejected: List[InteractiveFindingSchema] = []
+    pending: List[InteractiveFindingSchema] = Field(default_factory=list)
+    confirmed: List[InteractiveFindingSchema] = Field(default_factory=list)
+    rejected: List[InteractiveFindingSchema] = Field(default_factory=list)
 
 
 class SessionListItemSchema(BaseModel):

@@ -10,11 +10,14 @@
 """
 
 import os
+import logging
 from pathlib import Path
 from dataclasses import dataclass, field, fields
 from typing import Optional, List, Dict, Any
 from enum import Enum
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class ScanMode(Enum):
@@ -216,6 +219,24 @@ class EvaluationConfig:
 
 
 @dataclass
+class AgentContextConfig:
+    """Agent 上下文配置 - 对话历史管理"""
+    # 历史压缩开关
+    enable_history_compression: bool = True      # 启用历史压缩
+
+    # 压缩阈值
+    history_compression_threshold: int = 10000   # 压缩阈值（字符数），超过此值触发压缩
+
+    # 压缩策略
+    history_compression_method: str = "summarize"  # 压缩方式: summarize(LLM摘要) | truncate(简单截断)
+    history_preserve_recent: int = 4             # 始终保留最近 N 条消息（不压缩）
+
+    # 摘要配置
+    history_summary_max_tokens: int = 500        # 摘要最大 token 数
+    history_summary_temperature: float = 0.3    # 摘要生成温度
+
+
+@dataclass
 class AuditConfig:
     """主配置类 - 聚合所有子配置"""
     llm: LLMConfig = field(default_factory=LLMConfig)
@@ -225,6 +246,7 @@ class AuditConfig:
     report: ReportConfig = field(default_factory=ReportConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+    agent_context: AgentContextConfig = field(default_factory=AgentContextConfig)
 
     # 全局设置
     debug: bool = False
@@ -318,13 +340,17 @@ def _apply_env_overrides(config_dict: Dict[str, Any]) -> Dict[str, Any]:
     for env_var, path in env_mappings.items():
         value = os.environ.get(env_var)
         if value is not None:
-            # 类型转换
-            if env_var == "AUDIT_VECTOR_PORT":
-                value = int(value)
-            elif env_var == "AUDIT_LLM_EMBEDDING_DIM":
-                value = int(value)
-            elif env_var == "AUDIT_DEBUG":
-                value = value.lower() in ("true", "1", "yes")
+            # 类型转换（带异常处理）
+            try:
+                if env_var == "AUDIT_VECTOR_PORT":
+                    value = int(value)
+                elif env_var == "AUDIT_LLM_EMBEDDING_DIM":
+                    value = int(value)
+                elif env_var == "AUDIT_DEBUG":
+                    value = value.lower() in ("true", "1", "yes")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"环境变量 {env_var}={value} 类型转换失败: {e}，使用原始值")
+                continue
 
             # 设置值
             if len(path) == 1:
@@ -357,6 +383,7 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
     report_dict = _filter_dataclass_fields(ReportConfig, config_dict.get("report", {}))
     security_dict = _filter_dataclass_fields(SecurityConfig, config_dict.get("security", {}))
     evaluation_dict = _filter_dataclass_fields(EvaluationConfig, config_dict.get("evaluation", {}))
+    agent_context_dict = _filter_dataclass_fields(AgentContextConfig, config_dict.get("agent_context", {}))
 
     return AuditConfig(
         llm=LLMConfig(**llm_dict) if llm_dict else LLMConfig(),
@@ -366,6 +393,7 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
         report=ReportConfig(**report_dict) if report_dict else ReportConfig(),
         security=SecurityConfig(**security_dict) if security_dict else SecurityConfig(),
         evaluation=EvaluationConfig(**evaluation_dict) if evaluation_dict else EvaluationConfig(),
+        agent_context=AgentContextConfig(**agent_context_dict) if agent_context_dict else AgentContextConfig(),
         debug=config_dict.get("debug", False),
         log_level=config_dict.get("log_level", "INFO"),
     )

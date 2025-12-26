@@ -1,0 +1,897 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RulePack xmlns="xmlns://www.fortifysoftware.com/schema/rules">
+   <RulePackID>0f56d3e1-999d-468d-adfa-99c250d3266b</RulePackID>
+   <SKU>RUL13244</SKU>
+   <Name><![CDATA[Fortify Secure Coding Rules, Community, PHP]]></Name>
+   <Activated>true</Activated>
+   <Version>2025.1.0.0011</Version>
+   <Language>php</Language>
+   <Description><![CDATA[Provides coverage for PHP related community derived weaknesses. Copyright 2021 - 2025 Open Text. Contains community derived rules. Portions of this Rulepack are influenced or derived from the Shhgit project, Copyright 2020 Paul Price (@darkp0rt).]]></Description>
+   <Locale>en</Locale>
+   <Rules version="3.2" minimumSCA="20.1">
+      <Notes><![CDATA[
+
+        Copyright 2021 - 2025 Open Text
+        The only warranties for products and services of Open Text and its affiliates and licensors ("Open Text")
+        are as may be set forth in the express warranty statements accompanying such products and services.
+        Nothing herein should be construed as constituting an additional warranty. Open Text shall not be liable
+        for technical or editorial errors or omissions contained herein. The information contained herein is subject
+        to change without notice. 
+        Except as specifically indicated otherwise, this document contains confidential information and a valid
+        license is required for possession, use or copying. If this work is provided to the U.S. Government,
+        consistent with FAR 12.211 and 12.212, Commercial Computer Software, Computer Software
+        Documentation, and Technical Data for Commercial Items are licensed to the U.S. Government under
+        vendor's standard commercial license.
+        
+        ]]></Notes>
+      <RuleDefinitions>
+         <StructuralRule formatVersion="3.7" language="php">
+            <RuleID>09FC4CCB-506E-47B9-BFD2-96C6FAE6744A</RuleID>
+            <MetaInfo>
+               <Group name="package">PHP WordPress</Group>
+               <Group name="Accuracy">4</Group>
+               <Group name="Impact">4</Group>
+               <Group name="Probability">4.0</Group>
+               <Group name="RemediationEffort">3.0</Group>
+               <Group name="altcategoryCISAKS1.3.0">None</Group>
+               <Group name="altcategoryCISAmazonWebServices2.0.0">None</Group>
+               <Group name="altcategoryCISEKS1.3.0">None</Group>
+               <Group name="altcategoryCISGKE1.4.0">None</Group>
+               <Group name="altcategoryCISGoogleCloud2.0.0">None</Group>
+               <Group name="altcategoryCISKubernetes1.7.1">None</Group>
+               <Group name="altcategoryCISMicrosoftAzure2.0.0">None</Group>
+               <Group name="altcategoryCWE">CWE ID 321</Group>
+               <Group name="altcategoryCWETop252019">[13] CWE ID 287,[19] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252020">[14] CWE ID 287,[20] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252021">[14] CWE ID 287,[16] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252022">[14] CWE ID 287,[15] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252023">[13] CWE ID 287,[18] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252024">[14] CWE ID 287,[22] CWE ID 798</Group>
+               <Group name="altcategoryDISACCI2">CCI-002450</Group>
+               <Group name="altcategoryFISMA">IA</Group>
+               <Group name="altcategoryGDPR">Insufficient Data Protection</Group>
+               <Group name="altcategoryMISRAC++2008">None</Group>
+               <Group name="altcategoryMISRAC++2023">None</Group>
+               <Group name="altcategoryMISRAC2012">None</Group>
+               <Group name="altcategoryMISRAC2023">None</Group>
+               <Group name="altcategoryNISTSP800-53Rev.4">SC-12 Cryptographic Key Establishment and Management (P1),SC-13 Cryptographic Protection (P1)</Group>
+               <Group name="altcategoryNISTSP800-53Rev.5">SC-12 Cryptographic Key Establishment and Management,SC-13 Cryptographic Protection</Group>
+               <Group name="altcategoryOWASP2004">A8 Insecure Storage</Group>
+               <Group name="altcategoryOWASP2007">A8 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2010">A7 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2013">A6 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2017">A3 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2021">A02 Cryptographic Failures</Group>
+               <Group name="altcategoryOWASPAPITop102023">None</Group>
+               <Group name="altcategoryOWASPASVS4.0">2.6.3 Look-up Secret Verifier Requirements (L2 L3),2.7.1 Out of Band Verifier Requirements (L1 L2 L3),2.7.2 Out of Band Verifier Requirements (L1 L2 L3),2.7.3 Out of Band Verifier Requirements (L1 L2 L3),2.8.4 Single or Multi Factor One Time Verifier Requirements (L2 L3),2.8.5 Single or Multi Factor One Time Verifier Requirements (L2 L3),2.9.1 Cryptographic Software and Devices Verifier Requirements (L2 L3),2.10.2 Service Authentication Requirements (L2 L3),2.10.4 Service Authentication Requirements (L2 L3),3.5.2 Token-based Session Management (L2 L3),3.7.1 Defenses Against Session Management Exploits (L1 L2 L3),6.2.1 Algorithms (L1 L2 L3),6.4.1 Secret Management (L2 L3),6.4.2 Secret Management (L2 L3),9.2.3 Server Communications Security Requirements (L2 L3),10.2.3 Malicious Code Search (L3)</Group>
+               <Group name="altcategoryOWASPMASVS2.0">MASVS-CRYPTO-2</Group>
+               <Group name="altcategoryOWASPMobile2014">M6 Broken Cryptography</Group>
+               <Group name="altcategoryOWASPMobileTop102024">M10 Insufficient Cryptography</Group>
+               <Group name="altcategoryPCI1.1">Requirement 6.5.8,Requirement 8.4</Group>
+               <Group name="altcategoryPCI1.2">Requirement 6.3.1.3,Requirement 6.5.8,Requirement 8.4</Group>
+               <Group name="altcategoryPCI2.0">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.4</Group>
+               <Group name="altcategoryPCI3.0">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.1">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.2">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.2.1">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI4.0">Requirement 6.2.4,Requirement 6.5.3,Requirement 6.5.6</Group>
+               <Group name="altcategoryPCI4.0.1">Requirement 6.2.4,Requirement 6.5.3,Requirement 6.5.6</Group>
+               <Group name="altcategoryPCISSF1.0">Control Objective 7.2 - Use of Cryptography</Group>
+               <Group name="altcategoryPCISSF1.1">Control Objective 7.2 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategoryPCISSF1.2">Control Objective 7.2 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategorySANS2009">Porous Defenses - CWE ID 259</Group>
+               <Group name="altcategorySANS2010">Porous Defenses - CWE ID 798</Group>
+               <Group name="altcategorySANSTop252011">Porous Defenses - CWE ID 798</Group>
+               <Group name="altcategorySTIG3.1">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.10">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.4">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.5">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.6">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.7">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.9">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG4.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.10">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.11">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.2">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.3">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.4">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.5">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.6">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.7">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.8">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.9">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.2">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.3">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG6.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySWC">None</Group>
+               <Group name="altcategoryWASC2.00">Information Leakage (WASC-13)</Group>
+               <Group name="altcategoryWASC24+2">None</Group>
+               <Group name="audience">broad,fod</Group>
+            </MetaInfo>
+            <Notes><![CDATA[
+                Based off of regular expression from https://github.com/eth0izzle/shhgit
+                Targeting 'WordPress config' (wp-config.php)
+            ]]></Notes>
+            <VulnKingdom>Security Features</VulnKingdom>
+            <VulnCategory>Key Management</VulnCategory>
+            <VulnSubcategory>Hardcoded Encryption Key</VulnSubcategory>
+            <DefaultSeverity>4.0</DefaultSeverity>
+            <Description ref="desc.semantic.php.key_management_hardcoded_encryption_key"/>
+            <Predicate><![CDATA[
+                FunctionCall fc:
+                    name matches "(?i)define"
+                    and fc.arguments[1].constantValue matches "(?i)(NONCE_KEY|LOGGED_IN_KEY|AUTH_KEY|SECURE_AUTH_KEY)"
+                    and fc.arguments[2] is [Expression e:
+                        not e.constantValue.null
+                        and not e.constantValue is [Null:]
+                        and not e.constantValue == ""
+                    ]
+            ]]></Predicate>
+         </StructuralRule>
+         <StructuralRule formatVersion="3.7" language="php">
+            <RuleID>16235170-903D-4230-B9F1-E32E5834C0F3</RuleID>
+            <MetaInfo>
+               <Group name="package">PHP WordPress</Group>
+               <Group name="Accuracy">4</Group>
+               <Group name="Impact">4</Group>
+               <Group name="Probability">3.0</Group>
+               <Group name="RemediationEffort">3.0</Group>
+               <Group name="altcategoryCISAKS1.3.0">None</Group>
+               <Group name="altcategoryCISAmazonWebServices2.0.0">None</Group>
+               <Group name="altcategoryCISEKS1.3.0">None</Group>
+               <Group name="altcategoryCISGKE1.4.0">None</Group>
+               <Group name="altcategoryCISGoogleCloud2.0.0">None</Group>
+               <Group name="altcategoryCISKubernetes1.7.1">None</Group>
+               <Group name="altcategoryCISMicrosoftAzure2.0.0">None</Group>
+               <Group name="altcategoryCWE">CWE ID 321</Group>
+               <Group name="altcategoryCWETop252019">[13] CWE ID 287,[19] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252020">[14] CWE ID 287,[20] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252021">[14] CWE ID 287,[16] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252022">[14] CWE ID 287,[15] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252023">[13] CWE ID 287,[18] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252024">[14] CWE ID 287,[22] CWE ID 798</Group>
+               <Group name="altcategoryDISACCI2">CCI-002450,CCI-002478</Group>
+               <Group name="altcategoryFISMA">IA</Group>
+               <Group name="altcategoryGDPR">Insufficient Data Protection</Group>
+               <Group name="altcategoryMISRAC++2008">None</Group>
+               <Group name="altcategoryMISRAC++2023">None</Group>
+               <Group name="altcategoryMISRAC2012">None</Group>
+               <Group name="altcategoryMISRAC2023">None</Group>
+               <Group name="altcategoryNISTSP800-53Rev.4">IA-5 Authenticator Management (P1),SC-12 Cryptographic Key Establishment and Management (P1),SC-13 Cryptographic Protection (P1),SC-28 Protection of Information at Rest (P1)</Group>
+               <Group name="altcategoryNISTSP800-53Rev.5">IA-5 Authenticator Management,SC-12 Cryptographic Key Establishment and Management,SC-13 Cryptographic Protection,SC-28 Protection of Information at Rest</Group>
+               <Group name="altcategoryOWASP2004">A8 Insecure Storage</Group>
+               <Group name="altcategoryOWASP2007">A8 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2010">A7 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2013">A6 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2017">A3 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2021">A02 Cryptographic Failures</Group>
+               <Group name="altcategoryOWASPAPITop102023">None</Group>
+               <Group name="altcategoryOWASPASVS4.0">2.6.3 Look-up Secret Verifier Requirements (L2 L3),2.7.1 Out of Band Verifier Requirements (L1 L2 L3),2.7.2 Out of Band Verifier Requirements (L1 L2 L3),2.7.3 Out of Band Verifier Requirements (L1 L2 L3),2.8.4 Single or Multi Factor One Time Verifier Requirements (L2 L3),2.8.5 Single or Multi Factor One Time Verifier Requirements (L2 L3),2.9.1 Cryptographic Software and Devices Verifier Requirements (L2 L3),2.10.2 Service Authentication Requirements (L2 L3),2.10.4 Service Authentication Requirements (L2 L3),3.5.2 Token-based Session Management (L2 L3),3.7.1 Defenses Against Session Management Exploits (L1 L2 L3),6.2.1 Algorithms (L1 L2 L3),6.4.1 Secret Management (L2 L3),6.4.2 Secret Management (L2 L3),9.2.3 Server Communications Security Requirements (L2 L3),10.2.3 Malicious Code Search (L3)</Group>
+               <Group name="altcategoryOWASPMASVS2.0">MASVS-CRYPTO-2</Group>
+               <Group name="altcategoryOWASPMobile2014">M6 Broken Cryptography</Group>
+               <Group name="altcategoryOWASPMobileTop102024">M10 Insufficient Cryptography</Group>
+               <Group name="altcategoryPCI1.1">Requirement 6.5.8,Requirement 8.4</Group>
+               <Group name="altcategoryPCI1.2">Requirement 6.3.1.3,Requirement 6.5.8,Requirement 8.4</Group>
+               <Group name="altcategoryPCI2.0">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.4</Group>
+               <Group name="altcategoryPCI3.0">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.1">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.2">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.2.1">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI4.0">Requirement 6.2.4,Requirement 6.5.3,Requirement 6.5.6</Group>
+               <Group name="altcategoryPCI4.0.1">Requirement 6.2.4,Requirement 6.5.3,Requirement 6.5.6</Group>
+               <Group name="altcategoryPCISSF1.0">Control Objective 7.2 - Use of Cryptography</Group>
+               <Group name="altcategoryPCISSF1.1">Control Objective 7.2 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategoryPCISSF1.2">Control Objective 7.2 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategorySANS2009">Porous Defenses - CWE ID 259</Group>
+               <Group name="altcategorySANS2010">None</Group>
+               <Group name="altcategorySANSTop252011">None</Group>
+               <Group name="altcategorySTIG3.1">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.10">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.4">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.5">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.6">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.7">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.9">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG4.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.10">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.11">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.2">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.3">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.4">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.5">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.6">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.7">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.8">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.9">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.2">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.3">APSC-DV-002010 CAT II,APSC-DV-003100 CAT II,APSC-DV-003310 CAT II</Group>
+               <Group name="altcategorySTIG6.1">APSC-DV-002010 CAT II,APSC-DV-003100 CAT II,APSC-DV-003310 CAT II</Group>
+               <Group name="altcategorySWC">None</Group>
+               <Group name="altcategoryWASC2.00">Information Leakage (WASC-13)</Group>
+               <Group name="altcategoryWASC24+2">None</Group>
+               <Group name="audience">broad,fod</Group>
+            </MetaInfo>
+            <Notes><![CDATA[
+                Based off of regular expression from https://github.com/eth0izzle/shhgit
+                Targeting 'WordPress config' (wp-config.php)
+            ]]></Notes>
+            <VulnKingdom>Security Features</VulnKingdom>
+            <VulnCategory>Key Management</VulnCategory>
+            <VulnSubcategory>Null Encryption Key</VulnSubcategory>
+            <DefaultSeverity>2.0</DefaultSeverity>
+            <Description ref="desc.semantic.php.key_management_null_encryption_key"/>
+            <Predicate><![CDATA[
+                FunctionCall fc:
+                    name matches "(?i)define"
+                    and fc.arguments[1].constantValue matches "(?i)(NONCE_KEY|LOGGED_IN_KEY|AUTH_KEY|SECURE_AUTH_KEY)"
+                        and arguments[2] is [Expression e:
+                            e.constantValue is [Null:]
+                        ]
+            ]]></Predicate>
+         </StructuralRule>
+         <StructuralRule formatVersion="3.7" language="php">
+            <RuleID>14CEEDBB-C3BF-4BDF-8AD0-18CD4F2E756C</RuleID>
+            <MetaInfo>
+               <Group name="package">PHP WordPress</Group>
+               <Group name="Accuracy">4</Group>
+               <Group name="Impact">4</Group>
+               <Group name="Probability">3.0</Group>
+               <Group name="RemediationEffort">3.0</Group>
+               <Group name="altcategoryCISAKS1.3.0">None</Group>
+               <Group name="altcategoryCISAmazonWebServices2.0.0">None</Group>
+               <Group name="altcategoryCISEKS1.3.0">None</Group>
+               <Group name="altcategoryCISGKE1.4.0">None</Group>
+               <Group name="altcategoryCISGoogleCloud2.0.0">None</Group>
+               <Group name="altcategoryCISKubernetes1.7.1">None</Group>
+               <Group name="altcategoryCISMicrosoftAzure2.0.0">None</Group>
+               <Group name="altcategoryCWE">CWE ID 321</Group>
+               <Group name="altcategoryCWETop252019">[13] CWE ID 287,[19] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252020">[14] CWE ID 287,[20] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252021">[14] CWE ID 287,[16] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252022">[14] CWE ID 287,[15] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252023">[13] CWE ID 287,[18] CWE ID 798</Group>
+               <Group name="altcategoryCWETop252024">[14] CWE ID 287,[22] CWE ID 798</Group>
+               <Group name="altcategoryDISACCI2">CCI-002450,CCI-002478</Group>
+               <Group name="altcategoryFISMA">IA</Group>
+               <Group name="altcategoryGDPR">Insufficient Data Protection</Group>
+               <Group name="altcategoryMISRAC++2008">None</Group>
+               <Group name="altcategoryMISRAC++2023">None</Group>
+               <Group name="altcategoryMISRAC2012">None</Group>
+               <Group name="altcategoryMISRAC2023">None</Group>
+               <Group name="altcategoryNISTSP800-53Rev.4">IA-5 Authenticator Management (P1),SC-12 Cryptographic Key Establishment and Management (P1),SC-13 Cryptographic Protection (P1),SC-28 Protection of Information at Rest (P1)</Group>
+               <Group name="altcategoryNISTSP800-53Rev.5">IA-5 Authenticator Management,SC-12 Cryptographic Key Establishment and Management,SC-13 Cryptographic Protection,SC-28 Protection of Information at Rest</Group>
+               <Group name="altcategoryOWASP2004">A8 Insecure Storage</Group>
+               <Group name="altcategoryOWASP2007">A8 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2010">A7 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2013">A6 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2017">A3 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2021">A02 Cryptographic Failures</Group>
+               <Group name="altcategoryOWASPAPITop102023">None</Group>
+               <Group name="altcategoryOWASPASVS4.0">2.6.3 Look-up Secret Verifier Requirements (L2 L3),2.7.1 Out of Band Verifier Requirements (L1 L2 L3),2.7.2 Out of Band Verifier Requirements (L1 L2 L3),2.7.3 Out of Band Verifier Requirements (L1 L2 L3),2.8.4 Single or Multi Factor One Time Verifier Requirements (L2 L3),2.8.5 Single or Multi Factor One Time Verifier Requirements (L2 L3),2.9.1 Cryptographic Software and Devices Verifier Requirements (L2 L3),2.10.2 Service Authentication Requirements (L2 L3),2.10.4 Service Authentication Requirements (L2 L3),3.5.2 Token-based Session Management (L2 L3),3.7.1 Defenses Against Session Management Exploits (L1 L2 L3),6.2.1 Algorithms (L1 L2 L3),6.4.1 Secret Management (L2 L3),6.4.2 Secret Management (L2 L3),9.2.3 Server Communications Security Requirements (L2 L3),10.2.3 Malicious Code Search (L3)</Group>
+               <Group name="altcategoryOWASPMASVS2.0">MASVS-CRYPTO-2</Group>
+               <Group name="altcategoryOWASPMobile2014">M6 Broken Cryptography</Group>
+               <Group name="altcategoryOWASPMobileTop102024">M10 Insufficient Cryptography</Group>
+               <Group name="altcategoryPCI1.1">Requirement 6.5.8,Requirement 8.4</Group>
+               <Group name="altcategoryPCI1.2">Requirement 6.3.1.3,Requirement 6.5.8,Requirement 8.4</Group>
+               <Group name="altcategoryPCI2.0">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.4</Group>
+               <Group name="altcategoryPCI3.0">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.1">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.2">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI3.2.1">Requirement 6.3.1,Requirement 6.5.3,Requirement 8.2.1</Group>
+               <Group name="altcategoryPCI4.0">Requirement 6.2.4,Requirement 6.5.3,Requirement 6.5.6,Requirement 8.3.2</Group>
+               <Group name="altcategoryPCI4.0.1">Requirement 6.2.4,Requirement 6.5.3,Requirement 6.5.6,Requirement 8.3.2</Group>
+               <Group name="altcategoryPCISSF1.0">Control Objective 7.2 - Use of Cryptography</Group>
+               <Group name="altcategoryPCISSF1.1">Control Objective 7.2 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategoryPCISSF1.2">Control Objective 7.2 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategorySANS2009">Porous Defenses - CWE ID 259</Group>
+               <Group name="altcategorySANS2010">None</Group>
+               <Group name="altcategorySANSTop252011">None</Group>
+               <Group name="altcategorySTIG3.1">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.10">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.4">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.5">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.6">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.7">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG3.9">APP3210.1 CAT II,APP3350 CAT I</Group>
+               <Group name="altcategorySTIG4.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.10">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.11">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.2">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.3">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.4">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.5">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.6">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.7">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.8">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG4.9">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.1">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.2">APSC-DV-002010 CAT II</Group>
+               <Group name="altcategorySTIG5.3">APSC-DV-002010 CAT II,APSC-DV-003100 CAT II,APSC-DV-003310 CAT II</Group>
+               <Group name="altcategorySTIG6.1">APSC-DV-002010 CAT II,APSC-DV-003100 CAT II,APSC-DV-003310 CAT II</Group>
+               <Group name="altcategorySWC">None</Group>
+               <Group name="altcategoryWASC2.00">Information Leakage (WASC-13)</Group>
+               <Group name="altcategoryWASC24+2">None</Group>
+               <Group name="audience">broad,fod</Group>
+            </MetaInfo>
+            <Notes><![CDATA[
+                Based off of regular expression from https://github.com/eth0izzle/shhgit
+                Targeting 'WordPress config' (wp-config.php)
+            ]]></Notes>
+            <VulnKingdom>Security Features</VulnKingdom>
+            <VulnCategory>Key Management</VulnCategory>
+            <VulnSubcategory>Empty Encryption Key</VulnSubcategory>
+            <DefaultSeverity>4.0</DefaultSeverity>
+            <Description ref="desc.semantic.php.key_management_empty_encryption_key"/>
+            <Predicate><![CDATA[
+                FunctionCall fc:
+                    name matches "(?i)define"
+                    and fc.arguments[1].constantValue matches "(?i)(NONCE_KEY|LOGGED_IN_KEY|AUTH_KEY|SECURE_AUTH_KEY)"
+                    and fc.arguments[2] is [Expression e:
+                        e.constantValue == ""
+                    ]
+            ]]></Predicate>
+         </StructuralRule>
+         <StructuralRule formatVersion="3.7" language="php">
+            <RuleID>DD4FDE3F-47FB-4F1D-827C-EBB14FA5F1F1</RuleID>
+            <MetaInfo>
+               <Group name="package">PHP WordPress</Group>
+               <Group name="Accuracy">4</Group>
+               <Group name="Impact">4</Group>
+               <Group name="Probability">3.5</Group>
+               <Group name="RemediationEffort">1.0</Group>
+               <Group name="altcategoryCISAKS1.3.0">None</Group>
+               <Group name="altcategoryCISAmazonWebServices2.0.0">None</Group>
+               <Group name="altcategoryCISEKS1.3.0">None</Group>
+               <Group name="altcategoryCISGKE1.4.0">None</Group>
+               <Group name="altcategoryCISGoogleCloud2.0.0">None</Group>
+               <Group name="altcategoryCISKubernetes1.7.1">None</Group>
+               <Group name="altcategoryCISMicrosoftAzure2.0.0">None</Group>
+               <Group name="altcategoryCWE">CWE ID 760</Group>
+               <Group name="altcategoryCWETop252019">None</Group>
+               <Group name="altcategoryCWETop252020">None</Group>
+               <Group name="altcategoryCWETop252021">None</Group>
+               <Group name="altcategoryCWETop252022">None</Group>
+               <Group name="altcategoryCWETop252023">None</Group>
+               <Group name="altcategoryCWETop252024">None</Group>
+               <Group name="altcategoryDISACCI2">CCI-002450</Group>
+               <Group name="altcategoryFISMA">MP</Group>
+               <Group name="altcategoryGDPR">Insufficient Data Protection</Group>
+               <Group name="altcategoryMISRAC++2008">None</Group>
+               <Group name="altcategoryMISRAC++2023">None</Group>
+               <Group name="altcategoryMISRAC2012">None</Group>
+               <Group name="altcategoryMISRAC2023">None</Group>
+               <Group name="altcategoryNISTSP800-53Rev.4">AU-10 Non-Repudiation (P2),SC-13 Cryptographic Protection (P1)</Group>
+               <Group name="altcategoryNISTSP800-53Rev.5">AU-10 Non-Repudiation,SC-13 Cryptographic Protection</Group>
+               <Group name="altcategoryOWASP2004">A8 Insecure Storage</Group>
+               <Group name="altcategoryOWASP2007">A8 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2010">A7 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2013">A6 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2017">A3 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2021">A02 Cryptographic Failures</Group>
+               <Group name="altcategoryOWASPAPITop102023">None</Group>
+               <Group name="altcategoryOWASPASVS4.0">2.4.1 Credential Storage Requirements (L2 L3),2.4.2 Credential Storage Requirements (L2 L3),2.4.5 Credential Storage Requirements (L2 L3),2.6.3 Look-up Secret Verifier Requirements (L2 L3),2.9.3 Cryptographic Software and Devices Verifier Requirements (L2 L3),6.2.1 Algorithms (L1 L2 L3),6.2.2 Algorithms (L2 L3),8.3.7 Sensitive Private Data (L2 L3),9.1.2 Communications Security Requirements (L1 L2 L3),9.1.3 Communications Security Requirements (L1 L2 L3)</Group>
+               <Group name="altcategoryOWASPMASVS2.0">MASVS-CRYPTO-1</Group>
+               <Group name="altcategoryOWASPMobile2014">M6 Broken Cryptography</Group>
+               <Group name="altcategoryOWASPMobileTop102024">M10 Insufficient Cryptography</Group>
+               <Group name="altcategoryPCI1.1">Requirement 6.5.8</Group>
+               <Group name="altcategoryPCI1.2">Requirement 6.3.1.3,Requirement 6.5.8</Group>
+               <Group name="altcategoryPCI2.0">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.0">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.1">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.2">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.2.1">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI4.0">Requirement 6.2.4</Group>
+               <Group name="altcategoryPCI4.0.1">Requirement 3.3.2,Requirement 3.3.3,Requirement 3.5.1,Requirement 6.2.4</Group>
+               <Group name="altcategoryPCISSF1.0">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography</Group>
+               <Group name="altcategoryPCISSF1.1">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategoryPCISSF1.2">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategorySANS2009">None</Group>
+               <Group name="altcategorySANS2010">None</Group>
+               <Group name="altcategorySANSTop252011">Porous Defenses - CWE ID 759</Group>
+               <Group name="altcategorySTIG3.1">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.10">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.4">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.5">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.6">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.7">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.9">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG4.1">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.10">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.11">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.2">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.3">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.4">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.5">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.6">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.7">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.8">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.9">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.1">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.2">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.3">APSC-DV-000590 CAT II,APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG6.1">APSC-DV-000590 CAT II,APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySWC">None</Group>
+               <Group name="altcategoryWASC2.00">None</Group>
+               <Group name="altcategoryWASC24+2">None</Group>
+               <Group name="audience">broad,fod</Group>
+            </MetaInfo>
+            <Notes><![CDATA[
+                Based off of regular expression from https://github.com/eth0izzle/shhgit
+                Targeting 'WordPress config' (wp-config.php)
+            ]]></Notes>
+            <VulnKingdom>Security Features</VulnKingdom>
+            <VulnCategory>Weak Cryptographic Hash</VulnCategory>
+            <VulnSubcategory>Hardcoded Salt</VulnSubcategory>
+            <DefaultSeverity>2.0</DefaultSeverity>
+            <Description ref="desc.semantic.php.weak_cryptographic_hash_hardcoded_salt"/>
+            <Predicate><![CDATA[
+                FunctionCall fc:
+                    name matches "(?i)define"
+                    and fc.arguments[1].constantValue matches "(?i)(NONCE_SALT|LOGGED_IN_SALT|AUTH_SALT|SECURE_AUTH_SALT)"
+                        and arguments[2] is [Expression e:
+                            not e.constantValue.null
+                            and not e.constantValue is [Null:]
+                            and not e.constantValue == ""
+                        ]
+            ]]></Predicate>
+         </StructuralRule>
+         <StructuralRule formatVersion="3.7" language="php">
+            <RuleID>5ED5B90B-69A9-47D7-A72A-7E9C5DFEF2A0</RuleID>
+            <MetaInfo>
+               <Group name="package">PHP WordPress</Group>
+               <Group name="Accuracy">4</Group>
+               <Group name="Impact">4</Group>
+               <Group name="Probability">3.5</Group>
+               <Group name="RemediationEffort">1.0</Group>
+               <Group name="altcategoryCISAKS1.3.0">None</Group>
+               <Group name="altcategoryCISAmazonWebServices2.0.0">None</Group>
+               <Group name="altcategoryCISEKS1.3.0">None</Group>
+               <Group name="altcategoryCISGKE1.4.0">None</Group>
+               <Group name="altcategoryCISGoogleCloud2.0.0">None</Group>
+               <Group name="altcategoryCISKubernetes1.7.1">None</Group>
+               <Group name="altcategoryCISMicrosoftAzure2.0.0">None</Group>
+               <Group name="altcategoryCWE">CWE ID 759</Group>
+               <Group name="altcategoryCWETop252019">None</Group>
+               <Group name="altcategoryCWETop252020">None</Group>
+               <Group name="altcategoryCWETop252021">None</Group>
+               <Group name="altcategoryCWETop252022">None</Group>
+               <Group name="altcategoryCWETop252023">None</Group>
+               <Group name="altcategoryCWETop252024">None</Group>
+               <Group name="altcategoryDISACCI2">CCI-001188,CCI-002450</Group>
+               <Group name="altcategoryFISMA">MP</Group>
+               <Group name="altcategoryGDPR">Insufficient Data Protection</Group>
+               <Group name="altcategoryMISRAC++2008">None</Group>
+               <Group name="altcategoryMISRAC++2023">None</Group>
+               <Group name="altcategoryMISRAC2012">None</Group>
+               <Group name="altcategoryMISRAC2023">None</Group>
+               <Group name="altcategoryNISTSP800-53Rev.4">AU-10 Non-Repudiation (P2),SC-13 Cryptographic Protection (P1),SC-23 Session Authenticity (P1)</Group>
+               <Group name="altcategoryNISTSP800-53Rev.5">AU-10 Non-Repudiation,SC-13 Cryptographic Protection,SC-23 Session Authenticity</Group>
+               <Group name="altcategoryOWASP2004">A8 Insecure Storage</Group>
+               <Group name="altcategoryOWASP2007">A8 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2010">A7 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2013">A6 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2017">A3 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2021">A02 Cryptographic Failures</Group>
+               <Group name="altcategoryOWASPAPITop102023">None</Group>
+               <Group name="altcategoryOWASPASVS4.0">2.4.1 Credential Storage Requirements (L2 L3),2.4.2 Credential Storage Requirements (L2 L3),2.4.5 Credential Storage Requirements (L2 L3),2.6.3 Look-up Secret Verifier Requirements (L2 L3),2.9.3 Cryptographic Software and Devices Verifier Requirements (L2 L3),6.2.1 Algorithms (L1 L2 L3),6.2.2 Algorithms (L2 L3),8.3.7 Sensitive Private Data (L2 L3),9.1.2 Communications Security Requirements (L1 L2 L3),9.1.3 Communications Security Requirements (L1 L2 L3)</Group>
+               <Group name="altcategoryOWASPMASVS2.0">None</Group>
+               <Group name="altcategoryOWASPMobile2014">M6 Broken Cryptography</Group>
+               <Group name="altcategoryOWASPMobileTop102024">M10 Insufficient Cryptography</Group>
+               <Group name="altcategoryPCI1.1">Requirement 6.5.8</Group>
+               <Group name="altcategoryPCI1.2">Requirement 6.3.1.3,Requirement 6.5.8</Group>
+               <Group name="altcategoryPCI2.0">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.0">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.1">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.2">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.2.1">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI4.0">Requirement 6.2.4</Group>
+               <Group name="altcategoryPCI4.0.1">Requirement 3.3.2,Requirement 3.3.3,Requirement 3.5.1,Requirement 6.2.4</Group>
+               <Group name="altcategoryPCISSF1.0">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography</Group>
+               <Group name="altcategoryPCISSF1.1">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategoryPCISSF1.2">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategorySANS2009">None</Group>
+               <Group name="altcategorySANS2010">None</Group>
+               <Group name="altcategorySANSTop252011">Porous Defenses - CWE ID 759</Group>
+               <Group name="altcategorySTIG3.1">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.10">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.4">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.5">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.6">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.7">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.9">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG4.1">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.10">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.11">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.2">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.3">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.4">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.5">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.6">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.7">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.8">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.9">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.1">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.2">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.3">APSC-DV-000590 CAT II,APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II,APSC-DV-002290 CAT II</Group>
+               <Group name="altcategorySTIG6.1">APSC-DV-000590 CAT II,APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II,APSC-DV-002290 CAT II</Group>
+               <Group name="altcategorySWC">None</Group>
+               <Group name="altcategoryWASC2.00">None</Group>
+               <Group name="altcategoryWASC24+2">None</Group>
+               <Group name="audience">broad,fod</Group>
+            </MetaInfo>
+            <Notes><![CDATA[
+                Based off of regular expression from https://github.com/eth0izzle/shhgit
+                Targeting 'WordPress config' (wp-config.php)
+            ]]></Notes>
+            <VulnKingdom>Security Features</VulnKingdom>
+            <VulnCategory>Weak Cryptographic Hash</VulnCategory>
+            <VulnSubcategory>Null Salt</VulnSubcategory>
+            <DefaultSeverity>2.0</DefaultSeverity>
+            <Description ref="desc.semantic.php.weak_cryptographic_hash_null_salt"/>
+            <Predicate><![CDATA[
+                FunctionCall fc:
+                    name matches "(?i)define"
+                    and fc.arguments[1].constantValue matches "(?i)(NONCE_SALT|LOGGED_IN_SALT|AUTH_SALT|SECURE_AUTH_SALT)"
+                        and arguments[2] is [Expression e:
+                            e.constantValue is [Null:]
+                        ]
+            ]]></Predicate>
+         </StructuralRule>
+         <StructuralRule formatVersion="3.7" language="php">
+            <RuleID>FC1A40B2-53CB-4C55-9315-AD6467FD5D40</RuleID>
+            <MetaInfo>
+               <Group name="package">PHP WordPress</Group>
+               <Group name="Accuracy">4</Group>
+               <Group name="Impact">4</Group>
+               <Group name="Probability">3.5</Group>
+               <Group name="RemediationEffort">1.0</Group>
+               <Group name="altcategoryCISAKS1.3.0">None</Group>
+               <Group name="altcategoryCISAmazonWebServices2.0.0">None</Group>
+               <Group name="altcategoryCISEKS1.3.0">None</Group>
+               <Group name="altcategoryCISGKE1.4.0">None</Group>
+               <Group name="altcategoryCISGoogleCloud2.0.0">None</Group>
+               <Group name="altcategoryCISKubernetes1.7.1">None</Group>
+               <Group name="altcategoryCISMicrosoftAzure2.0.0">None</Group>
+               <Group name="altcategoryCWE">CWE ID 759</Group>
+               <Group name="altcategoryCWETop252019">None</Group>
+               <Group name="altcategoryCWETop252020">None</Group>
+               <Group name="altcategoryCWETop252021">None</Group>
+               <Group name="altcategoryCWETop252022">None</Group>
+               <Group name="altcategoryCWETop252023">None</Group>
+               <Group name="altcategoryCWETop252024">None</Group>
+               <Group name="altcategoryDISACCI2">CCI-001188,CCI-002450</Group>
+               <Group name="altcategoryFISMA">MP</Group>
+               <Group name="altcategoryGDPR">Insufficient Data Protection</Group>
+               <Group name="altcategoryMISRAC++2008">None</Group>
+               <Group name="altcategoryMISRAC++2023">None</Group>
+               <Group name="altcategoryMISRAC2012">None</Group>
+               <Group name="altcategoryMISRAC2023">None</Group>
+               <Group name="altcategoryNISTSP800-53Rev.4">AU-10 Non-Repudiation (P2),SC-13 Cryptographic Protection (P1),SC-23 Session Authenticity (P1)</Group>
+               <Group name="altcategoryNISTSP800-53Rev.5">AU-10 Non-Repudiation,SC-13 Cryptographic Protection,SC-23 Session Authenticity</Group>
+               <Group name="altcategoryOWASP2004">A8 Insecure Storage</Group>
+               <Group name="altcategoryOWASP2007">A8 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2010">A7 Insecure Cryptographic Storage</Group>
+               <Group name="altcategoryOWASP2013">A6 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2017">A3 Sensitive Data Exposure</Group>
+               <Group name="altcategoryOWASP2021">A02 Cryptographic Failures</Group>
+               <Group name="altcategoryOWASPAPITop102023">None</Group>
+               <Group name="altcategoryOWASPASVS4.0">2.4.1 Credential Storage Requirements (L2 L3),2.4.2 Credential Storage Requirements (L2 L3),2.4.5 Credential Storage Requirements (L2 L3),2.6.3 Look-up Secret Verifier Requirements (L2 L3),2.9.3 Cryptographic Software and Devices Verifier Requirements (L2 L3),6.2.1 Algorithms (L1 L2 L3),6.2.2 Algorithms (L2 L3),8.3.7 Sensitive Private Data (L2 L3),9.1.2 Communications Security Requirements (L1 L2 L3),9.1.3 Communications Security Requirements (L1 L2 L3)</Group>
+               <Group name="altcategoryOWASPMASVS2.0">None</Group>
+               <Group name="altcategoryOWASPMobile2014">M6 Broken Cryptography</Group>
+               <Group name="altcategoryOWASPMobileTop102024">M10 Insufficient Cryptography</Group>
+               <Group name="altcategoryPCI1.1">Requirement 6.5.8</Group>
+               <Group name="altcategoryPCI1.2">Requirement 6.3.1.3,Requirement 6.5.8</Group>
+               <Group name="altcategoryPCI2.0">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.0">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.1">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.2">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI3.2.1">Requirement 6.5.3</Group>
+               <Group name="altcategoryPCI4.0">Requirement 6.2.4</Group>
+               <Group name="altcategoryPCI4.0.1">Requirement 3.3.2,Requirement 3.3.3,Requirement 3.5.1,Requirement 6.2.4</Group>
+               <Group name="altcategoryPCISSF1.0">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography</Group>
+               <Group name="altcategoryPCISSF1.1">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategoryPCISSF1.2">Control Objective 7.1 - Use of Cryptography,Control Objective 7.4 - Use of Cryptography,Control Objective B.2.3 - Terminal Software Design</Group>
+               <Group name="altcategorySANS2009">None</Group>
+               <Group name="altcategorySANS2010">None</Group>
+               <Group name="altcategorySANSTop252011">Porous Defenses - CWE ID 759</Group>
+               <Group name="altcategorySTIG3.1">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.10">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.4">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.5">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.6">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.7">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG3.9">APP3150.1 CAT II</Group>
+               <Group name="altcategorySTIG4.1">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.10">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.11">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.2">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.3">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.4">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.5">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.6">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.7">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.8">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG4.9">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.1">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.2">APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II</Group>
+               <Group name="altcategorySTIG5.3">APSC-DV-000590 CAT II,APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II,APSC-DV-002290 CAT II</Group>
+               <Group name="altcategorySTIG6.1">APSC-DV-000590 CAT II,APSC-DV-002010 CAT II,APSC-DV-002020 CAT II,APSC-DV-002030 CAT II,APSC-DV-002290 CAT II</Group>
+               <Group name="altcategorySWC">None</Group>
+               <Group name="altcategoryWASC2.00">None</Group>
+               <Group name="altcategoryWASC24+2">None</Group>
+               <Group name="audience">broad,fod</Group>
+            </MetaInfo>
+            <Notes><![CDATA[
+                Based off of regular expression from https://github.com/eth0izzle/shhgit
+                Targeting 'WordPress config' (wp-config.php)
+            ]]></Notes>
+            <VulnKingdom>Security Features</VulnKingdom>
+            <VulnCategory>Weak Cryptographic Hash</VulnCategory>
+            <VulnSubcategory>Empty Salt</VulnSubcategory>
+            <DefaultSeverity>2.0</DefaultSeverity>
+            <Description ref="desc.semantic.php.weak_cryptographic_hash_empty_salt"/>
+            <Predicate><![CDATA[
+                FunctionCall fc:
+                    name matches "(?i)define"
+                    and fc.arguments[1].constantValue matches "(?i)(NONCE_SALT|LOGGED_IN_SALT|AUTH_SALT|SECURE_AUTH_SALT)"
+                        and arguments[2] is [Expression e:
+                            e.constantValue == ""
+                        ]
+            ]]></Predicate>
+         </StructuralRule>
+      </RuleDefinitions>
+      <LabelDefinitions/>
+      <ControlflowStateStrings/>
+      <TaintFlagDeclarations/>
+      <TaintFlagDescriptions/>
+      <Coverage/>
+      <ScriptDefinitions/>
+      <Descriptions>
+         <Description id="desc.semantic.php.key_management_null_encryption_key" formatVersion="3.4">
+            <Abstract><![CDATA[Null encryption keys can compromise security in a way that is not easy to remedy.]]></Abstract>
+            <Explanation><![CDATA[Assigning <code>null</code> to encryption key variables is a bad idea because it can allow attackers to expose sensitive and encrypted information. Not only does using a <code>null</code> encryption key significantly reduce the protection afforded by a good encryption algorithm, but it also makes fixing the problem extremely difficult. After the offending code is in production, a software patch is required to change the <code>null</code> encryption key. If an account protected by the <code>null</code> encryption key is compromised, the owners of the system must choose between security and availability.
+
+<Paragraph>
+In this case, a <code>null</code> encryption key was found in the call to <Replace key="PrimaryCall.name" link="PrimaryLocation"/> in <Replace key="PrimaryLocation.file"/> on line <Replace key="PrimaryLocation.line"/>.
+</Paragraph>
+
+<b>Example 1:</b> The following code initializes an encryption key variable to <code>null</code>.
+
+<pre>
+...
+$encryption_key = NULL;
+
+$filter = new Zend_Filter_Encrypt($encryption_key);
+
+$filter-&gt;setVector('myIV');
+
+$encrypted = $filter-&gt;filter('text_to_be_encrypted');
+print $encrypted;
+...
+</pre>
+Anyone who has access to the code would be able to determine that it uses a <code>null</code> encryption key, and anyone employing even basic cracking techniques is much more likely to successfully decrypt any encrypted data. After the program ships, a software patch is required to change the <code>null</code> encryption key. An employee with access to this information can use it to break into the system. Even if attackers only had access to the application's executable, they could extract evidence of the use of a <code>null</code> encryption key.
+]]></Explanation>
+            <Recommendations><![CDATA[Encryption keys should never be <code>null</code> and should generally be obfuscated and managed in an external source. Storing encryption keys, <code>null</code> or otherwise, in plain text anywhere on the system allows anyone with sufficient permissions to read and potentially misuse the encryption key.
+Starting with Microsoft(R) Windows(R) 2000, Microsoft(R) provides Windows Data Protection Application Programming Interface (DPAPI), which is an OS-level service that protects sensitive application data, such as passwords and encryption keys [1].
+]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[Windows Data Protection]]></Title>
+                  <Source><![CDATA[https://msdn.microsoft.com/en-us/library/ms995355.aspx]]></Source>
+                  <Publisher><![CDATA[Microsoft]]></Publisher>
+                  <PublishedDate><![CDATA[2001]]></PublishedDate>
+               </Reference>
+               <Reference>
+                  <Title><![CDATA[Fortify Taxonomy | Key Management: Null Encryption Key]]></Title>
+                  <Source><![CDATA[https://vulncat.fortify.com/en/detail?category=Key+Management&subcategory=Null+Encryption+Key]]></Source>
+                  <Publisher><![CDATA[OpenText Fortify]]></Publisher>
+               </Reference>
+            </References>
+            <Tips>
+               <Tip>When identifying &lt;code&gt;null&lt;/code&gt;, empty, or hardcoded encryption keys, default rules only consider fields and variables that contain the words &lt;code&gt;enc_key&lt;/code&gt;, &lt;code&gt;encryption_key&lt;/code&gt;, &lt;code&gt;passphrase&lt;/code&gt;, or &lt;code&gt;pass_phrase&lt;/code&gt;. However, the Fortify Custom Rules Editor provides the Password Management wizard that makes it easy to create rules for detecting key management issues on custom-named fields and variables.</Tip>
+               <Tip>Due to the dynamic nature of PHP, you may see a large number of findings in PHP library files. Consider using a filter file to hide specific findings from view. For instructions on creating a filter file, see the Fortify Static Code Analyzer User Guide.</Tip>
+            </Tips>
+         </Description>
+         <Description id="desc.semantic.php.key_management_empty_encryption_key" formatVersion="3.4">
+            <Abstract><![CDATA[Empty encryption keys can compromise security in a way that is not easy to remedy.]]></Abstract>
+            <Explanation><![CDATA[It is never a good idea to use an empty encryption key. Not only does using an empty encryption key significantly reduce the protection afforded by a good encryption algorithm, but it also makes fixing the problem extremely difficult. After the offending code is in production, the empty encryption key cannot be changed without patching the software. If an account protected by the empty encryption key is compromised, the owners of the system must choose between security and availability.
+
+<Paragraph>
+In this case, an empty string encryption key was found in the call to <Replace key="PrimaryCall.name" link="PrimaryLocation"/> in <Replace key="PrimaryLocation.file"/> on line <Replace key="PrimaryLocation.line"/>.
+</Paragraph>
+
+<b>Example 1:</b> The following code initializes an encryption key variable to an empty string.
+<pre>
+...
+$encryption_key = '';
+
+$filter = new Zend_Filter_Encrypt($encryption_key);
+
+$filter-&gt;setVector('myIV');
+
+$encrypted = $filter-&gt;filter('text_to_be_encrypted');
+print $encrypted;
+...
+</pre>
+Not only will anyone who has access to the code be able to determine that it uses an empty encryption key, but anyone with even basic cracking techniques is much more likely to successfully decrypt any encrypted data. After the program ships, a software patch is required to change the empty encryption key. An employee with access to this information can use it to break into the system. Even if attackers only had access to the application's executable, they could extract evidence of the use of an empty encryption key.
+]]></Explanation>
+            <Recommendations><![CDATA[Encryption keys should never be empty and should generally be obfuscated and managed in an external source. Storing encryption keys in plain text, empty or otherwise, anywhere on the system allows anyone with sufficient permissions to read and potentially misuse the encryption key.
+Starting with Microsoft(R) Windows(R) 2000, Microsoft(R) provides Windows Data Protection Application Programming Interface (DPAPI), which is an OS-level service that protects sensitive application data, such as passwords and private keys [1].
+]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[Windows Data Protection]]></Title>
+                  <Source><![CDATA[https://msdn.microsoft.com/en-us/library/ms995355.aspx]]></Source>
+                  <Publisher><![CDATA[Microsoft]]></Publisher>
+                  <PublishedDate><![CDATA[2001]]></PublishedDate>
+               </Reference>
+               <Reference>
+                  <Title><![CDATA[Fortify Taxonomy | Key Management: Empty Encryption Key]]></Title>
+                  <Source><![CDATA[https://vulncat.fortify.com/en/detail?category=Key+Management&subcategory=Empty+Encryption+Key]]></Source>
+                  <Publisher><![CDATA[OpenText Fortify]]></Publisher>
+               </Reference>
+            </References>
+            <Tips>
+               <Tip>Avoid empty string encryption keys in source code.</Tip>
+               <Tip>When identifying &lt;code&gt;null&lt;/code&gt;, empty, or hardcoded encryption keys, default rules only consider fields and variables that contain the word &lt;code&gt;enc_key&lt;/code&gt;, &lt;code&gt;encryption_key&lt;/code&gt;, &lt;code&gt;passphrase&lt;/code&gt;, or &lt;code&gt;pass_phrase&lt;/code&gt;. However, the Fortify Custom Rules Editor provides the Password Management wizard that makes it easy to create rules for detecting key management issues on custom-named fields and variables.</Tip>
+               <Tip>Due to the dynamic nature of PHP, you may see a large number of findings in PHP library files. Consider using a filter file to hide specific findings from view. For instructions on creating a filter file, see the Fortify Static Code Analyzer User Guide.</Tip>
+            </Tips>
+         </Description>
+         <Description id="desc.semantic.php.key_management_hardcoded_encryption_key" formatVersion="3.4">
+            <Abstract><![CDATA[Hardcoded encryption keys could compromise system security in a way that is not easy to remedy.]]></Abstract>
+            <Explanation><![CDATA[It is never a good idea to hardcode an encryption key. Not only does hardcoding an encryption key allow all of the project's developers to view the encryption key, it also makes fixing the problem extremely difficult. After the code is in production, a software patch is required to change the encryption key. If the account protected by the encryption key is compromised, the owners of the system must choose between security and availability.
+<Paragraph>
+In this case, the encryption key was used to access a resource at <Replace key="PrimaryCall.name" link="PrimaryLocation"/> in <Replace key="PrimaryLocation.file"/> on line <Replace key="PrimaryLocation.line"/>.
+</Paragraph>
+
+<b>Example 1:</b> The following code uses a hardcoded encryption key to encrypt information:
+
+<pre>
+...
+$encryption_key = 'hardcoded_encryption_key';
+
+//$filter = new Zend_Filter_Encrypt('hardcoded_encryption_key');
+$filter = new Zend_Filter_Encrypt($encryption_key);
+
+$filter-&gt;setVector('myIV');
+
+$encrypted = $filter-&gt;filter('text_to_be_encrypted');
+print $encrypted;
+...
+</pre>
+
+This code will run successfully, but anyone who has access to it will have access to the encryption key. After the program ships, there is likely no way to change the hardcoded encryption key ('hardcoded_encryption_key') unless the program is patched. A devious employee with access to this information can use it to compromise data encrypted by the system.
+]]></Explanation>
+            <Recommendations><![CDATA[Encryption keys should never be hardcoded and should generally be obfuscated and managed in an external source. Storing encryption keys in plain text anywhere on the system allows anyone with sufficient permissions to read and potentially misuse the encryption key.]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[Fortify Taxonomy | Key Management: Hardcoded Encryption Key]]></Title>
+                  <Source><![CDATA[https://vulncat.fortify.com/en/detail?category=Key+Management&subcategory=Hardcoded+Encryption+Key]]></Source>
+                  <Publisher><![CDATA[OpenText Fortify]]></Publisher>
+               </Reference>
+            </References>
+            <Tips>
+               <Tip>When identifying &lt;code&gt;null&lt;/code&gt;, empty, or hardcoded encryption keys, default rules only consider fields and variables that contain the word &lt;code&gt;enc_key&lt;/code&gt;, &lt;code&gt;encryption_key&lt;/code&gt;, &lt;code&gt;passphrase&lt;/code&gt;, or &lt;code&gt;pass_phrase&lt;/code&gt;. However, the Fortify Custom Rules Editor provides the Password Management wizard that makes it easy to create rules for detecting key management issues on custom-named fields and variables.</Tip>
+               <Tip>Due to the dynamic nature of PHP, you may see a large number of findings in PHP library files. Consider using a filter file to hide specific findings from view. For instructions on creating a filter file, see the Fortify Static Code Analyzer User Guide.</Tip>
+            </Tips>
+         </Description>
+         <Description id="desc.semantic.php.weak_cryptographic_hash_empty_salt" formatVersion="3.4">
+            <Abstract><![CDATA[An empty salt contradicts its intended objective and can compromise system security in a way that is not easy to remedy.]]></Abstract>
+            <Explanation><![CDATA[It is never a good idea to use an empty salt. Not only does an empty salt defeat its own purpose but all of the project's developers can view the salt. It makes fixing the problem extremely difficult because after the code is in production, the salt cannot be easily changed. If attackers know the value of the salt, they can compute &quot;rainbow tables&quot; for the application and easily determine the hashed values.
+
+<Paragraph>
+In this case, an empty salt was found in the call to <Replace key="PrimaryCall.name" link="PrimaryLocation"/> in <Replace key="PrimaryLocation.file"/> on line <Replace key="PrimaryLocation.line"/>.
+</Paragraph>
+
+<b>Example 1:</b> The following code defines an empty salt for password hashing:
+<pre>
+...
+define('SECURE_AUTH_SALT', "");
+...
+</pre>
+
+This code runs successfully, but anyone who has access to it can see the salt. After the program ships, there is likely no way to change the empty salt. An employee with access to this information can use it to break into the system.
+]]></Explanation>
+            <Recommendations><![CDATA[The salt should never be an empty string and should generally be obfuscated and managed in an external source. Storing a salt in plain text anywhere on the system allows anyone with sufficient permissions to read and potentially misuse the salt.
+
+<b>Example 2:</b> The following code defines a salt variable configured by the system administrator:
+<pre>
+...
+define('SECURE_AUTH_SALT', $salt);
+...
+</pre>
+]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[Fortify Taxonomy | Weak Cryptographic Hash: Empty Salt]]></Title>
+                  <Source><![CDATA[https://vulncat.fortify.com/en/detail?category=Weak+Cryptographic+Hash&subcategory=Empty+Salt]]></Source>
+                  <Publisher><![CDATA[OpenText Fortify]]></Publisher>
+               </Reference>
+            </References>
+         </Description>
+         <Description id="desc.semantic.php.weak_cryptographic_hash_null_salt" formatVersion="3.4">
+            <Abstract><![CDATA[A <code>null</code> salt (<code>NULL</code>) contradicts its intended objective and can compromise system security in a way that is not easy to remedy.]]></Abstract>
+            <Explanation><![CDATA[It is never a good idea to use a <code>null</code> salt (<code>NULL</code>). Not only does a <code>null</code> salt contradicts its intended objective but all of the project's developers can view the salt. It makes fixing the problem extremely difficult because after the code is in production, the salt cannot be easily changed. If attackers know the value of the salt, they can compute &quot;rainbow tables&quot; for the application and easily determine the hashed values.
+
+<Paragraph>
+In this case, the <code>null</code> salt was found in the call to <Replace key="PrimaryCall.name" link="PrimaryLocation"/> in <Replace key="PrimaryLocation.file"/> on line <Replace key="PrimaryLocation.line"/>.
+</Paragraph>
+
+<b>Example 1:</b> The following code uses a <code>null</code> salt:
+<pre>
+...
+define('SECURE_AUTH_SALT', NULL);
+...
+</pre>
+
+This code runs successfully, but anyone who has access to it can see the salt. After the program ships, there is likely no way to change the <code>null</code> salt. An employee with access to this information can use it to break into the system.
+]]></Explanation>
+            <Recommendations><![CDATA[The salt should never be <code>null</code> and should generally be obfuscated and managed in an external source. Storing a salt in plain text anywhere on the system allows anyone with sufficient permissions to read and potentially misuse the salt.
+
+<b>Example 2:</b> The following code uses a salt variable configured by the system administrator:
+<pre>
+...
+define('SECURE_AUTH_SALT', $salt);
+...
+</pre>
+]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[Fortify Taxonomy | Weak Cryptographic Hash: Null Salt]]></Title>
+                  <Source><![CDATA[https://vulncat.fortify.com/en/detail?category=Weak+Cryptographic+Hash&subcategory=Null+Salt]]></Source>
+                  <Publisher><![CDATA[OpenText Fortify]]></Publisher>
+               </Reference>
+            </References>
+         </Description>
+         <Description id="desc.semantic.php.weak_cryptographic_hash_hardcoded_salt" formatVersion="3.4">
+            <Abstract><![CDATA[A hardcoded salt can compromise system security in a way that is not easy to remedy.]]></Abstract>
+            <Explanation><![CDATA[It is never a good idea to hardcode a salt. Not only does a hardcoded salt allow all of the project's developers to view the salt, it also makes fixing the problem extremely difficult. After the code is in production, the salt cannot be easily changed. If attackers know the value of the salt, they can compute &quot;rainbow tables&quot; for the application and more easily determine the hashed values.
+<Paragraph>
+In this case, a hardcoded salt was found in the call to <Replace key="PrimaryCall.name" link="PrimaryLocation"/> in <Replace key="PrimaryLocation.file"/> on line <Replace key="PrimaryLocation.line"/>.
+</Paragraph>
+
+<b>Example 1:</b> The following code uses a hardcoded salt:
+<pre>
+    ...
+    crypt($password, '2!@$(5#@532@%#$253l5#@$');
+    ...
+</pre>
+
+This code will run successfully, but anyone who has access to it will have access to the salt. After the program ships, there is likely no way to change the salt &quot;2!@$(5#@532@%#$253l5#@$&quot;. An employee with access to this information can use it to break into the system.
+]]></Explanation>
+            <Recommendations><![CDATA[The salt should never be hardcoded and should generally be obfuscated and managed in an external source. Storing a salt in plain text anywhere on the system allows anyone with sufficient permissions to read and potentially misuse the salt.
+
+<b>Example 2:</b> The following code uses a salt variable configured by the system administrator:
+<pre>
+    ...
+    crypt($password, $salt);
+    ...
+</pre>
+]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[Fortify Taxonomy | Weak Cryptographic Hash: Hardcoded Salt]]></Title>
+                  <Source><![CDATA[https://vulncat.fortify.com/en/detail?category=Weak+Cryptographic+Hash&subcategory=Hardcoded+Salt]]></Source>
+                  <Publisher><![CDATA[OpenText Fortify]]></Publisher>
+               </Reference>
+            </References>
+            <Tips>
+               <Tip>Due to the dynamic nature of PHP, you may see a large number of findings in PHP library files. Consider using a filter file to hide specific findings from view. For instructions on creating a filter file, see the Fortify Static Code Analyzer User Guide.</Tip>
+            </Tips>
+         </Description>
+      </Descriptions>
+   </Rules>
+</RulePack>nd potentially misuse the salt.
+
+<b>Example 2:</b> The following code uses a salt variable configured by the system administrator:
+<pre>
+    ...
+    crypt($password, $salt);
+    ...
+</pre>
+]]></Recommendations>
+            <References>
+               <Reference>
+                  <Title><![CDATA[For

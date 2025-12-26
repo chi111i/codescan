@@ -10,10 +10,54 @@ from datetime import datetime
 from typing import Dict, Optional, List
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
+
+def setup_logging():
+    """配置日志系统 - 确保所有模块日志正确输出到终端"""
+    # 创建格式化器
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    # 创建控制台处理器
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+
+    # 配置根 logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    # 清除已有处理器，避免重复
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # 添加控制台处理器
+    root_logger.addHandler(console_handler)
+
+    # 设置第三方库日志级别（减少噪音）
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+    logging.getLogger("watchfiles").setLevel(logging.WARNING)
+
+    # 确保本项目模块日志输出
+    for module in ["llm_client", "agent", "analyzer", "indexer", "api", "rules", "config"]:
+        logging.getLogger(module).setLevel(logging.INFO)
+
+    # 输出启动信息
+    root_logger.info("日志系统初始化完成")
+
+
+# 在模块加载时立即配置日志
+setup_logging()
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # 设置项目路径
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -37,6 +81,8 @@ from storage import (
     ScanTask,
     ScanFinding,
 )
+
+from serialization import to_jsonable
 from .schemas import (
     ScanRequest, IndexRequest, SearchRequest, CallGraphRequest,
     ScanResultSchema, IndexResultSchema, SearchResultSchema,
@@ -49,6 +95,38 @@ from .schemas import (
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+# ============ HTTP 请求日志中间件 ============
+
+class HTTPLoggingMiddleware(BaseHTTPMiddleware):
+    """HTTP 请求日志中间件 - 记录所有 HTTP 请求和响应"""
+
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        method = request.method
+        path = request.url.path
+        query = str(request.url.query) if request.url.query else ""
+
+        # 排除健康检查、OPTIONS 预检请求等高频端点的日志
+        skip_logging = path in ["/api/health", "/favicon.ico"] or method == "OPTIONS"
+
+        if not skip_logging:
+            log_msg = f"[HTTP] {method} {path}"
+            if query:
+                log_msg += f"?{query[:100]}"
+            logger.info(log_msg)
+
+        # 执行请求
+        response = await call_next(request)
+
+        # 计算耗时
+        duration = time.time() - start_time
+
+        if not skip_logging:
+            logger.info(f"[HTTP] {method} {path} -> {response.status_code} ({duration:.3f}s)")
+
+        return response
 
 # ============ 全局状态 ============
 
@@ -158,6 +236,15 @@ async def lifespan(app: FastAPI):
         await broadcast_task
     except asyncio.CancelledError:
         pass
+
+    # 关闭 LLM 客户端 HTTP 连接
+    if app_state.llm_client:
+        try:
+            app_state.llm_client.close()
+            logger.info("LLM 客户端已关闭")
+        except Exception as e:
+            logger.warning(f"关闭 LLM 客户端失败: {e}")
+
     logger.info("API 服务关闭")
 
 
@@ -180,7 +267,17 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        max_age=86400,  # 预检请求缓存 1 天，减少跨域请求开销
     )
+
+    # GZip 压缩中间件（压缩较大响应，减少传输延迟）
+    application.add_middleware(
+        GZipMiddleware,
+        minimum_size=1024,  # 仅压缩 > 1KB 的响应
+    )
+
+    # HTTP 请求日志中间件
+    application.add_middleware(HTTPLoggingMiddleware)
 
     return application
 
@@ -952,10 +1049,12 @@ async def broadcast_interaction(interaction):
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
         try:
+            # Starlette WebSocket.send_json 内部直接 json.dumps，
+            # interaction 里可能包含 datetime/path 等对象，需先转为 JSON 兼容类型。
             await ws.send_json({
                 "type": "interaction",
                 "scan_id": scan_id,
-                "data": interaction.to_timeline_event(),
+                "data": to_jsonable(interaction.to_timeline_event()),
             })
         except Exception as e:
             logger.warning(f"WebSocket 广播交互日志失败: {e}")

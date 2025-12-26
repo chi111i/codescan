@@ -17,6 +17,8 @@ from enum import Enum
 
 from llm_client import ChatMessage
 
+from serialization import safe_json_dumps
+
 logger = logging.getLogger(__name__)
 
 
@@ -360,6 +362,7 @@ class ContextManager:
         removed_count = len(self._code_contexts) - len(kept)
         self._code_contexts = kept
         self._code_tokens = kept_tokens
+        self._recalculate_total_tokens()
 
         logger.debug(f"[ContextManager] 代码上下文裁剪，移除 {removed_count} 个")
 
@@ -383,7 +386,8 @@ class ContextManager:
         Returns:
             ContextItem
         """
-        content = json.dumps({
+        # 工具结果可能包含 datetime/path 等对象，直接 json.dumps 可能报错
+        content = safe_json_dumps({
             "tool": tool_name,
             "arguments": arguments,
             "result": result,
@@ -419,14 +423,19 @@ class ContextManager:
 
     def _trim_tool_results(self):
         """裁剪工具结果"""
-        # 保留最近的一半
-        keep_count = len(self._tool_results) // 2
+        # 保留最近的一半，至少保留一个
+        keep_count = max(1, len(self._tool_results) // 2)
+        if keep_count >= len(self._tool_results):
+            return  # 无需裁剪
+
         to_remove = self._tool_results[:-keep_count]
         self._tool_results = self._tool_results[-keep_count:]
 
         removed_tokens = sum(item.token_count for item in to_remove)
         self._tool_result_tokens -= removed_tokens
         self._total_tokens -= removed_tokens
+        # 重新统计，避免 token 计数与实际存储不一致
+        self._recalculate_total_tokens()
 
         logger.debug(f"[ContextManager] 工具结果裁剪，移除 {len(to_remove)} 个")
 

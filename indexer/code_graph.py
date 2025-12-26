@@ -18,6 +18,8 @@ from enum import Enum
 from typing import List, Dict, Any, Optional, Set, Tuple
 from collections import defaultdict
 
+from serialization import safe_json_dumps
+
 logger = logging.getLogger(__name__)
 
 
@@ -1052,7 +1054,7 @@ class CodeGraphManager:
         if not graph:
             return None
 
-        return json.dumps(graph.to_dict(), ensure_ascii=False, indent=2)
+        return safe_json_dumps(graph.to_dict(), ensure_ascii=False, indent=2)
 
     def export_to_dot(self, graph_id: str) -> Optional[str]:
         """导出图为 DOT 格式（用于 Graphviz 可视化）"""

@@ -1,0 +1,1397 @@
+# =============================================================================
+# CodeScan Core Security Rules - 统一安全规则库
+# =============================================================================
+# 版本: 2.0.0
+# 维护: 整合自 extended_rules.yaml, comprehensive_rules.yaml, extended/ 目录
+# 原则: 高精准度 > 高召回率，每条规则都有明确的安全价值
+# =============================================================================
+
+_metadata:
+  version: "2.0.0"
+  last_updated: "2025-12-25"
+  description: |
+    核心安全规则库，专注于检测高危漏洞的 sink 点。
+    规则设计原则：
+    1. 精准匹配 - 使用完整限定名，避免误报
+    2. 高价值 - 聚焦 RCE/SQLi/文件操作/反序列化/SSRF 等高危类型
+    3. 无冗余 - 功能相似的规则合并为一条
+    4. 可操作 - 每条规则都有明确的修复建议
+
+rules:
+  # ===========================================================================
+  # 第一部分: 命令执行 (RCE) - Critical
+  # ===========================================================================
+
+  - id: py-rce-os-system
+    name: OS 命令执行 - os.system/popen
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - os.system
+      - os.popen
+      - os.popen2
+      - os.popen3
+      - os.popen4
+    description: |
+      os.system/popen 系列函数直接执行 shell 命令，
+      如果参数包含用户输入，将导致远程命令执行漏洞。
+    fix_suggestion: |
+      1. 使用 subprocess.run() 配合 shell=False 和参数列表
+      2. 使用 shlex.quote() 转义用户输入
+      3. 实现命令白名单机制
+    cwe_ids: ["CWE-78"]
+    owasp_ids: ["A03:2021"]
+    tags: [rce, command_injection, critical]
+
+  - id: py-rce-subprocess
+    name: 命令执行 - subprocess 模块
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - subprocess.call
+      - subprocess.run
+      - subprocess.Popen
+      - subprocess.check_call
+      - subprocess.check_output
+      - subprocess.getoutput
+      - subprocess.getstatusoutput
+    description: |
+      subprocess 模块的命令执行函数，当 shell=True 或参数拼接用户输入时，
+      可能导致命令注入。
+    fix_suggestion: |
+      1. 设置 shell=False（默认值）
+      2. 使用列表形式传递命令和参数，不要字符串拼接
+      3. 验证用户输入符合预期格式
+    cwe_ids: ["CWE-78"]
+    owasp_ids: ["A03:2021"]
+    tags: [rce, subprocess, critical]
+
+  - id: py-rce-eval-exec
+    name: 代码执行 - eval/exec/compile
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - eval
+      - exec
+      - compile
+      - execfile
+    description: |
+      eval/exec/compile 可执行任意 Python 代码，
+      绝对不应该用于处理用户输入。
+    fix_suggestion: |
+      1. 避免使用 eval/exec 处理用户输入
+      2. 如需解析数据，使用 ast.literal_eval() 替代 eval()
+      3. 如需动态功能，使用白名单映射
+    cwe_ids: ["CWE-94", "CWE-95"]
+    owasp_ids: ["A03:2021"]
+    tags: [rce, code_injection, critical]
+
+  - id: py-rce-pty-spawn
+    name: 伪终端执行 - pty.spawn
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - pty.spawn
+    description: pty.spawn 可生成交互式 shell，常用于反弹 shell
+    cwe_ids: ["CWE-78"]
+    tags: [rce, shell]
+
+  # ===========================================================================
+  # 第二部分: SQL 注入 - Critical/High
+  # ===========================================================================
+
+  - id: py-sqli-raw-query
+    name: SQL 注入 - 原始查询执行
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - cursor.execute
+      - cursor.executemany
+      - cursor.callproc
+      - connection.execute
+      - engine.execute
+      - session.execute
+    description: |
+      直接执行 SQL 语句时，如果使用字符串拼接构造 SQL，
+      将导致 SQL 注入漏洞。
+    fix_suggestion: |
+      1. 使用参数化查询 cursor.execute(sql, params)
+      2. 使用 ORM 的查询构建器
+      3. 永远不要拼接用户输入到 SQL 字符串
+    cwe_ids: ["CWE-89"]
+    owasp_ids: ["A03:2021"]
+    tags: [sqli, database, critical]
+
+  - id: py-sqli-django-raw
+    name: SQL 注入 - Django RawSQL/raw()
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python]
+    patterns:
+      - RawSQL
+      - .raw(
+      - .extra(
+      - connection.cursor
+    frameworks: [django]
+    description: |
+      Django 的 raw() 和 extra() 方法绑定原始 SQL，
+      RawSQL 表达式同样存在注入风险。
+    fix_suggestion: |
+      1. 使用 Django ORM 查询集
+      2. 如必须使用 raw()，确保使用参数占位符
+      3. 避免使用已废弃的 extra()
+    cwe_ids: ["CWE-89"]
+    tags: [sqli, django]
+
+  - id: py-sqli-sqlalchemy
+    name: SQL 注入 - SQLAlchemy text()
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python]
+    patterns:
+      - text(
+      - from_statement
+      - "prefix:filter("
+    frameworks: [sqlalchemy, flask]
+    description: SQLAlchemy 的 text() 构造器用于原始 SQL，需要使用绑定参数
+    fix_suggestion: |
+      使用 text("SELECT * FROM users WHERE id = :id").bindparams(id=user_id)
+    cwe_ids: ["CWE-89"]
+    tags: [sqli, sqlalchemy]
+
+  # ===========================================================================
+  # 第三部分: 文件操作漏洞 - High
+  # ===========================================================================
+
+  - id: py-file-path-traversal
+    name: 路径遍历 - 文件读写
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [python]
+    patterns:
+      - open
+      - "pathlib.Path.read_text"
+      - "pathlib.Path.read_bytes"
+      - "pathlib.Path.write_text"
+      - "pathlib.Path.write_bytes"
+      - "io.open"
+    description: |
+      文件打开操作如果路径包含用户输入，可能导致：
+      - 任意文件读取（敏感信息泄露）
+      - 任意文件写入（代码执行、配置覆盖）
+    fix_suggestion: |
+      1. 使用 os.path.realpath() 规范化路径
+      2. 验证规范化后的路径在允许目录内
+      3. 使用白名单限制可访问的文件
+    cwe_ids: ["CWE-22", "CWE-23"]
+    owasp_ids: ["A01:2021"]
+    tags: [path_traversal, file_read, file_write]
+
+  - id: py-file-shutil
+    name: 文件操作 - shutil 模块
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [python]
+    patterns:
+      - shutil.copy
+      - shutil.copy2
+      - shutil.copyfile
+      - shutil.copytree
+      - shutil.move
+      - shutil.rmtree
+    description: shutil 模块的文件复制/移动/删除操作，需要验证路径安全
+    cwe_ids: ["CWE-22"]
+    tags: [file_operation, path_traversal]
+
+  - id: py-file-send
+    name: 文件下载 - send_file/send_from_directory
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [python]
+    patterns:
+      - send_file
+      - send_from_directory
+      - FileResponse
+      - StreamingResponse
+    frameworks: [flask, django, fastapi]
+    description: |
+      文件下载接口如果路径可控，可能导致任意文件读取。
+      攻击者可下载源代码、配置文件、密钥等敏感文件。
+    fix_suggestion: |
+      1. send_from_directory 比 send_file 更安全（限定目录）
+      2. 使用 safe_join 或验证路径不包含 ..
+      3. 使用文件 ID 映射替代直接传递文件名
+    cwe_ids: ["CWE-22", "CWE-200"]
+    tags: [file_read, download]
+
+  - id: py-file-upload
+    name: 文件上传处理
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [python]
+    patterns:
+      - .save(
+      - "request.files"
+      - "file.save"
+      - "uploaded_file.save"
+    description: |
+      文件上传功能需要验证：
+      1. 文件类型（不仅是扩展名）
+      2. 文件大小
+      3. 存储路径（避免路径遍历）
+    cwe_ids: ["CWE-434"]
+    tags: [file_upload]
+
+  # ===========================================================================
+  # 第四部分: 反序列化漏洞 - Critical
+  # ===========================================================================
+
+  - id: py-deserialize-pickle
+    name: 反序列化 - pickle 模块
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - pickle.loads
+      - pickle.load
+      - cPickle.loads
+      - cPickle.load
+      - _pickle.loads
+      - _pickle.load
+      - shelve.open
+    description: |
+      pickle 反序列化不可信数据会导致远程代码执行。
+      pickle 可以序列化任意 Python 对象，包括恶意代码。
+    fix_suggestion: |
+      1. 永远不要反序列化不可信来源的数据
+      2. 使用 JSON 等安全格式替代 pickle
+      3. 如必须使用 pickle，使用 hmac 验证数据完整性
+    cwe_ids: ["CWE-502"]
+    owasp_ids: ["A08:2021"]
+    tags: [deserialization, rce, critical]
+
+  - id: py-deserialize-yaml
+    name: 反序列化 - YAML 不安全加载
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - yaml.load
+      - yaml.unsafe_load
+      - yaml.full_load
+    description: |
+      yaml.load() 默认使用 FullLoader，仍存在代码执行风险。
+      只有 yaml.safe_load() 是安全的。
+    fix_suggestion: |
+      使用 yaml.safe_load() 替代 yaml.load()
+    cwe_ids: ["CWE-502"]
+    tags: [deserialization, yaml]
+
+  - id: py-deserialize-marshal
+    name: 反序列化 - marshal 模块
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - marshal.loads
+      - marshal.load
+    description: marshal 用于 Python 字节码序列化，反序列化恶意数据会执行代码
+    cwe_ids: ["CWE-502"]
+    tags: [deserialization]
+
+  - id: py-deserialize-jsonpickle
+    name: 反序列化 - jsonpickle
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - jsonpickle.decode
+      - jsonpickle.loads
+    description: jsonpickle 扩展了 JSON，支持任意 Python 对象，存在 RCE 风险
+    cwe_ids: ["CWE-502"]
+    tags: [deserialization, jsonpickle]
+
+  # ===========================================================================
+  # 第五部分: SSRF - High
+  # ===========================================================================
+
+  - id: py-ssrf-requests
+    name: SSRF - requests 库
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [python]
+    patterns:
+      - requests.get
+      - requests.post
+      - requests.put
+      - requests.delete
+      - requests.head
+      - requests.patch
+      - requests.request
+    description: |
+      requests 库发起 HTTP 请求时，如果 URL 来自用户输入，
+      可能导致 SSRF 攻击，访问内网服务或云元数据 API。
+    fix_suggestion: |
+      1. 验证 URL 协议（只允许 http/https）
+      2. 验证目标不是内网地址（10.x/172.16.x/192.168.x/127.x）
+      3. 使用 URL 白名单
+      4. 禁止重定向跟随到内网地址
+    cwe_ids: ["CWE-918"]
+    owasp_ids: ["A10:2021"]
+    tags: [ssrf, network]
+
+  - id: py-ssrf-urllib
+    name: SSRF - urllib 模块
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [python]
+    patterns:
+      - urllib.request.urlopen
+      - urllib.request.urlretrieve
+      - urllib2.urlopen
+      - urllib.urlopen
+    description: urllib 发起 HTTP 请求，URL 用户可控时存在 SSRF 风险
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, urllib]
+
+  - id: py-ssrf-httpx
+    name: SSRF - httpx/aiohttp
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [python]
+    patterns:
+      - httpx.get
+      - httpx.post
+      - httpx.request
+      - aiohttp.ClientSession
+      - "client.get"
+      - "client.post"
+    description: httpx 和 aiohttp 是现代异步 HTTP 客户端，同样存在 SSRF 风险
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, async]
+
+  - id: py-ssrf-socket
+    name: SSRF - 底层 socket 操作
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [python]
+    patterns:
+      - socket.connect
+      - socket.create_connection
+      - socket.socket
+    description: 底层 socket 连接，目标地址用户可控时存在 SSRF 风险
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, socket]
+
+  # ===========================================================================
+  # 第六部分: 模板注入 (SSTI) - Critical
+  # ===========================================================================
+
+  - id: py-ssti-jinja2
+    name: 模板注入 - Jinja2
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - Template(
+      - "from_string("
+      - render_template_string
+      - Environment
+    frameworks: [flask, jinja2]
+    description: |
+      Jinja2 模板引擎如果模板内容来自用户输入，
+      攻击者可利用模板语法执行任意 Python 代码。
+    fix_suggestion: |
+      1. 永远不要将用户输入作为模板内容
+      2. 用户输入应作为模板变量传入
+      3. 使用沙箱环境 SandboxedEnvironment
+    cwe_ids: ["CWE-94"]
+    tags: [ssti, template_injection, critical]
+
+  - id: py-ssti-django
+    name: 模板注入 - Django 模板
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "django.template.Template"
+      - "Template("
+    frameworks: [django]
+    description: Django 模板引擎，模板内容不应来自用户输入
+    cwe_ids: ["CWE-94"]
+    tags: [ssti, django]
+
+  - id: py-ssti-mako
+    name: 模板注入 - Mako
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "mako.template.Template"
+      - Template(
+    frameworks: [mako]
+    description: Mako 模板引擎功能强大，SSTI 可导致 RCE
+    cwe_ids: ["CWE-94"]
+    tags: [ssti, mako]
+
+  # ===========================================================================
+  # 第七部分: XXE 漏洞 - High
+  # ===========================================================================
+
+  - id: py-xxe-xml
+    name: XXE - XML 解析
+    rule_type: sink
+    category: xxe
+    risk_level: high
+    languages: [python]
+    patterns:
+      - xml.etree.ElementTree.parse
+      - xml.etree.ElementTree.fromstring
+      - xml.dom.minidom.parse
+      - xml.dom.minidom.parseString
+      - xml.sax.parse
+      - xml.sax.parseString
+    description: |
+      Python 标准库 XML 解析器默认不完全禁用外部实体，
+      解析不可信 XML 可能导致 XXE 攻击。
+    fix_suggestion: |
+      1. 使用 defusedxml 库替代标准库
+      2. 如使用 lxml，设置 resolve_entities=False
+      3. 考虑使用 JSON 替代 XML
+    cwe_ids: ["CWE-611"]
+    owasp_ids: ["A05:2021"]
+    tags: [xxe, xml]
+
+  - id: py-xxe-lxml
+    name: XXE - lxml 库
+    rule_type: sink
+    category: xxe
+    risk_level: high
+    languages: [python]
+    patterns:
+      - lxml.etree.parse
+      - lxml.etree.fromstring
+      - lxml.etree.XML
+      - lxml.etree.iterparse
+    description: lxml 默认解析外部实体，需要显式禁用
+    fix_suggestion: |
+      parser = lxml.etree.XMLParser(resolve_entities=False, no_network=True)
+      tree = lxml.etree.parse(source, parser)
+    cwe_ids: ["CWE-611"]
+    tags: [xxe, lxml]
+
+  # ===========================================================================
+  # 第八部分: LDAP 注入 - High
+  # ===========================================================================
+
+  - id: py-ldap-injection
+    name: LDAP 注入
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python]
+    patterns:
+      - ldap.search
+      - ldap.search_s
+      - ldap.search_ext
+      - ldap.search_ext_s
+      - ldap3.search
+      - "connection.search"
+    description: |
+      LDAP 查询中使用用户输入构造过滤器，
+      可能导致 LDAP 注入，绕过认证或泄露数据。
+    fix_suggestion: |
+      1. 使用 ldap.filter.escape_filter_chars() 转义用户输入
+      2. 使用参数化过滤器
+    cwe_ids: ["CWE-90"]
+    tags: [ldap, injection]
+
+  # ===========================================================================
+  # 第九部分: 弱加密/随机数 - Medium
+  # ===========================================================================
+
+  - id: py-crypto-weak-hash
+    name: 弱哈希算法
+    rule_type: pattern
+    category: crypto
+    risk_level: medium
+    languages: [python]
+    patterns:
+      - hashlib.md5
+      - hashlib.sha1
+      - MD5.new
+      - SHA.new
+      - "regex:hmac\\.new\\(.*md5"
+      - "regex:hmac\\.new\\(.*sha1"
+    description: |
+      MD5 和 SHA1 已不再安全：
+      - MD5 存在已知碰撞攻击
+      - SHA1 已被证明可实际碰撞
+      不应用于密码存储或安全签名。
+    fix_suggestion: |
+      1. 密码存储使用 bcrypt/argon2/scrypt
+      2. 签名/完整性校验使用 SHA-256 或更强
+    cwe_ids: ["CWE-327", "CWE-328"]
+    owasp_ids: ["A02:2021"]
+    tags: [crypto, weak_hash]
+
+  - id: py-crypto-weak-random
+    name: 不安全随机数
+    rule_type: pattern
+    category: crypto
+    risk_level: medium
+    languages: [python]
+    patterns:
+      - random.random
+      - random.randint
+      - random.choice
+      - random.randrange
+      - random.sample
+    description: |
+      random 模块使用 Mersenne Twister 算法，可预测，
+      不应用于安全目的（令牌、验证码、密钥等）。
+    fix_suggestion: |
+      使用 secrets 模块：
+      - secrets.token_hex(32) 生成令牌
+      - secrets.randbelow(n) 生成随机数
+      - secrets.choice(alphabet) 安全选择
+    cwe_ids: ["CWE-330", "CWE-338"]
+    tags: [crypto, random]
+
+  - id: py-crypto-weak-cipher
+    name: 弱加密算法
+    rule_type: pattern
+    category: crypto
+    risk_level: high
+    languages: [python]
+    patterns:
+      - DES.new
+      - DES3.new
+      - RC4.new
+      - RC2.new
+      - Blowfish.new
+      - ARC4.new
+      - "regex:MODE_ECB"
+    description: |
+      DES/3DES/RC4/RC2 等算法已不安全：
+      - DES 密钥太短（56位）
+      - RC4 存在严重偏差漏洞
+      - ECB 模式不隐藏数据模式
+    fix_suggestion: |
+      使用 AES-256-GCM 或 ChaCha20-Poly1305
+    cwe_ids: ["CWE-327"]
+    tags: [crypto, weak_cipher]
+
+  - id: py-crypto-weak-ssl
+    name: 不安全的 SSL/TLS 配置
+    rule_type: pattern
+    category: crypto
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "PROTOCOL_SSLv2"
+      - "PROTOCOL_SSLv3"
+      - "PROTOCOL_SSLv23"
+      - "PROTOCOL_TLSv1"
+      - "PROTOCOL_TLSv1_1"
+      - "CERT_NONE"
+      - "verify=False"
+      - "verify_ssl=False"
+    description: |
+      SSLv2/v3/TLSv1.0/1.1 已不安全，存在已知漏洞。
+      禁用证书验证会导致中间人攻击。
+    fix_suggestion: |
+      1. 使用 TLSv1.2 或更高版本
+      2. 始终验证服务器证书
+      3. 不要设置 verify=False
+    cwe_ids: ["CWE-295", "CWE-327"]
+    tags: [crypto, ssl, tls]
+
+  # ===========================================================================
+  # 第十部分: 认证/会话安全 - High
+  # ===========================================================================
+
+  - id: py-auth-hardcoded-password
+    name: 硬编码密码/密钥
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "regex:password\\s*=\\s*['\"][^'\"]+['\"]"
+      - "regex:secret\\s*=\\s*['\"][^'\"]+['\"]"
+      - "regex:api_key\\s*=\\s*['\"][^'\"]+['\"]"
+      - "regex:SECRET_KEY\\s*=\\s*['\"][^'\"]+['\"]"
+    description: |
+      代码中硬编码密码/密钥会导致：
+      - 密钥泄露（代码仓库、备份、日志）
+      - 难以轮换密钥
+      - 所有环境使用相同密钥
+    fix_suggestion: |
+      1. 使用环境变量存储敏感配置
+      2. 使用密钥管理服务（Vault、AWS Secrets Manager）
+      3. 使用配置文件并排除在版本控制外
+    cwe_ids: ["CWE-798", "CWE-259"]
+    owasp_ids: ["A07:2021"]
+    tags: [auth, hardcoded, credentials]
+
+  - id: py-auth-jwt-weak
+    name: JWT 安全问题
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [python]
+    patterns:
+      - jwt.decode
+      - jwt.encode
+      - "algorithms=[\"none\"]"
+      - "algorithms=['none']"
+      - "algorithm=\"none\""
+      - "verify=False"
+    description: |
+      JWT 常见安全问题：
+      - 允许 none 算法（无签名）
+      - 不验证签名
+      - 弱密钥
+    fix_suggestion: |
+      1. 明确指定允许的算法列表
+      2. 使用足够长度的密钥（HS256 至少 32 字节）
+      3. 验证所有必要的 claims
+    cwe_ids: ["CWE-287", "CWE-345"]
+    tags: [auth, jwt]
+
+  - id: py-auth-cookie-insecure
+    name: Cookie 安全配置
+    rule_type: pattern
+    category: auth
+    risk_level: medium
+    languages: [python]
+    patterns:
+      - set_cookie
+      - set_signed_cookie
+      - "httponly=False"
+      - "secure=False"
+      - "samesite=None"
+    description: |
+      Cookie 安全配置问题：
+      - 缺少 HttpOnly 导致 XSS 可窃取
+      - 缺少 Secure 导致明文传输
+      - SameSite=None 导致 CSRF 风险
+    fix_suggestion: |
+      设置 httponly=True, secure=True, samesite='Lax'
+    cwe_ids: ["CWE-614", "CWE-1004"]
+    tags: [auth, cookie]
+
+  # ===========================================================================
+  # 第十一部分: XSS 相关 - Medium
+  # ===========================================================================
+
+  - id: py-xss-unsafe-render
+    name: XSS - 不安全的 HTML 渲染
+    rule_type: sink
+    category: xss
+    risk_level: medium
+    languages: [python]
+    patterns:
+      - Markup(
+      - mark_safe(
+      - "|safe"
+      - "autoescape=False"
+      - "{% autoescape off %}"
+    frameworks: [flask, django, jinja2]
+    description: |
+      禁用 HTML 转义或使用 mark_safe/Markup 标记用户输入，
+      将导致存储型或反射型 XSS 漏洞。
+    fix_suggestion: |
+      1. 让模板引擎自动转义（默认行为）
+      2. 仅对确实安全的内容使用 mark_safe
+      3. 使用 Content-Security-Policy 头
+    cwe_ids: ["CWE-79"]
+    owasp_ids: ["A03:2021"]
+    tags: [xss]
+
+  # ===========================================================================
+  # 第十二部分: 日志注入/信息泄露 - Low/Medium
+  # ===========================================================================
+
+  - id: py-log-injection
+    name: 日志注入
+    rule_type: pattern
+    category: other
+    risk_level: low
+    languages: [python]
+    patterns:
+      - "logging.info("
+      - "logging.warning("
+      - "logging.error("
+      - "logger.info("
+      - "logger.warning("
+      - "logger.error("
+    description: |
+      直接将用户输入记录到日志可能导致：
+      - 日志注入（伪造日志条目）
+      - 日志分析系统注入
+      - 敏感信息泄露
+    fix_suggestion: |
+      1. 使用参数化日志 logger.info("User %s logged in", username)
+      2. 过滤/转义换行符和控制字符
+      3. 不记录密码、令牌等敏感信息
+    cwe_ids: ["CWE-117", "CWE-532"]
+    tags: [logging, injection]
+
+  # ===========================================================================
+  # JavaScript/TypeScript 规则
+  # ===========================================================================
+
+  - id: js-rce-eval
+    name: JS 代码执行 - eval/Function
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [javascript, typescript]
+    patterns:
+      - eval(
+      - Function(
+      - setTimeout(
+      - setInterval(
+      - execScript(
+    description: |
+      eval 和 Function 构造器可执行任意 JavaScript 代码，
+      用户输入进入这些函数将导致 RCE。
+    fix_suggestion: |
+      1. 避免使用 eval
+      2. 使用 JSON.parse() 解析 JSON
+      3. 使用白名单映射实现动态功能
+    cwe_ids: ["CWE-94"]
+    tags: [rce, javascript]
+
+  - id: js-rce-child-process
+    name: JS 命令执行 - child_process
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [javascript, typescript]
+    patterns:
+      - child_process.exec
+      - child_process.execSync
+      - child_process.spawn
+      - child_process.spawnSync
+      - child_process.execFile
+      - execSync(
+      - exec(
+    description: Node.js child_process 模块的命令执行函数
+    fix_suggestion: |
+      1. 使用 spawn/execFile 配合参数数组
+      2. 避免 shell: true
+      3. 验证和转义用户输入
+    cwe_ids: ["CWE-78"]
+    tags: [rce, nodejs, command_injection]
+
+  - id: js-sqli
+    name: JS SQL 注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [javascript, typescript]
+    patterns:
+      - .query(
+      - .execute(
+      - .raw(
+      - "$queryRaw"
+      - "$executeRaw"
+    description: Node.js 数据库查询，使用字符串拼接将导致 SQL 注入
+    fix_suggestion: 使用参数化查询或 ORM
+    cwe_ids: ["CWE-89"]
+    tags: [sqli, nodejs]
+
+  - id: js-nosql-injection
+    name: NoSQL 注入 - MongoDB
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - .find(
+      - .findOne(
+      - .findOneAndUpdate(
+      - .findOneAndDelete(
+      - .aggregate(
+      - "$where"
+    frameworks: [mongodb, mongoose]
+    description: |
+      MongoDB 查询如果直接使用用户输入的对象，
+      可能导致 NoSQL 注入（如 $gt/$ne 操作符注入）。
+    fix_suggestion: |
+      1. 验证输入类型（确保不是对象）
+      2. 使用 mongoose schema 验证
+      3. 避免使用 $where
+    cwe_ids: ["CWE-943"]
+    tags: [nosql, mongodb]
+
+  - id: js-xss-dom
+    name: DOM XSS
+    rule_type: sink
+    category: xss
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - innerHTML
+      - outerHTML
+      - document.write
+      - document.writeln
+      - insertAdjacentHTML
+    description: |
+      直接将用户输入设置到 innerHTML 等属性会导致 DOM XSS。
+    fix_suggestion: |
+      1. 使用 textContent 设置纯文本
+      2. 使用 DOMPurify 清理 HTML
+      3. 使用现代框架的模板系统（自动转义）
+    cwe_ids: ["CWE-79"]
+    tags: [xss, dom]
+
+  - id: js-open-redirect
+    name: 开放重定向
+    rule_type: sink
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - res.redirect(
+      - location.href
+      - location.replace(
+      - window.open(
+      - location.assign(
+    description: |
+      使用用户输入作为重定向目标可能导致钓鱼攻击。
+    fix_suggestion: |
+      1. 使用白名单验证重定向目标
+      2. 只允许相对路径或本站 URL
+      3. 验证 URL 的 host 部分
+    cwe_ids: ["CWE-601"]
+    tags: [redirect, phishing]
+
+  - id: js-prototype-pollution
+    name: 原型链污染
+    rule_type: pattern
+    category: injection
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - "__proto__"
+      - "constructor.prototype"
+      - Object.assign(
+      - "_.merge("
+      - "_.extend("
+      - "$.extend("
+      - "deepmerge("
+    description: |
+      不安全的对象合并可能导致原型链污染，
+      影响所有 JavaScript 对象，可能导致 RCE。
+    fix_suggestion: |
+      1. 使用 Object.create(null) 创建无原型对象
+      2. 过滤 __proto__/constructor 键
+      3. 使用安全的深拷贝库
+    cwe_ids: ["CWE-1321"]
+    tags: [prototype_pollution]
+
+  - id: js-ssrf
+    name: JS SSRF
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - fetch(
+      - axios.get(
+      - axios.post(
+      - axios(
+      - request(
+      - got(
+      - node-fetch
+    description: Node.js HTTP 请求，URL 用户可控时存在 SSRF 风险
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, nodejs]
+
+  - id: js-path-traversal
+    name: JS 路径遍历
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - fs.readFile
+      - fs.readFileSync
+      - fs.writeFile
+      - fs.writeFileSync
+      - fs.createReadStream
+      - fs.createWriteStream
+      - path.join(
+      - path.resolve(
+    description: Node.js 文件操作，路径包含用户输入时存在路径遍历风险
+    fix_suggestion: |
+      1. 使用 path.normalize() 并验证不在基目录外
+      2. 使用 realpath 解析符号链接
+      3. 验证路径不包含 .. 或以 / 开头
+    cwe_ids: ["CWE-22"]
+    tags: [path_traversal, nodejs]
+
+  - id: js-deserialize
+    name: JS 反序列化
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [javascript, typescript]
+    patterns:
+      - node-serialize
+      - serialize-javascript
+      - funcster
+      - js-yaml.load(
+    description: |
+      不安全的 Node.js 反序列化库可能导致 RCE，
+      特别是 node-serialize 和 funcster。
+    fix_suggestion: |
+      1. 使用 JSON.parse() 解析 JSON
+      2. 使用 js-yaml.safeLoad() 代替 load()
+      3. 避免使用 node-serialize
+    cwe_ids: ["CWE-502"]
+    tags: [deserialization, nodejs]
+
+  # ===========================================================================
+  # PHP 规则
+  # ===========================================================================
+
+  - id: php-rce-exec
+    name: PHP 命令执行
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [php]
+    patterns:
+      - exec(
+      - system(
+      - shell_exec(
+      - passthru(
+      - popen(
+      - proc_open(
+      - pcntl_exec(
+      - backticks
+    description: PHP 命令执行函数，参数用户可控时导致 RCE
+    fix_suggestion: |
+      1. 使用 escapeshellarg() 和 escapeshellcmd()
+      2. 使用白名单限制可执行的命令
+      3. 考虑使用更安全的替代方案
+    cwe_ids: ["CWE-78"]
+    tags: [rce, php]
+
+  - id: php-rce-eval
+    name: PHP 代码执行
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [php]
+    patterns:
+      - eval(
+      - assert(
+      - create_function(
+      - preg_replace
+    description: |
+      PHP 代码执行函数，特别注意 preg_replace 的 /e 修饰符
+      （PHP 7.0 后已移除但仍需警惕）
+    cwe_ids: ["CWE-94"]
+    tags: [rce, php, code_injection]
+
+  - id: php-sqli
+    name: PHP SQL 注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [php]
+    patterns:
+      - mysql_query(
+      - mysqli_query(
+      - pg_query(
+      - sqlite_query(
+      - ->query(
+      - ->exec(
+    description: PHP 数据库查询函数
+    fix_suggestion: |
+      1. 使用 PDO 预处理语句
+      2. 使用 mysqli_prepare()
+      3. 永远不要拼接用户输入
+    cwe_ids: ["CWE-89"]
+    tags: [sqli, php]
+
+  - id: php-file-include
+    name: PHP 文件包含
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [php]
+    patterns:
+      - include(
+      - include_once(
+      - require(
+      - require_once(
+    description: |
+      PHP 文件包含函数，路径用户可控时可能导致：
+      - 本地文件包含（LFI）- 读取敏感文件或执行日志中的代码
+      - 远程文件包含（RFI）- 直接执行远程恶意代码
+    fix_suggestion: |
+      1. 使用白名单限制可包含的文件
+      2. 禁用 allow_url_include
+      3. 验证路径不包含 .. 或协议
+    cwe_ids: ["CWE-98"]
+    tags: [lfi, rfi, php]
+
+  - id: php-deserialize
+    name: PHP 反序列化
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [php]
+    patterns:
+      - unserialize(
+    description: |
+      PHP unserialize() 反序列化不可信数据可能触发魔术方法，
+      结合 POP 链导致远程代码执行。
+    fix_suggestion: |
+      1. 使用 JSON 替代 PHP 序列化格式
+      2. 使用 allowed_classes 参数限制可反序列化的类
+      3. 验证数据来源和完整性
+    cwe_ids: ["CWE-502"]
+    tags: [deserialization, php]
+
+  - id: php-xxe
+    name: PHP XXE
+    rule_type: sink
+    category: xxe
+    risk_level: high
+    languages: [php]
+    patterns:
+      - simplexml_load_string(
+      - simplexml_load_file(
+      - DOMDocument
+      - XMLReader
+      - xml_parse(
+    description: PHP XML 解析函数，需要禁用外部实体
+    fix_suggestion: |
+      libxml_disable_entity_loader(true);
+      $xml = simplexml_load_string($data, 'SimpleXMLElement', LIBXML_NOENT);
+    cwe_ids: ["CWE-611"]
+    tags: [xxe, php]
+
+  - id: php-ssrf
+    name: PHP SSRF
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [php]
+    patterns:
+      - file_get_contents(
+      - curl_exec(
+      - curl_setopt(
+      - fopen(
+      - readfile(
+    description: PHP 可发起 HTTP 请求的函数，URL 用户可控时存在 SSRF 风险
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, php]
+
+  - id: php-path-traversal
+    name: PHP 路径遍历
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [php]
+    patterns:
+      - file_get_contents(
+      - file_put_contents(
+      - fopen(
+      - fread(
+      - fwrite(
+      - readfile(
+      - copy(
+      - rename(
+      - unlink(
+    description: PHP 文件操作函数，路径用户可控时存在路径遍历风险
+    fix_suggestion: |
+      1. 使用 realpath() 并验证在允许目录内
+      2. 使用 basename() 去除目录部分
+    cwe_ids: ["CWE-22"]
+    tags: [path_traversal, php]
+
+  # ===========================================================================
+  # Go 语言规则
+  # ===========================================================================
+
+  - id: go-rce-exec
+    name: Go 命令执行
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [go]
+    patterns:
+      - exec.Command(
+      - exec.CommandContext(
+      - os.StartProcess(
+    description: Go 命令执行函数
+    fix_suggestion: |
+      1. 使用参数列表而非字符串拼接
+      2. 验证命令和参数
+    cwe_ids: ["CWE-78"]
+    tags: [rce, go]
+
+  - id: go-sqli
+    name: Go SQL 注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [go]
+    patterns:
+      - db.Query(
+      - db.QueryRow(
+      - db.Exec(
+      - db.QueryContext(
+      - db.ExecContext(
+    description: Go database/sql 查询函数
+    fix_suggestion: 使用参数占位符 db.Query("SELECT * FROM users WHERE id = ?", id)
+    cwe_ids: ["CWE-89"]
+    tags: [sqli, go]
+
+  - id: go-path-traversal
+    name: Go 路径遍历
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [go]
+    patterns:
+      - os.Open(
+      - os.Create(
+      - os.ReadFile(
+      - os.WriteFile(
+      - ioutil.ReadFile(
+      - ioutil.WriteFile(
+      - filepath.Join(
+    description: Go 文件操作函数
+    fix_suggestion: |
+      1. 使用 filepath.Clean() 规范化路径
+      2. 验证路径不以 / 或 .. 开头
+      3. 验证路径在预期目录内
+    cwe_ids: ["CWE-22"]
+    tags: [path_traversal, go]
+
+  - id: go-ssrf
+    name: Go SSRF
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [go]
+    patterns:
+      - http.Get(
+      - http.Post(
+      - http.NewRequest(
+      - client.Do(
+      - client.Get(
+    description: Go HTTP 客户端，URL 用户可控时存在 SSRF 风险
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, go]
+
+  - id: go-ssti
+    name: Go 模板注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [go]
+    patterns:
+      - template.New(
+      - template.Parse(
+      - template.ParseFiles(
+      - html/template
+      - text/template
+    description: |
+      Go text/template 允许执行任意函数，
+      模板内容来自用户输入时可能导致 RCE。
+      html/template 更安全但仍需注意。
+    cwe_ids: ["CWE-94"]
+    tags: [ssti, go]
+
+  # ===========================================================================
+  # Java 语言规则
+  # ===========================================================================
+
+  - id: java-rce-runtime
+    name: Java 命令执行
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [java]
+    patterns:
+      - Runtime.getRuntime().exec(
+      - ProcessBuilder
+      - "new ProcessBuilder("
+    description: Java 命令执行
+    cwe_ids: ["CWE-78"]
+    tags: [rce, java]
+
+  - id: java-sqli
+    name: Java SQL 注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [java]
+    patterns:
+      - createStatement(
+      - executeQuery(
+      - executeUpdate(
+      - execute(
+      - prepareStatement(
+    description: Java JDBC 查询
+    fix_suggestion: 使用 PreparedStatement 参数化查询
+    cwe_ids: ["CWE-89"]
+    tags: [sqli, java]
+
+  - id: java-deserialize
+    name: Java 反序列化
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [java]
+    patterns:
+      - ObjectInputStream
+      - readObject(
+      - readUnshared(
+      - XMLDecoder
+      - XStream
+    description: |
+      Java 反序列化是高危漏洞，存在大量公开利用链（ysoserial）。
+      反序列化不可信数据可能直接导致 RCE。
+    fix_suggestion: |
+      1. 避免反序列化不可信数据
+      2. 使用 ObjectInputFilter 过滤类
+      3. 使用 JSON/Protocol Buffers 替代
+    cwe_ids: ["CWE-502"]
+    tags: [deserialization, java]
+
+  - id: java-xxe
+    name: Java XXE
+    rule_type: sink
+    category: xxe
+    risk_level: high
+    languages: [java]
+    patterns:
+      - DocumentBuilderFactory
+      - SAXParserFactory
+      - XMLInputFactory
+      - TransformerFactory
+      - XMLReader
+      - SAXReader
+    description: Java XML 解析器需要禁用外部实体和 DTD
+    fix_suggestion: |
+      factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+    cwe_ids: ["CWE-611"]
+    tags: [xxe, java]
+
+  - id: java-ssrf
+    name: Java SSRF
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [java]
+    patterns:
+      - URL.openConnection(
+      - URL.openStream(
+      - HttpURLConnection
+      - HttpClient
+      - RestTemplate
+      - WebClient
+    description: Java HTTP 客户端
+    cwe_ids: ["CWE-918"]
+    tags: [ssrf, java]
+
+  - id: java-path-traversal
+    name: Java 路径遍历
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [java]
+    patterns:
+      - new File(
+      - new FileInputStream(
+      - new FileOutputStream(
+      - new FileReader(
+      - new FileWriter(
+      - Paths.get(
+      - Files.readAllBytes(
+      - Files.write(
+    description: Java 文件操作
+    fix_suggestion: |
+      1. 使用 getCanonicalPath() 规范化路径
+      2. 验证规范化后的路径在允许目录内
+    cwe_ids: ["CWE-22"]
+    tags: [path_traversal, java]
+
+  - id: java-ssti
+    name: Java 模板注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [java]
+    patterns:
+      - VelocityEngine
+      - Velocity.evaluate(
+      - FreeMarkerConfigurer
+      - freemarker.template
+      - Thymeleaf
+    description: Java 模板引擎 SSTI
+    cwe_ids: ["CWE-94"]
+    tags: [ssti, java]
+
+  - id: java-log-injection
+    name: Java 日志注入
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [java]
+    patterns:
+      - logger.info(
+      - logger.warn(
+      - logger.error(
+      - log.info(
+      - log.error(
+      - Logger.getLogger(
+    description: |
+      Java 日志注入，特别注意 Log4j 2.x 的 JNDI 注入漏洞 (CVE-2021-44228)。
+      用户输入直接记录到日志可能导致 RCE。
+    fix_suggestion: |
+      1. 更新 Log4j 到 2.17.0+
+      2. 使用参数化日志
+      3. 过滤用户输入中的 ${} 模式
+    cwe_ids: ["CWE-117", "CWE-20"]
+    tags: [log_injection, log4shell, java]

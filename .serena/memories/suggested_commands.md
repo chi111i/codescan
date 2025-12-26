@@ -1,0 +1,12 @@
+# Useful commands
+- Install backend deps: `pip install -r requirements.txt`
+- Start both backend+frontend: `python start.py all`
+- Start backend only: `python start.py api`
+- Start frontend dev server: `cd frontend && npm install && npm run dev` (first install deps with npm install)
+- CLI init config: `python -m codescan init -o audit.config.yaml`
+- Index project: `python -m codescan index ./project-path`
+- Run scan: `python -m codescan scan ./project-path`
+- Vuln scan: `python -m codescan vulnscan ./project-path`
+- Call graph: `python -m codescan callgraph ./project-path`
+- Web UI: open http://localhost:3000 after starting services
+- Tests: likely via `pytest` (pytest.ini present) from repo root.

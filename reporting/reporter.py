@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 
 from config import ReportConfig
 from analyzer import Finding, Severity
+from serialization import safe_json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class JsonReporter(BaseReporter):
             "findings": [f.to_dict() for f in findings],
         }
 
-        return json.dumps(report, ensure_ascii=False, indent=2)
+        return safe_json_dumps(report, ensure_ascii=False, indent=2)
 
     def _generate_summary(self, findings: List[Finding]) -> Dict[str, int]:
         """生成摘要统计"""
@@ -212,7 +213,7 @@ class SarifReporter(BaseReporter):
             }]
         }
 
-        return json.dumps(sarif, ensure_ascii=False, indent=2)
+        return safe_json_dumps(sarif, ensure_ascii=False, indent=2)
 
     def _generate_rules(self, findings: List[Finding]) -> List[Dict[str, Any]]:
         """生成规则定义"""

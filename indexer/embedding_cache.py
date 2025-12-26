@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
+from serialization import safe_json_dumps
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,11 +79,54 @@ class EmbeddingCache:
         if use_sqlite:
             self._init_sqlite()
 
-    def _init_sqlite(self) -> None:
-        """初始化 SQLite 数据库"""
-        db_path = self.cache_dir / "embeddings.db"
-        self._db_conn = sqlite3.connect(str(db_path), check_same_thread=False)
+    def _init_sqlite(self, max_retries: int = 3) -> None:
+        """初始化 SQLite 数据库
 
+        Args:
+            max_retries: 最大重试次数
+        """
+        db_path = self.cache_dir / "embeddings.db"
+
+        for attempt in range(max_retries):
+            try:
+                # 添加 timeout 避免数据库锁定问题
+                self._db_conn = sqlite3.connect(
+                    str(db_path),
+                    check_same_thread=False,
+                    timeout=30.0  # 30 秒超时
+                )
+                # 设置 WAL 模式以减少锁定问题
+                self._db_conn.execute("PRAGMA journal_mode=WAL")
+                self._db_conn.execute("PRAGMA busy_timeout=30000")  # 30 秒忙等待
+
+                # 初始化表结构
+                self._init_tables(db_path)
+                break
+            except sqlite3.OperationalError as e:
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"数据库锁定，重试中 ({attempt + 1}/{max_retries})...")
+                    time.sleep(1)  # 等待 1 秒后重试
+                    # 尝试清理 WAL 文件
+                    self._cleanup_wal_files(db_path)
+                else:
+                    raise
+
+    def _cleanup_wal_files(self, db_path: Path) -> None:
+        """清理 WAL 相关文件"""
+        wal_file = db_path.parent / f"{db_path.name}-wal"
+        shm_file = db_path.parent / f"{db_path.name}-shm"
+        journal_file = db_path.parent / f"{db_path.name}-journal"
+
+        for f in [wal_file, shm_file, journal_file]:
+            if f.exists():
+                try:
+                    f.unlink()
+                    logger.info(f"清理 WAL 文件: {f}")
+                except Exception as e:
+                    logger.warning(f"无法清理 {f}: {e}")
+
+    def _init_tables(self, db_path: Path) -> None:
+        """初始化数据库表"""
         # 主缓存表 (增加 accessed_at 列用于 LRU)
         self._db_conn.execute("""
             CREATE TABLE IF NOT EXISTS embeddings (
@@ -322,7 +367,7 @@ class EmbeddingCache:
                 embedding_data,
                 now,
                 now,  # 初始访问时间
-                json.dumps(metadata or {}),
+                safe_json_dumps(metadata or {}, ensure_ascii=False),
                 compressed
             )
         )
@@ -397,7 +442,7 @@ class EmbeddingCache:
                         embedding_data,
                         now,
                         now,
-                        json.dumps(metadata or {}),
+                        safe_json_dumps(metadata or {}, ensure_ascii=False),
                         compressed
                     )
                 )

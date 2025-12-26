@@ -697,7 +697,7 @@ class CodeReader:
             }
 
         except Exception as e:
-            logger.error(f"Get callees failed: {e}")
+            logger.exception(f"Get callees failed: {e}")
             return {
                 "success": False,
                 "error": f"查找被调用函数失败: {str(e)}",

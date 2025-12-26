@@ -5,10 +5,19 @@ const api = axios.create({
   timeout: 300000, // 5 分钟超时，支持复杂 LLM 分析
 })
 
-// 响应拦截器
+// 响应拦截器（含自动重试）
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
+    const config = error.config
+
+    // 简单的重试策略：针对超时或 5xx 错误重试一次
+    if (config && !config.__isRetry && (error.code === 'ECONNABORTED' || (error.response && error.response.status >= 500))) {
+      config.__isRetry = true
+      console.warn(`Request failed, retrying: ${config.url}`)
+      return api(config)
+    }
+
     console.error('API Error:', error)
     return Promise.reject(error)
   }

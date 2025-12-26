@@ -315,15 +315,15 @@ class VariantToolExecutor:
         try:
             # 生成查询向量
             query = code_snippet or query_text
-            embeddings = self.embedding_client.embed([query])
-            if not embeddings or not embeddings[0]:
+            embed_response = self.embedding_client.embed([query])
+            if not embed_response or not embed_response.embeddings or not embed_response.embeddings[0]:
                 return {"success": False, "error": "无法生成嵌入向量"}
 
-            query_vector = embeddings[0]
+            query_vector = embed_response.embeddings[0]
 
-            # 搜索相似代码
+            # 搜索相似代码 - 使用正确的参数名 query_embedding
             results = self.vector_store.search(
-                query_vector=query_vector,
+                query_embedding=query_vector,
                 top_k=max_results * 2,  # 预留过滤空间
             )
 
@@ -430,10 +430,12 @@ class VariantToolExecutor:
 
             # 生成所有嵌入
             codes = [unit.code for unit in filtered_units]
-            embeddings = self.embedding_client.embed(codes)
+            embed_response = self.embedding_client.embed(codes)
 
-            if not embeddings or len(embeddings) != len(filtered_units):
+            if not embed_response or not embed_response.embeddings or len(embed_response.embeddings) != len(filtered_units):
                 return {"success": False, "error": "嵌入生成失败"}
+
+            embeddings = embed_response.embeddings
 
             # 计算相似度矩阵并找出克隆
             clones = []

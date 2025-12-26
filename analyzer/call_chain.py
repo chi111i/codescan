@@ -226,6 +226,13 @@ class CallChainAnalyzer:
         """
         logger.info(f"Building call graph from {len(code_units)} code units...")
 
+        # 重置图和缓存，避免跨次分析残留的节点、边或优化状态
+        self.call_graph = CallGraph()
+        self.taint_paths = []
+        self._path_cache.clear()
+        self._reachability.clear()
+        self._optimizer = None
+
         # 1. 创建所有节点
         for unit in code_units:
             node = self._create_node_from_unit(unit)

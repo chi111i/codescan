@@ -27,6 +27,11 @@ export const useAuditStore = defineStore('audit', () => {
   const WS_MAX_RECONNECT_ATTEMPTS = 5
   const WS_RECONNECT_DELAY = 3000
 
+  // ============ 消息缓冲 (性能优化) ============
+  let messageBuffer = ''
+  let messageBufferTimer = null
+  const MESSAGE_BUFFER_FLUSH_INTERVAL = 50  // 50ms 批量刷新
+
   // ============ 请求取消控制 ============
   let currentAbortController = null
 
@@ -151,6 +156,11 @@ export const useAuditStore = defineStore('audit', () => {
         api.getAgentStats(sessionId),
       ])
 
+      // 校验会话 ID，防止快速切换会话导致数据错乱
+      if (!currentSession.value || currentSession.value.session_id !== sessionId) {
+        return
+      }
+
       if (toolsResult.success) {
         availableTools.value = toolsResult.data.tools || []
       }
@@ -206,6 +216,12 @@ export const useAuditStore = defineStore('audit', () => {
     sessionStats.value = {}
     isProcessing.value = false
     currentProcessingStep.value = ''
+    // 清空消息缓冲
+    messageBuffer = ''
+    if (messageBufferTimer) {
+      clearTimeout(messageBufferTimer)
+      messageBufferTimer = null
+    }
   }
 
   // ============ 对话方法 ============
@@ -352,6 +368,25 @@ export const useAuditStore = defineStore('audit', () => {
     }
   }
 
+  // 批量刷新消息缓冲到 UI，减少渲染频率
+  const flushMessageBuffer = () => {
+    if (!messageBuffer) return
+
+    const lastMsg = chatMessages.value[chatMessages.value.length - 1]
+    if (lastMsg && lastMsg.role === 'assistant' && lastMsg._streaming) {
+      lastMsg.content += messageBuffer
+    } else {
+      chatMessages.value.push({
+        role: 'assistant',
+        content: messageBuffer,
+        tool_calls: [],
+        timestamp: new Date(),
+        _streaming: true,
+      })
+    }
+    messageBuffer = ''
+  }
+
   const handleWebSocketMessage = (data) => {
     switch (data.type) {
       case 'connected':
@@ -367,22 +402,25 @@ export const useAuditStore = defineStore('audit', () => {
         }
         break
       case 'message_chunk':
+        // 使用缓冲批量更新，减少高频 UI 渲染
         if (data.data?.content) {
-          const lastMsg = chatMessages.value[chatMessages.value.length - 1]
-          if (lastMsg && lastMsg.role === 'assistant' && lastMsg._streaming) {
-            lastMsg.content += data.data.content
-          } else {
-            chatMessages.value.push({
-              role: 'assistant',
-              content: data.data.content,
-              tool_calls: [],
-              timestamp: new Date(),
-              _streaming: true,
-            })
+          messageBuffer += data.data.content
+          if (!messageBufferTimer) {
+            messageBufferTimer = setTimeout(() => {
+              flushMessageBuffer()
+              messageBufferTimer = null
+            }, MESSAGE_BUFFER_FLUSH_INTERVAL)
           }
         }
         break
       case 'message_complete':
+        // 确保刷新剩余缓冲内容
+        if (messageBufferTimer) {
+          clearTimeout(messageBufferTimer)
+          messageBufferTimer = null
+        }
+        flushMessageBuffer()
+
         if (data.data) {
           const lastMsg = chatMessages.value[chatMessages.value.length - 1]
           if (lastMsg && lastMsg._streaming) {

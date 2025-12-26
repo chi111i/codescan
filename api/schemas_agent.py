@@ -61,7 +61,7 @@ class ToolCallEventSchema(BaseModel):
     """工具调用事件"""
     id: str
     tool_name: str
-    arguments: Dict[str, Any] = {}
+    arguments: Dict[str, Any] = Field(default_factory=dict)
     status: ToolCallStatusEnum
     result: Optional[Any] = None
     error: Optional[str] = None
@@ -74,9 +74,9 @@ class AgentMessageSchema(BaseModel):
     """智能体消息"""
     role: str  # user, assistant, tool
     content: str
-    tool_calls: List[ToolCallEventSchema] = []
+    tool_calls: List[ToolCallEventSchema] = Field(default_factory=list)
     timestamp: datetime
-    metadata: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class UnifiedSessionInfoSchema(BaseModel):
@@ -95,7 +95,7 @@ class UnifiedSessionInfoSchema(BaseModel):
     total_tokens_used: int = 0
 
     # 可用工具
-    available_tools: List[str] = []
+    available_tools: List[str] = Field(default_factory=list)
 
     # 配置
     enable_call_chain: bool = True
@@ -117,7 +117,7 @@ class ToolDefinitionSchema(BaseModel):
     name: str
     description: str
     category: str
-    parameters: Dict[str, Any] = {}
+    parameters: Dict[str, Any] = Field(default_factory=dict)
 
 
 class TokenBreakdownSchema(BaseModel):

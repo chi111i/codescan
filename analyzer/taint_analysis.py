@@ -1044,6 +1044,15 @@ class TaintAnalyzer:
         """
         logger.info(f"Starting interprocedural taint analysis on {len(code_units)} units...")
 
+        # 清理上一轮分析的缓存，避免重复或过期污点结果
+        self.function_taints.clear()
+        self.cross_function_flows.clear()
+        self._code_units_cache.clear()
+        self._function_params.clear()
+        self._detected_frameworks.clear()
+        self.tainted_vars.clear()
+        self.flows.clear()
+
         # 1. 缓存代码单元并提取函数参数
         self._build_code_unit_cache(code_units)
 

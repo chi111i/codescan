@@ -322,11 +322,10 @@ class VariantAnalyzer:
             logger.warning(f"Pattern {pattern_id} has no embedding vector")
             return []
 
-        # 向量相似度搜索
+        # 向量相似度搜索 - 使用正确的参数名 query_embedding
         search_results = self.vector_store.search(
-            query_vector=pattern.embedding_vector,
+            query_embedding=pattern.embedding_vector,
             top_k=top_k * 2,  # 搜索更多以便过滤
-            filter_conditions={}
         )
 
         variants = []

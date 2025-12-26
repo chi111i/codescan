@@ -10,6 +10,7 @@ LLM 客户端封装 - 统一的 OpenAI 兼容接口
 import os
 import time
 import json
+import random
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -243,11 +244,20 @@ class OpenAICompatibleClient(BaseLLMClient):
         return url
 
     def _init_http_clients(self):
-        """初始化 HTTP 客户端"""
-        # HTTP 客户端
+        """初始化 HTTP 客户端（带连接池优化）"""
+        # 连接池配置，提升并发性能
+        limits = httpx.Limits(
+            max_keepalive_connections=20,  # 保持活跃连接数
+            max_connections=100,           # 最大总连接数
+            keepalive_expiry=30.0,         # 保持活跃超时秒数
+        )
+
+        # HTTP 客户端（启用 HTTP/2 以提升性能）
         self._client = httpx.Client(
             timeout=httpx.Timeout(self.timeout, connect=10.0),
             headers=self._get_headers(),
+            limits=limits,
+            http2=True,
         )
 
         # 嵌入模型的 HTTP 客户端（如果配置不同则单独创建）
@@ -255,6 +265,8 @@ class OpenAICompatibleClient(BaseLLMClient):
             self._embedding_client = httpx.Client(
                 timeout=httpx.Timeout(self.timeout, connect=10.0),
                 headers=self._get_embedding_headers(),
+                limits=limits,
+                http2=True,
             )
         else:
             self._embedding_client = self._client
@@ -303,8 +315,19 @@ class OpenAICompatibleClient(BaseLLMClient):
             raise RateLimitError(f"Rate limited. Retry after {retry_after}s")
 
         if status >= 500:
-            logger.error(f"Server error {status} (attempt {attempt})")
-            raise APIError(f"Server error: {status}")
+            # 尝试获取详细错误信息
+            error_detail = ""
+            try:
+                error_json = response.json()
+                error_detail = error_json.get("error", {}).get("message", "")
+                if not error_detail:
+                    error_detail = str(error_json)
+            except Exception:
+                error_detail = response.text[:500] if response.text else "No response body"
+
+            logger.error(f"Server error {status} (attempt {attempt}): {error_detail}")
+            print(f"[LLM ERROR] Server error {status}: {error_detail}")  # 强制控制台输出
+            raise APIError(f"Server error: {status}. Detail: {error_detail}")
 
         if status >= 400:
             try:
@@ -366,8 +389,8 @@ class OpenAICompatibleClient(BaseLLMClient):
 
             except RateLimitError:
                 if attempt < self.max_retries:
-                    wait_time = min(60, 2 ** attempt)  # 指数退避，最多60秒
-                    logger.info(f"Waiting {wait_time}s before retry...")
+                    wait_time = min(60, 2 ** attempt) + random.random()  # 指数退避 + 随机抖动
+                    logger.info(f"Waiting {wait_time:.2f}s before retry...")
                     time.sleep(wait_time)
                     continue
                 raise
@@ -376,14 +399,14 @@ class OpenAICompatibleClient(BaseLLMClient):
                 last_exception = e
                 logger.warning(f"Request timeout (attempt {attempt}/{self.max_retries})")
                 if attempt < self.max_retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2 ** attempt + random.random())  # 添加抖动避免惊群效应
                     continue
 
             except httpx.RequestError as e:
                 last_exception = e
                 logger.warning(f"Request error: {e} (attempt {attempt}/{self.max_retries})")
                 if attempt < self.max_retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2 ** attempt + random.random())  # 添加抖动
                     continue
 
         raise APIError(f"Max retries exceeded. Last error: {last_exception}")
@@ -451,9 +474,14 @@ class OpenAICompatibleClient(BaseLLMClient):
 
         result = self._request_with_retry("POST", "/chat/completions", payload)
 
-        # 解析响应
-        choice = result["choices"][0]
-        message = choice["message"]
+        # 解析响应 - 安全处理空 choices
+        choices = result.get("choices", [])
+        if not choices:
+            raise APIError("LLM 响应中没有 choices")
+        choice = choices[0]
+        message = choice.get("message", {})
+        if not message:
+            raise APIError("LLM 响应中没有 message")
         usage = result.get("usage", {})
 
         # 解析 tool_calls
@@ -651,7 +679,8 @@ class OpenAICompatibleClient(BaseLLMClient):
 
                         try:
                             data = json.loads(data_str)
-                            choice = data.get("choices", [{}])[0]
+                            choices = data.get("choices", [])
+                            choice = choices[0] if choices else {}
                             delta = choice.get("delta", {})
 
                             # 提取增量内容

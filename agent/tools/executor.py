@@ -13,6 +13,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, Callable, List
 
+from serialization import safe_json_dumps
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +29,8 @@ class ToolResult:
 
     def to_json(self) -> str:
         """转换为 JSON 字符串"""
-        return json.dumps({
+        # data 可能包含 datetime/path 等对象，直接 json.dumps 可能失败
+        return safe_json_dumps({
             "success": self.success,
             "data": self.data,
             "error": self.error,
@@ -177,7 +180,7 @@ class LoggingToolExecutor(ToolExecutor):
     ) -> ToolResult:
         """执行工具并打印日志"""
         logger.info(f"[Tool Call] {tool_name}")
-        logger.debug(f"[Tool Args] {json.dumps(arguments, ensure_ascii=False)[:200]}")
+        logger.debug(f"[Tool Args] {safe_json_dumps(arguments, ensure_ascii=False)[:200]}")
 
         result = super().execute(tool_name, arguments, log_to_db)
 
