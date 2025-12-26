@@ -19,6 +19,7 @@ from typing import List, Optional, Dict, Any, Callable, Union
 
 from llm_client import BaseLLMClient, ChatMessage, ToolCall
 from indexer import CodeUnit, CodeIndexer
+from serialization import safe_json_dumps
 
 from .tools.manager import AgentToolManager, ToolResult
 from .tools.registry import CODE_NAVIGATION_TOOLS, SECURITY_ANALYSIS_TOOLS
@@ -136,6 +137,21 @@ class UnifiedAgentConfig:
     prescan_context_injection: bool = True  # 主动注入预扫描上下文
     max_prescan_sites_in_prompt: int = 20  # 系统提示中最多包含的触发点数
 
+    # === 调试日志配置 ===
+    enable_debug_logging: bool = False  # 启用详细调试日志
+    log_full_request: bool = False  # 记录完整 LLM 请求（用于调试）
+    log_full_response: bool = False  # 记录完整 LLM 响应（用于调试）
+    save_requests_to_file: bool = False  # 将请求/响应保存到文件
+    debug_log_dir: str = ".audit_data/debug_logs"  # 调试日志目录
+
+    # === 对话历史压缩配置 ===
+    enable_history_compression: bool = True  # 启用历史压缩
+    history_compression_threshold: int = 10000  # 压缩阈值（字符数）
+    history_compression_method: str = "summarize"  # 压缩方式: summarize | truncate
+    history_preserve_recent: int = 4  # 始终保留最近 N 条消息
+    history_summary_max_tokens: int = 500  # 摘要最大 token 数
+    history_summary_temperature: float = 0.3  # 摘要生成温度
+
     # 回调（支持同步和异步）
     on_tool_call: Optional[Callable[[ToolCallEvent], None]] = None
     on_tool_call_async: Optional[Callable[[ToolCallEvent], Any]] = None  # 异步回调
@@ -229,6 +245,9 @@ class UnifiedAuditAgent:
         self.prescan_result: Optional[PreScanResult] = None
         self.enhancement_result: Optional[EnhancementResult] = None
         self._prescan_context: str = ""  # 缓存的预扫描上下文
+
+        # === 对话历史压缩状态 ===
+        self._compressed_history_summary: str = ""  # 压缩后的历史摘要
 
         logger.info(f"[UnifiedAgent] 创建会话: {session_id}")
 
@@ -722,7 +741,7 @@ class UnifiedAuditAgent:
                     for tc, result in zip(response.tool_calls, tool_results):
                         messages.append(ChatMessage(
                             role="tool",
-                            content=json.dumps(result.result or {"error": result.error}, ensure_ascii=False, default=_json_serializer),
+                            content=safe_json_dumps(result.result or {"error": result.error}),
                             tool_call_id=tc.id,  # ToolCall 对象直接访问 id 属性
                         ))
                 else:
@@ -755,14 +774,31 @@ class UnifiedAuditAgent:
             # 裁剪历史
             self._trim_conversation_history()
 
+            # 检查并压缩历史
+            await self._compress_conversation_history()
+
             return assistant_msg
 
         except Exception as e:
-            logger.error(f"[UnifiedAgent] 对话失败: {e}")
+            import traceback
+            error_trace = traceback.format_exc()
+            error_type = type(e).__name__
+            error_msg = str(e)
+
+            logger.error(f"[UnifiedAgent] 对话失败: {error_type}: {error_msg}")
+            logger.error(f"[UnifiedAgent] 错误堆栈:\n{error_trace}")
+
+            # 构建详细错误信息供前端展示
+            detailed_error = f"{error_type}: {error_msg}"
+
             return AgentMessage(
                 role="assistant",
-                content=f"处理请求时发生错误: {str(e)}",
-                metadata={"error": str(e)},
+                content=f"处理请求时发生错误: {detailed_error}",
+                metadata={
+                    "error": detailed_error,
+                    "error_type": error_type,
+                    "error_trace": error_trace,
+                },
             )
 
         finally:
@@ -853,7 +889,7 @@ class UnifiedAuditAgent:
                     for tc, event in zip(response.tool_calls, tool_calls_this_turn[-len(response.tool_calls):]):
                         messages.append(ChatMessage(
                             role="tool",
-                            content=json.dumps(event.result or {"error": event.error}, ensure_ascii=False, default=_json_serializer),
+                            content=safe_json_dumps(event.result or {"error": event.error}),
                             tool_call_id=tc.id,
                         ))
                 else:
@@ -900,11 +936,28 @@ class UnifiedAuditAgent:
             self.conversation_history.append(ChatMessage(role="assistant", content=final_response))
             self._trim_conversation_history()
 
+            # 检查并压缩历史
+            await self._compress_conversation_history()
+
             yield {"type": "message", "data": assistant_msg.to_dict()}
 
         except Exception as e:
-            logger.error(f"[UnifiedAgent] 流式对话失败: {e}")
-            yield {"type": "error", "data": {"error": str(e)}}
+            import traceback
+            error_trace = traceback.format_exc()
+            error_type = type(e).__name__
+            error_msg = str(e)
+
+            logger.error(f"[UnifiedAgent] 流式对话失败: {error_type}: {error_msg}")
+            logger.error(f"[UnifiedAgent] 错误堆栈:\n{error_trace}")
+
+            yield {
+                "type": "error",
+                "data": {
+                    "error": f"{error_type}: {error_msg}",
+                    "error_type": error_type,
+                    "error_trace": error_trace,
+                }
+            }
 
         finally:
             self._is_processing = False
@@ -935,11 +988,28 @@ class UnifiedAuditAgent:
             yield {"type": "chunk", "content": content}
 
     def _build_llm_messages(self, user_message: str) -> List[ChatMessage]:
-        """构建 LLM 消息列表"""
+        """构建 LLM 消息列表
+
+        集成对话历史压缩：
+        1. 如果有压缩摘要，注入到系统提示中
+        2. 只携带最近的对话历史
+        """
         messages = []
 
         # 系统提示
         system_prompt = self._build_system_prompt()
+
+        # === 注入压缩的历史摘要 ===
+        if self._compressed_history_summary:
+            system_prompt += f"""
+
+## 📜 对话历史摘要
+
+以下是之前对话的压缩摘要，请参考这些信息保持上下文连贯：
+
+{self._compressed_history_summary}
+"""
+
         messages.append(ChatMessage(role="system", content=system_prompt))
 
         # 最近的对话历史
@@ -988,6 +1058,61 @@ class UnifiedAuditAgent:
 - 用户输入是否经过适当验证
 - 危险函数调用是否安全
 
+## ⚠️ 工具调用格式要求（严格遵守）
+
+调用工具时，**必须**遵循以下规则：
+
+1. **参数类型**：
+   - 字符串参数用双引号包裹
+   - 整数参数直接使用数字，不要用引号
+   - 布尔参数使用 `true` 或 `false`（小写）
+
+2. **必填参数**：每个工具的 `required` 字段列出的参数必须提供
+
+3. **参数格式示例**：
+   ```json
+   {{
+     "query": "用户认证",
+     "top_k": 5,
+     "language": "python"
+   }}
+   ```
+
+4. **常见错误避免**：
+   - ❌ 不要在整数参数中使用引号：`"top_k": "5"`
+   - ✅ 正确写法：`"top_k": 5`
+   - ❌ 不要遗漏必填参数
+   - ❌ 不要使用未定义的参数名
+
+## 输出格式要求
+
+1. **发现安全问题时**，使用以下结构化格式：
+
+```
+### 🔴 [严重程度] 问题标题
+
+**位置**：`文件路径:行号`
+
+**问题描述**：
+简要说明发现的安全问题
+
+**代码证据**：
+```代码语言
+相关代码片段
+```
+
+**风险分析**：
+- 攻击场景说明
+- 潜在影响
+
+**修复建议**：
+具体的修复方案
+```
+
+2. **分析过程中**，简要说明你的思路和下一步计划
+
+3. **不确定时**，明确标注"需要进一步验证"
+
 ## 会话信息
 
 - 会话 ID: {self.session_id}
@@ -1016,23 +1141,129 @@ class UnifiedAuditAgent:
         messages: List[ChatMessage],
         tools: List[Dict[str, Any]],
     ):
-        """调用 LLM（支持工具调用）"""
-        logger.debug(f"[UnifiedAgent] 调用 LLM，消息数: {len(messages)}, 工具数: {len(tools)}")
+        """调用 LLM（支持工具调用）
 
-        # 使用 asyncio.to_thread 包装同步调用
-        response = await asyncio.to_thread(
-            self.llm_client.chat_completion,
-            messages=messages,
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens,
-            tools=tools if tools else None,
-        )
+        增强日志记录：记录完整的请求和响应信息用于调试。
+        """
+        call_id = f"llm-{self.total_llm_calls + 1}"
+        timestamp = datetime.now().isoformat()
 
-        # 更新统计
-        if response.usage:
-            self.total_tokens_used += response.usage.get("total_tokens", 0)
+        # === 请求日志 ===
+        logger.info(f"[UnifiedAgent][{call_id}] 开始 LLM 调用")
+        print(f"[{timestamp}] [UnifiedAgent][{call_id}] 开始 LLM 调用: messages={len(messages)}, tools={len(tools)}")  # 强制输出
+        logger.info(f"[UnifiedAgent][{call_id}] 请求参数: messages={len(messages)}, tools={len(tools)}, temp={self.config.temperature}, max_tokens={self.config.max_tokens}")
 
-        return response
+        # 记录消息摘要（避免日志过长）
+        for i, msg in enumerate(messages):
+            role = msg.role
+            content_preview = (msg.content or "")[:200] + ("..." if len(msg.content or "") > 200 else "")
+            tool_calls_info = f", tool_calls={len(msg.tool_calls)}" if hasattr(msg, 'tool_calls') and msg.tool_calls else ""
+            logger.debug(f"[UnifiedAgent][{call_id}] msg[{i}] role={role}{tool_calls_info}: {content_preview}")
+
+        # === 完整请求记录（用于调试） ===
+        request_data = None
+        if self.config.log_full_request or self.config.save_requests_to_file:
+            request_data = {
+                "call_id": call_id,
+                "timestamp": timestamp,
+                "session_id": self.session_id,
+                "messages": [
+                    {
+                        "role": m.role,
+                        "content": m.content,
+                        "tool_calls": [{"id": tc.id, "name": tc.name, "arguments": tc.arguments} for tc in (m.tool_calls or [])] if hasattr(m, 'tool_calls') and m.tool_calls else None,
+                        "tool_call_id": getattr(m, 'tool_call_id', None),
+                    }
+                    for m in messages
+                ],
+                "tools": tools,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            }
+            if self.config.log_full_request:
+                logger.info(f"[UnifiedAgent][{call_id}] 完整请求:\n{safe_json_dumps(request_data, indent=2)}")
+
+        try:
+            # 使用 asyncio.to_thread 包装同步调用
+            response = await asyncio.to_thread(
+                self.llm_client.chat_completion,
+                messages=messages,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                tools=tools if tools else None,
+            )
+
+            # === 响应日志 ===
+            response_content = response.content or ""
+            content_preview = response_content[:300] + ("..." if len(response_content) > 300 else "")
+            tool_calls_count = len(response.tool_calls) if response.tool_calls else 0
+            usage_info = response.usage if response.usage else {}
+
+            logger.info(f"[UnifiedAgent][{call_id}] LLM 响应成功: content_len={len(response_content)}, tool_calls={tool_calls_count}, usage={usage_info}")
+            print(f"[{datetime.now().isoformat()}] [UnifiedAgent][{call_id}] LLM 响应成功: content_len={len(response_content)}, tool_calls={tool_calls_count}, tokens={usage_info.get('total_tokens', 'N/A')}")  # 强制输出
+            logger.info(f"[UnifiedAgent][{call_id}] 响应内容预览: {content_preview}")
+
+            if response.tool_calls:
+                for tc in response.tool_calls:
+                    args_preview = safe_json_dumps(tc.arguments)[:200] if tc.arguments else "{}"
+                    logger.debug(f"[UnifiedAgent][{call_id}] tool_call: {tc.name}({args_preview})")
+
+            # === 完整响应记录（用于调试） ===
+            response_data = None
+            if self.config.log_full_response or self.config.save_requests_to_file:
+                response_data = {
+                    "call_id": call_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "content": response_content,
+                    "tool_calls": [
+                        {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
+                        for tc in (response.tool_calls or [])
+                    ] if response.tool_calls else None,
+                    "usage": usage_info,
+                    "finish_reason": getattr(response, 'finish_reason', None),
+                }
+                if self.config.log_full_response:
+                    logger.info(f"[UnifiedAgent][{call_id}] 完整响应:\n{safe_json_dumps(response_data, indent=2)}")
+
+            # === 保存到文件 ===
+            if self.config.save_requests_to_file and request_data:
+                await self._save_debug_log(call_id, request_data, response_data)
+
+            # 更新统计
+            if response.usage:
+                self.total_tokens_used += response.usage.get("total_tokens", 0)
+
+            return response
+
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(f"[UnifiedAgent][{call_id}] LLM 调用失败: {type(e).__name__}: {e}")
+            logger.error(f"[UnifiedAgent][{call_id}] 错误堆栈:\n{error_trace}")
+
+            # 记录导致错误的请求信息（用于调试）
+            try:
+                request_dump = {
+                    "messages_count": len(messages),
+                    "messages_roles": [m.role for m in messages],
+                    "tools_count": len(tools),
+                    "temperature": self.config.temperature,
+                    "max_tokens": self.config.max_tokens,
+                }
+                logger.error(f"[UnifiedAgent][{call_id}] 失败请求摘要: {safe_json_dumps(request_dump)}")
+
+                # 如果启用了完整日志，也记录完整请求
+                if request_data:
+                    error_data = {
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                        "error_trace": error_trace,
+                    }
+                    await self._save_debug_log(call_id, request_data, error_data, is_error=True)
+            except Exception:
+                pass
+
+            raise
 
     async def _execute_tool_calls(self, tool_calls: List[ToolCall]) -> List[ToolCallEvent]:
         """执行工具调用（支持并行执行优化）"""
@@ -1153,6 +1384,214 @@ class UnifiedAuditAgent:
         if len(self.conversation_history) > max_messages:
             self.conversation_history = self.conversation_history[-max_messages:]
 
+    # ============ 对话历史压缩 ============
+
+    def _calculate_history_chars(self) -> int:
+        """计算对话历史的总字符数
+
+        Returns:
+            对话历史的总字符数
+        """
+        total = 0
+        for msg in self.conversation_history:
+            total += len(msg.content or "")
+        # 包含已压缩的摘要
+        total += len(self._compressed_history_summary)
+        return total
+
+    def _should_compress_history(self) -> bool:
+        """判断是否需要压缩对话历史
+
+        Returns:
+            True 如果需要压缩
+        """
+        if not self.config.enable_history_compression:
+            return False
+
+        # 计算当前历史字符数
+        total_chars = self._calculate_history_chars()
+
+        # 超过阈值则需要压缩
+        return total_chars > self.config.history_compression_threshold
+
+    async def _compress_conversation_history(self):
+        """压缩对话历史
+
+        根据配置选择压缩策略：
+        - summarize: 使用 LLM 生成摘要
+        - truncate: 简单截断旧消息
+        """
+        if not self._should_compress_history():
+            return
+
+        preserve_count = self.config.history_preserve_recent
+        method = self.config.history_compression_method
+
+        # 历史不足以再压缩时，若摘要本身超限则直接截断以避免反复触发压缩
+        if len(self.conversation_history) <= preserve_count:
+            if self._compressed_history_summary and len(self._compressed_history_summary) > self.config.history_compression_threshold:
+                logger.info(f"[UnifiedAgent] 对话摘要超过阈值，进行截断，当前长度: {len(self._compressed_history_summary)}")
+                self._compressed_history_summary = self._compressed_history_summary[: self.config.history_compression_threshold] + "..."
+            return
+
+        logger.info(f"[UnifiedAgent] 开始压缩对话历史，当前字符数: {self._calculate_history_chars()}")
+
+        if method == "summarize":
+            await self._compress_with_llm_summary(preserve_count)
+        else:
+            self._compress_with_truncation(preserve_count)
+
+        logger.info(f"[UnifiedAgent] 压缩完成，压缩后字符数: {self._calculate_history_chars()}")
+
+    async def _compress_with_llm_summary(self, preserve_count: int):
+        """使用 LLM 生成摘要压缩历史
+
+        Args:
+            preserve_count: 保留最近的消息数量
+        """
+        # 获取需要压缩的旧消息
+        if len(self.conversation_history) <= preserve_count:
+            return
+
+        old_messages = self.conversation_history[:-preserve_count]
+        recent_messages = self.conversation_history[-preserve_count:]
+
+        # 构建摘要请求
+        history_text = ""
+        for msg in old_messages:
+            role_label = "用户" if msg.role == "user" else "助手"
+            history_text += f"{role_label}: {msg.content}\n\n"
+
+        # 包含之前的摘要
+        if self._compressed_history_summary:
+            history_text = f"[之前的对话摘要]\n{self._compressed_history_summary}\n\n[新对话]\n{history_text}"
+
+        summary_prompt = f"""请将以下代码审计对话历史压缩成简洁的摘要，保留关键信息：
+1. 分析过的文件和函数
+2. 发现的安全问题
+3. 重要的审计结论
+4. 用户的主要需求
+
+对话历史:
+{history_text}
+
+请用不超过 {self.config.history_summary_max_tokens} tokens 的中文生成摘要，保持专业和结构化："""
+
+        try:
+            # 调用 LLM 生成摘要
+            summary_messages = [
+                ChatMessage(role="system", content="你是一个代码安全审计助手，负责将对话历史压缩成简洁的摘要。"),
+                ChatMessage(role="user", content=summary_prompt),
+            ]
+
+            response = await asyncio.to_thread(
+                self.llm_client.chat_completion,
+                messages=summary_messages,
+                temperature=self.config.history_summary_temperature,
+                max_tokens=self.config.history_summary_max_tokens,
+            )
+
+            # 更新压缩摘要
+            self._compressed_history_summary = response.content or ""
+
+            # 只保留最近的消息
+            self.conversation_history = recent_messages
+
+            logger.info(f"[UnifiedAgent] LLM 摘要压缩完成，摘要长度: {len(self._compressed_history_summary)}")
+
+        except Exception as e:
+            logger.warning(f"[UnifiedAgent] LLM 摘要压缩失败，回退到截断: {e}")
+            self._compress_with_truncation(preserve_count)
+
+    def _compress_with_truncation(self, preserve_count: int):
+        """简单截断压缩
+
+        Args:
+            preserve_count: 保留最近的消息数量
+        """
+        if len(self.conversation_history) <= preserve_count:
+            return
+
+        # 获取需要压缩的旧消息
+        old_messages = self.conversation_history[:-preserve_count]
+        recent_messages = self.conversation_history[-preserve_count:]
+
+        # 简单拼接旧消息为摘要
+        summary_parts = []
+        for msg in old_messages:
+            role_label = "用户" if msg.role == "user" else "助手"
+            content = msg.content or ""
+            # 截断每条消息
+            if len(content) > 200:
+                content = content[:200] + "..."
+            summary_parts.append(f"[{role_label}] {content}")
+
+        # 构建截断摘要
+        truncated_summary = "\n".join(summary_parts[-10:])  # 只保留最后 10 条的摘要
+        if self._compressed_history_summary:
+            self._compressed_history_summary = f"{self._compressed_history_summary}\n---\n{truncated_summary}"
+        else:
+            self._compressed_history_summary = truncated_summary
+
+        # 更新历史
+        self.conversation_history = recent_messages
+
+        logger.info(f"[UnifiedAgent] 截断压缩完成，保留 {len(recent_messages)} 条消息")
+
+    async def _save_debug_log(
+        self,
+        call_id: str,
+        request_data: Dict[str, Any],
+        response_data: Optional[Dict[str, Any]],
+        is_error: bool = False,
+    ):
+        """保存调试日志到文件
+
+        Args:
+            call_id: 调用 ID
+            request_data: 请求数据
+            response_data: 响应数据（或错误数据）
+            is_error: 是否为错误日志
+        """
+        import os
+
+        try:
+            log_dir = self.config.debug_log_dir
+            os.makedirs(log_dir, exist_ok=True)
+
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            suffix = "_error" if is_error else ""
+            filename = f"{self.session_id}_{call_id}_{timestamp}{suffix}.json"
+            filepath = os.path.join(log_dir, filename)
+
+            # 构建完整日志
+            log_data = {
+                "session_id": self.session_id,
+                "call_id": call_id,
+                "timestamp": datetime.now().isoformat(),
+                "is_error": is_error,
+                "request": request_data,
+                "response": response_data,
+            }
+
+            # 异步写入文件
+            await asyncio.to_thread(
+                self._write_json_file,
+                filepath,
+                log_data,
+            )
+
+            logger.debug(f"[UnifiedAgent][{call_id}] 调试日志已保存: {filepath}")
+
+        except Exception as e:
+            logger.warning(f"[UnifiedAgent][{call_id}] 保存调试日志失败: {e}")
+
+    def _write_json_file(self, filepath: str, data: Dict[str, Any]):
+        """同步写入 JSON 文件（供 asyncio.to_thread 调用）"""
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(safe_json_dumps(data, indent=2))
+
     # ============ 工具执行器 ============
 
     def _execute_search_code(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -1170,13 +1609,13 @@ class UnifiedAuditAgent:
 
         try:
             # 生成查询向量
-            embeddings = self.llm_client.embed([query])
-            if not embeddings or not embeddings[0]:
+            embed_response = self.llm_client.embed([query])
+            if not embed_response or not embed_response.embeddings or not embed_response.embeddings[0]:
                 return {"success": False, "error": "无法生成嵌入向量"}
 
-            # 搜索
+            # 搜索 - 使用正确的参数名 query_embedding
             results = self.vector_store.search(
-                query_vector=embeddings[0],
+                query_embedding=embed_response.embeddings[0],
                 top_k=top_k * 2,  # 预留过滤空间
             )
 
@@ -1202,7 +1641,7 @@ class UnifiedAuditAgent:
                     "line_start": metadata.get("line_start", 0),
                     "line_end": metadata.get("line_end", 0),
                     "score": round(r.score, 3),
-                    "code_preview": metadata.get("code", "")[:500],
+                    "code_preview": (metadata.get("code") or "")[:500],
                 })
 
                 if len(code_results) >= top_k:
@@ -1411,6 +1850,7 @@ class UnifiedAuditAgent:
         self.messages.clear()
         self.conversation_history.clear()
         self.tool_call_history.clear()
+        self._compressed_history_summary = ""
         logger.info(f"[UnifiedAgent] 已清空会话 {self.session_id} 的历史")
 
     # ============ 预扫描工具执行器 ============

@@ -19,6 +19,8 @@ from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query
 
+from serialization import to_jsonable
+
 from .schemas_agent import (
     # 请求模型
     CreateUnifiedSessionRequest,
@@ -93,6 +95,7 @@ def get_active_session(session_id: str) -> Dict[str, Any]:
 
 async def _generate_session_title(llm_client, first_message: str) -> str:
     """使用 LLM 生成会话标题"""
+    from llm_client import ChatMessage
     try:
         prompt = f"""根据以下用户的第一条消息，生成一个简短的会话标题（不超过20个字符）。
 只返回标题文本，不要任何其他内容。
@@ -101,7 +104,7 @@ async def _generate_session_title(llm_client, first_message: str) -> str:
 
         response = await asyncio.to_thread(
             llm_client.chat_completion,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[ChatMessage(role="user", content=prompt)],
             temperature=0.3,
             max_tokens=50,
         )
@@ -166,15 +169,17 @@ async def create_session(request: CreateUnifiedSessionRequest):
             vector_store=app_state.vector_store if hasattr(app_state, 'vector_store') else None,
         )
 
-        # 初始化智能体
-        await agent.initialize()
-
-        # 索引目标代码
+        # 【重要】先索引目标代码，然后再初始化智能体
+        # 这样智能体初始化时可以获取到代码单元，进行预扫描
         if request.target_path:
+            logger.info(f"[Session] 索引目标代码: {request.target_path}")
             await asyncio.to_thread(
                 app_state.indexer.index_directory,
                 target_path=request.target_path,
             )
+
+        # 初始化智能体（此时 indexer 中已有代码单元）
+        await agent.initialize()
 
         now = datetime.now()
         config_dict = {
@@ -221,7 +226,7 @@ async def create_session(request: CreateUnifiedSessionRequest):
         return APIResponse(
             success=True,
             message=f"会话创建成功，可用工具: {agent.tool_manager.count()} 个",
-            data=session_info.model_dump(),
+            data=session_info.model_dump(mode='json'),
         )
 
     except Exception as e:
@@ -277,7 +282,7 @@ async def get_session(session_id: str):
     return APIResponse(
         success=True,
         message="获取成功",
-        data=session_info.model_dump(),
+        data=session_info.model_dump(mode='json'),
     )
 
 
@@ -334,15 +339,16 @@ async def restore_session(session_id: str):
             vector_store=app_state.vector_store if hasattr(app_state, 'vector_store') else None,
         )
 
-        # 初始化智能体
-        await agent.initialize()
-
-        # 重新索引目标代码（如果有）
+        # 【重要】先重新索引目标代码（如果有），再初始化智能体
         if db_session.target_path:
+            logger.info(f"[Session] 恢复会话时重新索引: {db_session.target_path}")
             await asyncio.to_thread(
                 app_state.indexer.index_directory,
                 target_path=db_session.target_path,
             )
+
+        # 初始化智能体（此时 indexer 中已有代码单元）
+        await agent.initialize()
 
         # 加载历史消息到智能体
         message_repo = get_message_repo()
@@ -414,8 +420,8 @@ async def delete_session(session_id: str):
     if session_id in _ws_connections:
         try:
             await _ws_connections[session_id].close()
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"关闭 WebSocket 连接时出错（可忽略）: {e}")
         del _ws_connections[session_id]
 
     # 从数据库删除（级联删除消息）
@@ -503,6 +509,8 @@ async def chat(session_id: str, request: UnifiedChatRequest):
 
     智能体会自主选择和调用工具来完成任务。
     """
+    print(f"[DEBUG] ===== 收到 chat 请求: session={session_id} =====")  # 强制打印
+    logger.info(f"[Chat] 收到对话请求: session={session_id}, message_len={len(request.message)}")
     session = get_active_session(session_id)
     agent = session["agent"]
     app_state = get_app_state()
@@ -516,6 +524,7 @@ async def chat(session_id: str, request: UnifiedChatRequest):
 
     try:
         # 保存用户消息到数据库
+        logger.info(f"[Chat] 保存用户消息到数据库...")
         message_repo.create(
             session_id=session_id,
             role="user",
@@ -526,11 +535,15 @@ async def chat(session_id: str, request: UnifiedChatRequest):
         db_session = session_repo.get(session_id)
         if db_session and not db_session.title:
             # 异步生成标题
+            logger.info(f"[Chat] 生成会话标题...")
             title = await _generate_session_title(app_state.llm_client, request.message)
             session_repo.set_title(session_id, title)
+            logger.info(f"[Chat] 标题已生成: {title}")
 
         # 调用智能体
+        logger.info(f"[Chat] 开始调用智能体 chat()...")
         response = await agent.chat(request.message)
+        logger.info(f"[Chat] 智能体响应完成, content_len={len(response.content or '')}, tool_calls={len(response.tool_calls)}")
 
         # 更新状态
         session["status"] = UnifiedSessionStatus.IDLE
@@ -542,16 +555,16 @@ async def chat(session_id: str, request: UnifiedChatRequest):
             tool_call_schema = ToolCallEventSchema(
                 id=tc.id,
                 tool_name=tc.tool_name,
-                arguments=tc.arguments,
+                arguments=to_jsonable(tc.arguments),
                 status=ToolCallStatusEnum(tc.status.value),
-                result=tc.result,
+                result=to_jsonable(tc.result),
                 error=tc.error,
                 started_at=tc.started_at,
                 finished_at=tc.finished_at,
                 duration_ms=tc.duration_ms,
             )
             tool_calls.append(tool_call_schema)
-            tool_calls_data.append(tool_call_schema.model_dump())
+            tool_calls_data.append(tool_call_schema.model_dump(mode='json'))
 
         # 保存助手消息到数据库
         message_repo.create(
@@ -559,7 +572,7 @@ async def chat(session_id: str, request: UnifiedChatRequest):
             role="assistant",
             content=response.content,
             tool_calls=tool_calls_data if tool_calls_data else None,
-            metadata=response.metadata,
+            metadata=to_jsonable(response.metadata),
         )
 
         # 更新会话统计
@@ -574,7 +587,7 @@ async def chat(session_id: str, request: UnifiedChatRequest):
             content=response.content,
             tool_calls=tool_calls,
             timestamp=response.timestamp,
-            metadata=response.metadata,
+            metadata=to_jsonable(response.metadata),
         )
 
         chat_response = UnifiedChatResponseSchema(
@@ -586,13 +599,17 @@ async def chat(session_id: str, request: UnifiedChatRequest):
         return APIResponse(
             success=True,
             message=f"对话完成，调用了 {len(tool_calls)} 个工具",
-            data=chat_response.model_dump(),
+            data=chat_response.model_dump(mode='json'),
         )
 
     except Exception as e:
-        logger.error(f"对话失败: {e}")
+        import traceback
+        error_trace = traceback.format_exc()
+        error_type = type(e).__name__
+        logger.error(f"对话失败: {error_type}: {e}")
+        logger.error(f"错误堆栈:\n{error_trace}")
         session["status"] = UnifiedSessionStatus.ERROR
-        raise HTTPException(status_code=500, detail=f"对话失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"对话失败: {error_type}: {str(e)}")
 
 
 @router.get("/session/{session_id}/messages", response_model=APIResponse)
@@ -695,11 +712,12 @@ async def get_tools(session_id: str, category: Optional[str] = None):
     # 简化输出
     tool_list = []
     for tool in tools:
-        func = tool.get("function", {})
+        func = tool.get("function") or {}
+        description = func.get("description") or ""
         definition = agent.tool_manager.get_tool(func.get("name", ""))
         tool_list.append({
             "name": func.get("name", ""),
-            "description": func.get("description", "")[:200],
+            "description": description[:200] if description else "",
             "category": definition.category if definition else "general",
         })
 
@@ -742,7 +760,7 @@ async def get_stats(session_id: str):
     return APIResponse(
         success=True,
         message="获取成功",
-        data=stats.model_dump(),
+        data=stats.model_dump(mode='json'),
     )
 
 
@@ -782,6 +800,12 @@ async def index_project(session_id: str, request: IndexProjectRequest):
 
 # ============ WebSocket ============
 
+
+async def _safe_send_json(websocket: WebSocket, data: Any):
+    """安全发送 JSON 数据，处理 datetime 等不可序列化类型"""
+    await websocket.send_json(to_jsonable(data))
+
+
 @router.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket 实时通信
@@ -797,12 +821,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     logger.info(f"WebSocket 连接已建立: {session_id}")
 
     # 发送连接成功事件
-    await websocket.send_json(
+    await _safe_send_json(websocket,
         WSEvent(
             type=WSEventType.CONNECTED,
             session_id=session_id,
             data={"message": "连接成功"},
-        ).model_dump()
+        ).model_dump(mode='json')
     )
 
     try:
@@ -812,11 +836,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             msg_type = data.get("type", "")
 
             if msg_type == "ping":
-                await websocket.send_json(
+                await _safe_send_json(websocket,
                     WSEvent(
                         type=WSEventType.PONG,
                         session_id=session_id,
-                    ).model_dump()
+                    ).model_dump(mode='json')
                 )
 
             elif msg_type == "chat":
@@ -824,10 +848,22 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 message = data.get("message", "")
                 use_stream = data.get("stream", True)  # 默认使用流式
 
-                if message and session_id in _active_agents:
-                    agent = _active_agents[session_id]["agent"]
+                if not message:
+                    continue
 
-                    if use_stream:
+                if session_id not in _active_agents:
+                    await _safe_send_json(websocket,
+                        WSEvent(
+                            type=WSEventType.ERROR,
+                            session_id=session_id,
+                            data={"error": f"会话未激活: {session_id}"},
+                        ).model_dump(mode='json')
+                    )
+                    continue
+
+                agent = _active_agents[session_id]["agent"]
+
+                if use_stream:
                         # 使用流式响应
                         try:
                             async for event in agent.chat_stream(message):
@@ -837,78 +873,96 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     # 开始处理
                                     pass
                                 elif event_type == "tool_call_start":
-                                    await websocket.send_json(
+                                    await _safe_send_json(websocket,
                                         WSEvent(
                                             type=WSEventType.TOOL_CALL_START,
                                             session_id=session_id,
                                             data=event.get("data", {}),
-                                        ).model_dump()
+                                        ).model_dump(mode='json')
                                     )
                                 elif event_type == "tool_call_end":
-                                    await websocket.send_json(
+                                    await _safe_send_json(websocket,
                                         WSEvent(
                                             type=WSEventType.TOOL_CALL_END,
                                             session_id=session_id,
                                             data=event.get("data", {}),
-                                        ).model_dump()
+                                        ).model_dump(mode='json')
                                     )
                                 elif event_type == "chunk":
                                     # 发送内容块
-                                    await websocket.send_json(
+                                    await _safe_send_json(websocket,
                                         WSEvent(
                                             type=WSEventType.MESSAGE_CHUNK,
                                             session_id=session_id,
                                             data={"content": event.get("content", "")},
-                                        ).model_dump()
+                                        ).model_dump(mode='json')
                                     )
                                 elif event_type == "message":
                                     # 发送完成消息
-                                    await websocket.send_json(
+                                    await _safe_send_json(websocket,
                                         WSEvent(
                                             type=WSEventType.MESSAGE_COMPLETE,
                                             session_id=session_id,
                                             data=event.get("data", {}),
-                                        ).model_dump()
+                                        ).model_dump(mode='json')
                                     )
                                 elif event_type == "error":
-                                    await websocket.send_json(
+                                    await _safe_send_json(websocket,
                                         WSEvent(
                                             type=WSEventType.ERROR,
                                             session_id=session_id,
                                             data=event.get("data", {}),
-                                        ).model_dump()
+                                        ).model_dump(mode='json')
                                     )
                         except Exception as e:
-                            logger.error(f"流式响应失败: {e}")
-                            await websocket.send_json(
+                            import traceback
+                            error_trace = traceback.format_exc()
+                            logger.error(f"流式响应失败: {type(e).__name__}: {e}")
+                            logger.error(f"错误堆栈:\n{error_trace}")
+                            await _safe_send_json(websocket,
                                 WSEvent(
                                     type=WSEventType.ERROR,
                                     session_id=session_id,
-                                    data={"error": str(e)},
-                                ).model_dump()
+                                    data={
+                                        "error": f"{type(e).__name__}: {str(e)}",
+                                        "error_type": type(e).__name__,
+                                        "error_trace": error_trace,
+                                    },
+                                ).model_dump(mode='json')
                             )
                     else:
                         # 非流式响应（保持向后兼容）
                         response = await agent.chat(message)
-                        await websocket.send_json(
+                        await _safe_send_json(websocket,
                             WSEvent(
                                 type=WSEventType.MESSAGE_COMPLETE,
                                 session_id=session_id,
                                 data=response.to_dict(),
-                            ).model_dump()
+                            ).model_dump(mode='json')
                         )
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket 连接断开: {session_id}")
     except Exception as e:
-        logger.error(f"WebSocket 错误: {e}")
-        await websocket.send_json(
-            WSEvent(
-                type=WSEventType.ERROR,
-                session_id=session_id,
-                data={"error": str(e)},
-            ).model_dump()
-        )
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"WebSocket 错误: {type(e).__name__}: {e}")
+        logger.error(f"错误堆栈:\n{error_trace}")
+        # 尝试发送错误消息，但连接可能已断开
+        try:
+            await _safe_send_json(websocket,
+                WSEvent(
+                    type=WSEventType.ERROR,
+                    session_id=session_id,
+                    data={
+                        "error": f"{type(e).__name__}: {str(e)}",
+                        "error_type": type(e).__name__,
+                        "error_trace": error_trace,
+                    },
+                ).model_dump(mode='json')
+            )
+        except Exception:
+            logger.debug(f"无法发送错误消息到 WebSocket (可能已断开): {session_id}")
     finally:
         if session_id in _ws_connections:
             del _ws_connections[session_id]
@@ -918,6 +972,6 @@ async def broadcast_to_session(session_id: str, event: WSEvent):
     """向会话广播消息"""
     if session_id in _ws_connections:
         try:
-            await _ws_connections[session_id].send_json(event.model_dump())
+            await _safe_send_json(_ws_connections[session_id], event.model_dump(mode='json'))
         except Exception as e:
             logger.warning(f"广播失败: {e}")
