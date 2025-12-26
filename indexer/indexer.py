@@ -23,7 +23,7 @@ from llm_client import BaseLLMClient
 from .models import CodeUnit
 from .parser import get_parser_for_file, BaseLanguageParser
 from .vector_store import BaseVectorStore, SearchResult, HybridSearchConfig, create_vector_store
-from .embedding_cache import EmbeddingCache, CachedEmbeddingGenerator
+from .embedding_cache import EmbeddingCache, CachedEmbeddingGenerator, get_embedding_cache
 
 logger = logging.getLogger(__name__)
 
@@ -257,9 +257,9 @@ class CodeIndexer:
         # 当前索引的目标路径（在 index_directory 时更新）
         self._current_target_path: Optional[Path] = None
 
-        # 初始化嵌入缓存
+        # 初始化嵌入缓存（使用单例模式避免多进程锁定）
         if config.vector_store.enable_cache:
-            self.embedding_cache = embedding_cache or EmbeddingCache(
+            self.embedding_cache = embedding_cache or get_embedding_cache(
                 cache_dir=config.vector_store.cache_dir,
                 ttl_days=config.vector_store.cache_ttl_days
             )
@@ -572,6 +572,7 @@ class CodeIndexer:
                 for f in files
             }
 
+            last_log_percent = 0
             for i, future in enumerate(as_completed(futures)):
                 units = future.result()
                 all_units.extend(units)
@@ -579,24 +580,31 @@ class CodeIndexer:
                 if progress_callback:
                     progress_callback(i + 1, total_files)
 
-        logger.info(f"Parsed {len(all_units)} code units")
+                # 每 10% 或每 50 个文件输出一次进度日志
+                current_percent = ((i + 1) * 100) // total_files
+                if current_percent >= last_log_percent + 10 or (i + 1) % 50 == 0:
+                    last_log_percent = current_percent
+                    logger.info(f"[索引进度] 已解析 {i + 1}/{total_files} 文件 ({current_percent}%), 已生成 {len(all_units)} 代码单元")
+
+        logger.info(f"Parsed {len(all_units)} code units from {total_files} files")
 
         if not all_units:
             return 0
 
         # 分块处理大代码单元
         chunked_units = self._chunk_units(all_units, self.scan_config.chunk_size)
-        logger.info(f"After chunking: {len(chunked_units)} units")
+        logger.info(f"[分块完成] 从 {len(all_units)} 个单元生成 {len(chunked_units)} 个分块单元")
 
         # 生成嵌入并存储
-        logger.info("Generating embeddings...")
+        logger.info(f"[嵌入生成] 开始为 {len(chunked_units)} 个代码单元生成嵌入向量...")
         embeddings = self._generate_embeddings(chunked_units)
+        logger.info(f"[嵌入完成] 成功生成 {len(embeddings)} 个嵌入向量")
 
-        logger.info("Storing to vector database...")
+        logger.info(f"[存储中] 正在将 {len(chunked_units)} 个代码单元写入向量数据库...")
         self.vector_store.add(chunked_units, embeddings)
 
         total_count = self.vector_store.count()
-        logger.info(f"Index complete. Total units in store: {total_count}")
+        logger.info(f"[索引完成] 向量数据库总计: {total_count} 个代码单元")
 
         return len(chunked_units)
 

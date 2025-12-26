@@ -172,15 +172,22 @@ async def create_session(request: CreateUnifiedSessionRequest):
         # 【重要】先索引目标代码，然后再初始化智能体
         # 这样智能体初始化时可以获取到代码单元，进行预扫描
         if request.target_path:
-            logger.info(f"[Session] 索引目标代码: {request.target_path}")
+            logger.info(f"[Session {session_id}] 阶段1/3: 开始索引目标代码 - {request.target_path}")
+            import time
+            start_time = time.time()
             await asyncio.to_thread(
                 app_state.indexer.index_directory,
                 target_path=request.target_path,
             )
+            elapsed = time.time() - start_time
+            logger.info(f"[Session {session_id}] 阶段1/3: 索引完成，耗时 {elapsed:.1f}s")
 
         # 初始化智能体（此时 indexer 中已有代码单元）
+        logger.info(f"[Session {session_id}] 阶段2/3: 开始初始化智能体...")
         await agent.initialize()
+        logger.info(f"[Session {session_id}] 阶段2/3: 智能体初始化完成")
 
+        logger.info(f"[Session {session_id}] 阶段3/3: 保存会话状态...")
         now = datetime.now()
         config_dict = {
             "enable_call_chain": request.enable_call_chain,
@@ -210,6 +217,7 @@ async def create_session(request: CreateUnifiedSessionRequest):
             "status": UnifiedSessionStatus.READY,
             "config": config_dict,
         }
+        logger.info(f"[Session {session_id}] 阶段3/3: 会话就绪，可用工具 {agent.tool_manager.count()} 个")
 
         # 构建响应
         session_info = UnifiedSessionInfoSchema(

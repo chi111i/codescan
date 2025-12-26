@@ -12,14 +12,27 @@ from contextlib import asynccontextmanager
 
 
 def setup_logging():
-    """配置日志系统 - 确保所有模块日志正确输出到终端"""
+    """配置日志系统 - 确保所有模块日志正确输出到终端
+
+    注意: 此函数会在 uvicorn reload 后被重新调用，确保日志配置一致
+    """
+    import io
+
     # 创建格式化器
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    # 创建控制台处理器
-    console_handler = logging.StreamHandler(sys.stdout)
+    # 创建控制台处理器（使用 stderr + UTF-8 编码以避免 Windows 终端乱码）
+    # 在 Windows 上强制使用 UTF-8 编码
+    if sys.platform == 'win32':
+        # 尝试设置控制台编码为 UTF-8
+        try:
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        except Exception:
+            pass  # 如果失败则使用默认编码
+
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(formatter)
 
@@ -37,13 +50,15 @@ def setup_logging():
     # 设置第三方库日志级别（减少噪音）
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
-    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
     logging.getLogger("watchfiles").setLevel(logging.WARNING)
 
     # 确保本项目模块日志输出
-    for module in ["llm_client", "agent", "analyzer", "indexer", "api", "rules", "config"]:
-        logging.getLogger(module).setLevel(logging.INFO)
+    for module in ["llm_client", "agent", "analyzer", "indexer", "api", "rules", "config", "prompts"]:
+        module_logger = logging.getLogger(module)
+        module_logger.setLevel(logging.INFO)
+        module_logger.propagate = True  # 确保传播到根 logger
 
     # 输出启动信息
     root_logger.info("日志系统初始化完成")

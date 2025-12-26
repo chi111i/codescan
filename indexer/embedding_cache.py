@@ -16,6 +16,7 @@ import json
 import logging
 import sqlite3
 import struct
+import threading
 import time
 import zlib
 from dataclasses import dataclass
@@ -25,6 +26,10 @@ from typing import Dict, List, Optional, Tuple, Any
 from serialization import safe_json_dumps
 
 logger = logging.getLogger(__name__)
+
+# 全局单例和锁
+_cache_instances: Dict[str, "EmbeddingCache"] = {}
+_cache_lock = threading.Lock()
 
 
 @dataclass
@@ -719,3 +724,53 @@ class CachedEmbeddingGenerator:
         """重置会话统计"""
         self._cache_hits = 0
         self._cache_misses = 0
+
+
+def get_embedding_cache(
+    cache_dir: str = ".audit_cache",
+    ttl_days: int = 30,
+    use_sqlite: bool = True,
+    max_entries: int = 100000,
+    use_compression: bool = True
+) -> EmbeddingCache:
+    """获取单例嵌入缓存实例（线程安全）
+
+    Args:
+        cache_dir: 缓存目录
+        ttl_days: 缓存过期天数
+        use_sqlite: 使用 SQLite 还是 JSON 文件
+        max_entries: 最大缓存条目数
+        use_compression: 是否压缩嵌入向量
+
+    Returns:
+        EmbeddingCache 单例实例
+    """
+    global _cache_instances, _cache_lock
+
+    cache_key = str(Path(cache_dir).resolve())
+
+    with _cache_lock:
+        if cache_key not in _cache_instances:
+            logger.info(f"创建嵌入缓存单例实例: {cache_key}")
+            _cache_instances[cache_key] = EmbeddingCache(
+                cache_dir=cache_dir,
+                ttl_days=ttl_days,
+                use_sqlite=use_sqlite,
+                max_entries=max_entries,
+                use_compression=use_compression
+            )
+        return _cache_instances[cache_key]
+
+
+def close_all_caches() -> None:
+    """关闭所有缓存连接（应用关闭时调用）"""
+    global _cache_instances, _cache_lock
+
+    with _cache_lock:
+        for cache_key, cache in list(_cache_instances.items()):
+            try:
+                cache.close()
+                logger.info(f"关闭缓存实例: {cache_key}")
+            except Exception as e:
+                logger.warning(f"关闭缓存实例失败: {cache_key}, {e}")
+        _cache_instances.clear()
