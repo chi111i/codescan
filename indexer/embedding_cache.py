@@ -403,7 +403,7 @@ class EmbeddingCache:
             json.dump(data, f)
 
     def get_batch(self, content_hashes: List[str]) -> Dict[str, Optional[List[float]]]:
-        """批量获取缓存
+        """批量获取缓存 (优化: 使用 SQL IN 查询)
 
         Args:
             content_hashes: 内容哈希列表
@@ -411,9 +411,92 @@ class EmbeddingCache:
         Returns:
             哈希到嵌入的映射
         """
-        results = {}
-        for h in content_hashes:
-            results[h] = self.get(h)
+        if not content_hashes:
+            return {}
+
+        if self.use_sqlite:
+            return self._get_batch_sqlite(content_hashes)
+        else:
+            # 文件模式仍使用逐个查询
+            results = {}
+            for h in content_hashes:
+                results[h] = self.get(h)
+            return results
+
+    def _get_batch_sqlite(self, content_hashes: List[str]) -> Dict[str, Optional[List[float]]]:
+        """从 SQLite 批量获取 (使用 IN 查询)
+
+        性能优化: O(1) 次 SQL 查询代替 O(n) 次
+        """
+        results: Dict[str, Optional[List[float]]] = {h: None for h in content_hashes}
+        expiry_threshold = time.time() - (self.ttl_days * 24 * 60 * 60)
+        now = time.time()
+
+        # 分块处理以避免 SQL 变量过多 (SQLite 限制约 999 个变量)
+        chunk_size = 500
+        hits = 0
+        expired_hashes = []
+        hashes_to_update = []
+
+        for i in range(0, len(content_hashes), chunk_size):
+            chunk = content_hashes[i:i + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+
+            query = f"""
+                SELECT content_hash, embedding, created_at, compressed
+                FROM embeddings
+                WHERE content_hash IN ({placeholders})
+            """
+
+            cursor = self._db_conn.execute(query, chunk)
+            rows = cursor.fetchall()
+
+            for row in rows:
+                content_hash, embedding_bytes, created_at, is_compressed = row
+
+                # 检查是否过期
+                if created_at < expiry_threshold:
+                    expired_hashes.append(content_hash)
+                    continue
+
+                # 解压/解析嵌入
+                try:
+                    embedding = self._decompress_embedding(embedding_bytes, bool(is_compressed))
+                    results[content_hash] = embedding
+                    hashes_to_update.append(content_hash)
+                    hits += 1
+                except Exception as e:
+                    logger.warning(f"解压嵌入失败: {content_hash[:8]}... - {e}")
+                    continue
+
+        # 批量更新访问时间 (LRU)
+        if hashes_to_update:
+            for i in range(0, len(hashes_to_update), chunk_size):
+                chunk = hashes_to_update[i:i + chunk_size]
+                placeholders = ",".join("?" * len(chunk))
+                self._db_conn.execute(
+                    f"UPDATE embeddings SET accessed_at = ? WHERE content_hash IN ({placeholders})",
+                    [now] + chunk
+                )
+            self._db_conn.commit()
+
+        # 批量删除过期条目
+        if expired_hashes:
+            for i in range(0, len(expired_hashes), chunk_size):
+                chunk = expired_hashes[i:i + chunk_size]
+                placeholders = ",".join("?" * len(chunk))
+                self._db_conn.execute(
+                    f"DELETE FROM embeddings WHERE content_hash IN ({placeholders})",
+                    chunk
+                )
+            self._db_conn.commit()
+            logger.debug(f"批量删除 {len(expired_hashes)} 个过期缓存条目")
+
+        # 更新统计
+        misses = len(content_hashes) - hits
+        self._increment_stat('total_hits', hits)
+        self._increment_stat('total_misses', misses)
+
         return results
 
     def set_batch(

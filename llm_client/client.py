@@ -19,6 +19,17 @@ import httpx
 
 from config import LLMConfig
 
+# New embedding module integration
+from indexer.embedding import (
+    EmbeddingClientInterface,
+    OpenAIEmbeddingClient,
+    OpenAIClientConfig,
+    BatchProcessor,
+    BatchConfig,
+    EMBEDDING_RETRY_CONFIG,
+    FAST_RETRY_CONFIG,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -260,16 +271,17 @@ class OpenAICompatibleClient(BaseLLMClient):
             http2=True,
         )
 
-        # 嵌入模型的 HTTP 客户端（如果配置不同则单独创建）
-        if self.embedding_base_url != self.base_url or self.embedding_api_key != self.api_key:
-            self._embedding_client = httpx.Client(
-                timeout=httpx.Timeout(self.timeout, connect=10.0),
-                headers=self._get_embedding_headers(),
-                limits=limits,
-                http2=True,
-            )
-        else:
-            self._embedding_client = self._client
+        # 嵌入模型的 HTTP 客户端（使用更短的超时以便更快回退到本地嵌入）
+        # 注意：禁用 HTTP/2 以避免在网络不稳定时的 SSL EOF 错误
+        embedding_timeout = min(self.timeout, 15)  # 嵌入请求最多 15 秒
+        self._embedding_client = httpx.Client(
+            timeout=httpx.Timeout(embedding_timeout, connect=5.0),
+            headers=self._get_embedding_headers(),
+            limits=limits,
+            http2=False,  # 禁用 HTTP/2 以提高网络稳定性
+        )
+        # 嵌入请求的重试次数（更少的重试以便更快回退）
+        self._embedding_max_retries = 2
 
     def _get_headers(self) -> Dict[str, str]:
         """获取请求头"""
@@ -370,9 +382,13 @@ class OpenAICompatibleClient(BaseLLMClient):
         logger.info(f"  - 使用 API Key: {api_key_to_check[:8]}...{api_key_to_check[-4:] if len(api_key_to_check) > 12 else '****'}")
         logger.info(f"  - 模型: {json_data.get('model', 'N/A')}")
 
-        for attempt in range(1, self.max_retries + 1):
+        # 嵌入请求使用更少的重试次数以便更快回退到本地嵌入
+        is_embedding_request = (client == self._embedding_client)
+        max_retries = getattr(self, '_embedding_max_retries', self.max_retries) if is_embedding_request else self.max_retries
+
+        for attempt in range(1, max_retries + 1):
             try:
-                logger.info(f"发送请求: {method} {url} (尝试 {attempt}/{self.max_retries})")
+                logger.info(f"发送请求: {method} {url} (尝试 {attempt}/{max_retries})")
                 response = use_client.request(method, url, json=json_data)
 
                 logger.info(f"收到响应: status={response.status_code}")
@@ -388,7 +404,7 @@ class OpenAICompatibleClient(BaseLLMClient):
                 self._handle_error(response, attempt)
 
             except RateLimitError:
-                if attempt < self.max_retries:
+                if attempt < max_retries:
                     wait_time = min(60, 2 ** attempt) + random.random()  # 指数退避 + 随机抖动
                     logger.info(f"Waiting {wait_time:.2f}s before retry...")
                     time.sleep(wait_time)
@@ -397,16 +413,20 @@ class OpenAICompatibleClient(BaseLLMClient):
 
             except httpx.TimeoutException as e:
                 last_exception = e
-                logger.warning(f"Request timeout (attempt {attempt}/{self.max_retries})")
-                if attempt < self.max_retries:
-                    time.sleep(2 ** attempt + random.random())  # 添加抖动避免惊群效应
+                logger.warning(f"Request timeout (attempt {attempt}/{max_retries})")
+                if attempt < max_retries:
+                    # 嵌入请求使用更短的等待时间
+                    wait_time = (1.5 ** attempt if is_embedding_request else 2 ** attempt) + random.random()
+                    time.sleep(wait_time)
                     continue
 
             except httpx.RequestError as e:
                 last_exception = e
-                logger.warning(f"Request error: {e} (attempt {attempt}/{self.max_retries})")
-                if attempt < self.max_retries:
-                    time.sleep(2 ** attempt + random.random())  # 添加抖动
+                logger.warning(f"Request error: {e} (attempt {attempt}/{max_retries})")
+                if attempt < max_retries:
+                    # 嵌入请求使用更短的等待时间
+                    wait_time = (1.5 ** attempt if is_embedding_request else 2 ** attempt) + random.random()
+                    time.sleep(wait_time)
                     continue
 
         raise APIError(f"Max retries exceeded. Last error: {last_exception}")
@@ -722,6 +742,53 @@ class OpenAICompatibleClient(BaseLLMClient):
             finish_reason=finish_reason or "stop",
             tool_calls=None,  # 流式模式通常不支持 tool_calls
         )
+
+    def create_async_embedding_client(self) -> EmbeddingClientInterface:
+        """Create async embedding client using new embedding module
+
+        Returns optimized async client with connection pooling and retry logic.
+        Use this for batch embedding operations in the indexer.
+        """
+        config = OpenAIClientConfig(
+            base_url=self.embedding_base_url.rstrip("/v1"),  # Remove /v1 suffix (added by client)
+            api_key=self.embedding_api_key,
+            model=self.embedding_model,
+            timeout=15.0,  # Shorter timeout for embeddings
+            max_keepalive_connections=10,
+            max_connections=20,
+            http2=False,  # Disabled for network stability
+            dimension=self.embedding_dim or 1536,
+        )
+
+        return OpenAIEmbeddingClient(config, FAST_RETRY_CONFIG)
+
+    def create_batch_processor(
+        self,
+        batch_size: int = 50,
+        min_batch_size: int = 5,
+        max_batch_size: int = 200,
+    ) -> BatchProcessor:
+        """Create batch processor for efficient embedding generation
+
+        Args:
+            batch_size: Initial batch size
+            min_batch_size: Minimum batch size on reduction
+            max_batch_size: Maximum batch size on recovery
+
+        Returns:
+            BatchProcessor with dynamic sizing
+        """
+        client = self.create_async_embedding_client()
+        config = BatchConfig(
+            initial_batch_size=batch_size,
+            min_batch_size=min_batch_size,
+            max_batch_size=max_batch_size,
+            recovery_factor=0.1,
+            reduction_factor=0.5,
+            success_threshold=3,
+        )
+
+        return BatchProcessor(client, config, FAST_RETRY_CONFIG)
 
     def close(self):
         """关闭客户端"""

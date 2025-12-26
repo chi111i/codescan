@@ -365,6 +365,7 @@ class SecurityAnalyzer:
         max_chain_depth: int = 5,
         max_llm_calls: int = 30,
         vuln_types: Optional[List[str]] = None,
+        progress_callback: Optional[callable] = None,
     ) -> List[Finding]:
         """统一的链级分析入口（P0 目标推荐流程）
 
@@ -383,15 +384,32 @@ class SecurityAnalyzer:
             max_chain_depth: 最大调用链深度
             max_llm_calls: 最大 LLM 调用次数（防止失控）
             vuln_types: 要检测的漏洞类型列表（如 ['command_injection', 'logic_flaw']）
+            progress_callback: 可选的进度回调函数 (progress: float, step: str) -> None
 
         Returns:
             Finding 列表
         """
         from .call_chain import CallChainAnalyzer
 
+        # Reset per-run state so empty scans don't reuse stale graphs or taint results
+        self._call_graph = None
+        self._taint_flows = None
+        if self.call_chain_analyzer:
+            self.call_chain_analyzer.taint_paths = []
+
+        # 辅助函数：安全调用进度回调
+        def report_progress(progress: float, step: str):
+            if progress_callback:
+                try:
+                    progress_callback(progress, step)
+                except Exception as e:
+                    logger.warning(f"Progress callback failed: {e}")
+
         logger.info(f"[P0] 开始链级分析流程，代码单元数: {len(code_units)}, 最大 LLM 调用: {max_llm_calls}")
         if vuln_types:
             logger.info(f"[P0] 漏洞类型过滤: {vuln_types}")
+
+        report_progress(0.41, "开始危险函数扫描...")
 
         # ============================================================
         # P0-1: 使用 SinkCallScanner 确定性扫描危险函数触发点
@@ -404,6 +422,7 @@ class SecurityAnalyzer:
             return []
 
         logger.info(f"[P0-1] 发现 {len(sink_sites)} 个危险函数触发点")
+        report_progress(0.43, f"发现 {len(sink_sites)} 个危险函数触发点")
 
         # 按漏洞类型过滤 sink_sites
         if vuln_types:
@@ -465,6 +484,7 @@ class SecurityAnalyzer:
         # ============================================================
         # P0-2: 构建调用图
         # ============================================================
+        report_progress(0.44, "构建调用图...")
         logger.info("[P0-2] 构建调用图...")
         if self.call_chain_analyzer is None:
             self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
@@ -475,10 +495,12 @@ class SecurityAnalyzer:
             f"[P0-2] 调用图: {len(self._call_graph.nodes)} 节点, "
             f"{len(self._call_graph.edges)} 边"
         )
+        report_progress(0.46, f"调用图: {len(self._call_graph.nodes)} 节点")
 
         # ============================================================
         # P0-3 & P0-4: 枚举调用链并收集上下文
         # ============================================================
+        report_progress(0.47, "收集调用链上下文...")
         logger.info("[P0-3/P0-4] 收集调用链上下文...")
         context_collector = ChainContextCollector(
             call_chain_analyzer=self.call_chain_analyzer,
@@ -496,6 +518,7 @@ class SecurityAnalyzer:
             return self._analyze_sink_sites_fallback(sink_sites, code_units, max_workers)
 
         logger.info(f"[P0-4] 收集了 {len(chain_contexts)} 个调用链上下文")
+        report_progress(0.49, f"收集了 {len(chain_contexts)} 个调用链上下文")
 
         # ============================================================
         # P0-5: LLM 链级分析（限制调用次数）
@@ -509,7 +532,9 @@ class SecurityAnalyzer:
             chain_contexts = chain_contexts[:max_llm_calls]
 
         logger.info(f"[P0-5] 开始 LLM 链级分析，共 {len(chain_contexts)} 个上下文...")
+        report_progress(0.50, f"开始 LLM 分析 {len(chain_contexts)} 个上下文...")
         findings = []
+        total_contexts = len(chain_contexts)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -519,12 +544,15 @@ class SecurityAnalyzer:
 
             for i, future in enumerate(as_completed(futures)):
                 ctx = futures[future]
+                # 更新进度：50% -> 58%，按分析进度线性增长
+                progress = 0.50 + (i + 1) / total_contexts * 0.08
+                report_progress(progress, f"LLM 分析 {i+1}/{total_contexts}")
                 try:
                     finding = future.result()
                     if finding:
                         findings.append(finding)
                         logger.info(
-                            f"[{i+1}/{len(chain_contexts)}] 发现问题: "
+                            f"[{i+1}/{total_contexts}] 发现问题: "
                             f"{finding.title} (置信度: {finding.confidence:.2f})"
                         )
                 except Exception as e:
@@ -1176,6 +1204,7 @@ class SecurityAnalyzer:
         max_chain_depth: int = 5,
         vuln_types: Optional[List[str]] = None,
         max_llm_calls: int = 30,
+        progress_callback: Optional[callable] = None,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -1190,6 +1219,7 @@ class SecurityAnalyzer:
             max_chain_depth: 最大调用链深度
             vuln_types: 要检测的漏洞类型列表（如 ['command_injection', 'logic_flaw']）
             max_llm_calls: 最大 LLM 调用次数
+            progress_callback: 可选的进度回调函数 (progress: float, step: str) -> None
 
         Returns:
             Finding 列表
@@ -1211,6 +1241,7 @@ class SecurityAnalyzer:
                     max_chain_depth=max_chain_depth,
                     max_llm_calls=max_llm_calls,
                     vuln_types=vuln_types,
+                    progress_callback=progress_callback,
                 )
             else:
                 # 回退到 SinkScanner 模式
@@ -1602,10 +1633,10 @@ class SecurityAnalyzer:
             f"{len(self._call_graph.edges)} edges"
         )
 
-        # 执行污点分析
-        if self.taint_analyzer is None:
-            logger.info("Initializing taint analyzer...")
-            self.taint_analyzer = TaintAnalyzer(self.rule_manager, self._call_graph)
+        # 每次都重新创建 TaintAnalyzer，确保使用最新的 call_graph
+        # （call_graph 已在上面重建，taint_analyzer 需要持有新引用）
+        logger.info("Initializing taint analyzer with updated call graph...")
+        self.taint_analyzer = TaintAnalyzer(self.rule_manager, self._call_graph)
 
         # 每次都重新运行污点分析
         logger.info("Running interprocedural taint analysis...")

@@ -12,14 +12,17 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field, asdict
 import hashlib
 
 from config import AuditConfig
-from llm_client import BaseLLMClient
 from .models import CodeUnit
-from .vector_store import BaseVectorStore, SearchResult
+from .vector_store_legacy import BaseVectorStore, SearchResult
+
+# TYPE_CHECKING to avoid circular import with llm_client
+if TYPE_CHECKING:
+    from llm_client import BaseLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +75,7 @@ class StorageManager:
     def __init__(
         self,
         config: AuditConfig,
-        llm_client: BaseLLMClient,
+        llm_client: "BaseLLMClient",
         vector_store: BaseVectorStore,
         storage_dir: str = ".audit_data",
     ):

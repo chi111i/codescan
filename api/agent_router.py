@@ -19,7 +19,7 @@ from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query
 
-from serialization import to_jsonable
+from serialization import to_jsonable, fast_safe_json_dumps, fast_json_loads
 
 from .schemas_agent import (
     # 请求模型
@@ -810,8 +810,8 @@ async def index_project(session_id: str, request: IndexProjectRequest):
 
 
 async def _safe_send_json(websocket: WebSocket, data: Any):
-    """安全发送 JSON 数据，处理 datetime 等不可序列化类型"""
-    await websocket.send_json(to_jsonable(data))
+    """安全发送 JSON 数据 (使用 orjson 加速)"""
+    await websocket.send_text(fast_safe_json_dumps(data))
 
 
 @router.websocket("/ws/{session_id}")
@@ -839,8 +839,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
     try:
         while True:
-            # 接收消息
-            data = await websocket.receive_json()
+            # 接收消息 (使用 orjson 加速反序列化)
+            raw_data = await websocket.receive_text()
+            data = fast_json_loads(raw_data)
             msg_type = data.get("type", "")
 
             if msg_type == "ping":
@@ -973,6 +974,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             logger.debug(f"无法发送错误消息到 WebSocket (可能已断开): {session_id}")
     finally:
         if session_id in _ws_connections:
+            try:
+                await _ws_connections[session_id].close()
+            except Exception as e:
+                logger.debug(f"关闭 WebSocket 连接时出错（可忽略）: {e}")
             del _ws_connections[session_id]
 
 

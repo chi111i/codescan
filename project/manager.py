@@ -226,7 +226,7 @@ class ProjectManager:
         # 删除向量数据
         if delete_vectors:
             try:
-                from indexer.vector_store import create_vector_store
+                from indexer.vector_store_legacy import create_vector_store
                 vector_config = VectorStoreConfig(
                     provider=self.config.vector_store.provider,
                     host=self.config.vector_store.host,

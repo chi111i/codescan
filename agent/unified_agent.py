@@ -1850,6 +1850,13 @@ class UnifiedAuditAgent:
         self.messages.clear()
         self.conversation_history.clear()
         self.tool_call_history.clear()
+        self.total_llm_calls = 0
+        self.total_tool_calls = 0
+        self.total_tokens_used = 0
+        self.prescan_result = None
+        self.enhancement_result = None
+        self._prescan_context = ""
+        self._is_processing = False
         self._compressed_history_summary = ""
         logger.info(f"[UnifiedAgent] 已清空会话 {self.session_id} 的历史")
 

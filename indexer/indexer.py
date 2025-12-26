@@ -14,16 +14,36 @@ import logging
 import sqlite3
 import time
 from pathlib import Path
-from typing import List, Optional, Set, Iterator, Callable, Dict, Any, Tuple
+from typing import List, Optional, Set, Iterator, Callable, Dict, Any, Tuple, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import AuditConfig, ScanConfig
-from llm_client import BaseLLMClient
+
+# TYPE_CHECKING to avoid circular import with llm_client
+if TYPE_CHECKING:
+    from llm_client import BaseLLMClient
 
 from .models import CodeUnit
 from .parser import get_parser_for_file, BaseLanguageParser
-from .vector_store import BaseVectorStore, SearchResult, HybridSearchConfig, create_vector_store
+from .vector_store_legacy import BaseVectorStore, SearchResult, HybridSearchConfig, create_vector_store
 from .embedding_cache import EmbeddingCache, CachedEmbeddingGenerator, get_embedding_cache
+from .embedding import (
+    BatchProcessor,
+    BatchConfig,
+    CachedBatchProcessor,
+    OpenAIEmbeddingClient,
+    OpenAIClientConfig,
+    FAST_RETRY_CONFIG,
+    estimate_optimal_batch_size,
+)
+# Enhanced vector store module (new package)
+from .vector_store import (
+    IndexMetadataStore,
+    FileInfo,
+    compute_file_hash,
+    EnhancedQdrantStore,
+    QdrantConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +262,7 @@ class CodeIndexer:
     def __init__(
         self,
         config: AuditConfig,
-        llm_client: BaseLLMClient,
+        llm_client: "BaseLLMClient",
         vector_store: Optional[BaseVectorStore] = None,
         embedding_cache: Optional[EmbeddingCache] = None,
         file_tracker: Optional[FileTracker] = None
@@ -285,6 +305,10 @@ class CodeIndexer:
                 security_boost_factor=getattr(config.scan, 'rerank_security_boost', 1.5),
                 prefer_entry_points=getattr(config.scan, 'rerank_prefer_entry_points', True),
             )
+
+        # Initialize BatchProcessor for efficient batch embedding (optional)
+        self._batch_processor: Optional[BatchProcessor] = None
+        self._async_embedding_client: Optional[OpenAIEmbeddingClient] = None
 
         self.hybrid_config = HybridSearchConfig(
             enable_keyword_boost=config.scan.enable_hybrid_search,
@@ -487,16 +511,55 @@ class CodeIndexer:
 
         return result
 
+    def _get_batch_processor(self) -> BatchProcessor:
+        """Get or create async batch processor for embeddings
+
+        Lazily initializes the BatchProcessor with optimal settings.
+        Uses connection pooling and async HTTP client for better performance.
+        """
+        if self._batch_processor is None:
+            # Create async embedding client
+            config = OpenAIClientConfig(
+                base_url=getattr(self.config.llm, 'embedding_base_url', None) or self.config.llm.base_url,
+                api_key=getattr(self.config.llm, 'embedding_api_key', None) or self.config.llm.api_key,
+                model=self.config.llm.embedding_model,
+                timeout=15.0,
+                max_keepalive_connections=10,
+                max_connections=20,
+                http2=False,  # Disabled for network stability
+                dimension=self.config.llm.embedding_dim or 1536,
+            )
+            self._async_embedding_client = OpenAIEmbeddingClient(config, FAST_RETRY_CONFIG)
+
+            # Create batch processor with dynamic sizing
+            batch_config = BatchConfig(
+                initial_batch_size=50,
+                min_batch_size=5,
+                max_batch_size=200,
+                recovery_factor=0.1,
+                reduction_factor=0.5,
+                success_threshold=3,
+            )
+            self._batch_processor = BatchProcessor(
+                self._async_embedding_client,
+                batch_config,
+                FAST_RETRY_CONFIG
+            )
+
+        return self._batch_processor
+
     def _generate_embeddings(
         self,
         units: List[CodeUnit],
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        use_async_processor: bool = True
     ) -> List[List[float]]:
         """生成嵌入向量 (带缓存支持)
 
         Args:
             units: 代码单元列表
             progress_callback: 进度回调 (current, total, message)
+            use_async_processor: 是否使用新的异步批量处理器
 
         Returns:
             嵌入向量列表
@@ -515,7 +578,28 @@ class CodeIndexer:
                 progress_callback(total, total, "嵌入向量生成完成")
             return embeddings
 
-        # 无缓存时直接计算（带进度）
+        # Try to use new async batch processor for better performance
+        if use_async_processor:
+            try:
+                import asyncio
+
+                processor = self._get_batch_processor()
+
+                def progress_wrapper(processed: int, total_count: int):
+                    if progress_callback:
+                        progress_callback(processed, total_count, f"生成嵌入: {processed}/{total_count}")
+
+                # Run async processor in sync context
+                result = processor.client.embed_batch_sync(texts, progress_wrapper)
+                if progress_callback:
+                    progress_callback(total, total, "嵌入向量生成完成")
+                return result.embeddings
+
+            except Exception as e:
+                logger.warning(f"Async batch processor failed, falling back to sync: {e}")
+                # Fall through to sync implementation
+
+        # Fallback: 无缓存时直接计算（带进度）
         batch_size = 50
         all_embeddings = []
 

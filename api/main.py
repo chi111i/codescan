@@ -736,21 +736,70 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             vuln_type_strs = [vt.value for vt in request.vuln_types]
             logger.info(f"扫描任务 {scan_id}: 用户选择的漏洞类型: {vuln_type_strs}")
 
+        # 创建线程安全的进度回调
+        import queue
+        progress_queue = queue.Queue()
+
+        def analysis_progress_callback(progress: float, step: str):
+            """线程安全的进度回调，将进度更新放入队列"""
+            progress_queue.put((progress, step))
+
+        # 启动一个协程来处理进度队列
+        async def process_progress_updates():
+            """异步处理进度更新队列"""
+            while True:
+                try:
+                    # 非阻塞地检查队列
+                    try:
+                        progress, step = progress_queue.get_nowait()
+                        task.progress = progress
+                        task.current_step = step
+                        await broadcast_scan_progress(scan_id, task)
+                    except queue.Empty:
+                        pass
+                    await asyncio.sleep(0.1)  # 100ms 轮询间隔
+                except asyncio.CancelledError:
+                    # 处理剩余的队列项
+                    while not progress_queue.empty():
+                        try:
+                            progress, step = progress_queue.get_nowait()
+                            task.progress = progress
+                            task.current_step = step
+                            await broadcast_scan_progress(scan_id, task)
+                        except queue.Empty:
+                            break
+                    break
+                except Exception as e:
+                    logger.warning(f"Progress update error: {e}")
+                    await asyncio.sleep(0.1)
+
+        # 启动进度处理任务
+        progress_task = asyncio.create_task(process_progress_updates())
+
         # 使用线程池执行同步的分析操作（可能调用 LLM）
         # 始终传递 code_units 使用直接分析模式，避免依赖不可靠的向量搜索
-        findings = await asyncio.to_thread(
-            analyzer.analyze,
-            request.languages[0] if request.languages else None,  # language
-            None,  # file_pattern
-            request.max_issues,  # max_candidates
-            2,  # max_workers
-            None,  # use_agent
-            code_units,  # code_units - 直接传递代码单元进行模式匹配
-            request.use_chain_analysis,  # use_chain_analysis - 是否使用链级分析
-            request.max_chain_depth,  # max_chain_depth - 最大调用链深度
-            vuln_type_strs,  # vuln_types - 用户选择的漏洞类型
-            30,  # max_llm_calls - 最大 LLM 调用次数
-        )
+        try:
+            findings = await asyncio.to_thread(
+                analyzer.analyze,
+                request.languages[0] if request.languages else None,  # language
+                None,  # file_pattern
+                request.max_issues,  # max_candidates
+                2,  # max_workers
+                None,  # use_agent
+                code_units,  # code_units - 直接传递代码单元进行模式匹配
+                request.use_chain_analysis,  # use_chain_analysis - 是否使用链级分析
+                request.max_chain_depth,  # max_chain_depth - 最大调用链深度
+                vuln_type_strs,  # vuln_types - 用户选择的漏洞类型
+                30,  # max_llm_calls - 最大 LLM 调用次数
+                analysis_progress_callback,  # progress_callback - 进度回调
+            )
+        finally:
+            # 停止进度处理任务
+            progress_task.cancel()
+            try:
+                await progress_task
+            except asyncio.CancelledError:
+                pass
         logger.info(f"扫描任务 {scan_id}: 安全规则扫描完成，发现 {len(findings)} 个问题")
 
         # 记录分析结果

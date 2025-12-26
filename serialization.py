@@ -27,6 +27,14 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+# orjson 可选加速 (比标准库快 3-10x)
+try:
+    import orjson
+    _HAS_ORJSON = True
+except ImportError:
+    orjson = None  # type: ignore
+    _HAS_ORJSON = False
+
 
 def to_jsonable(obj: Any) -> Any:
     """将任意对象转换为 JSON 兼容的 Python 对象。
@@ -132,3 +140,54 @@ def safe_json_dumps(
         JSON 字符串
     """
     return json.dumps(to_jsonable(data), ensure_ascii=ensure_ascii, **kwargs)
+
+
+def fast_json_dumps(data: Any) -> str:
+    """高性能 JSON 序列化 (用于 WebSocket 等高频场景)。
+
+    使用 orjson 加速序列化。如果 orjson 不可用，回退到标准 json 模块。
+    注意：此函数假设数据已经过 to_jsonable() 处理，即不包含不可序列化类型。
+
+    Args:
+        data: 已处理为 JSON 兼容的 Python 对象
+
+    Returns:
+        紧凑的 JSON 字符串（无多余空格）
+    """
+    if _HAS_ORJSON:
+        # orjson.dumps 返回 bytes，需要解码
+        return orjson.dumps(data).decode("utf-8")
+    # 标准库回退，使用紧凑分隔符
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+
+def fast_json_loads(payload: str | bytes) -> Any:
+    """高性能 JSON 反序列化。
+
+    使用 orjson 加速反序列化。如果 orjson 不可用，回退到标准 json 模块。
+
+    Args:
+        payload: JSON 字符串或 bytes
+
+    Returns:
+        解析后的 Python 对象
+    """
+    if _HAS_ORJSON:
+        return orjson.loads(payload)
+    if isinstance(payload, bytes):
+        payload = payload.decode("utf-8")
+    return json.loads(payload)
+
+
+def fast_safe_json_dumps(data: Any) -> str:
+    """安全 + 高性能 JSON 序列化。
+
+    组合 to_jsonable() 和 fast_json_dumps()，适用于 WebSocket 发送。
+
+    Args:
+        data: 任意对象
+
+    Returns:
+        紧凑的 JSON 字符串
+    """
+    return fast_json_dumps(to_jsonable(data))

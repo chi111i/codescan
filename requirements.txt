@@ -19,6 +19,9 @@ fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 websockets>=12.0
 
+# 可选：性能加速
+orjson>=3.9.0  # WebSocket JSON 序列化加速 (3-10x faster)
+
 # 可选：代码解析增强
 # tree-sitter>=0.20.0
 # tree-sitter-python>=0.20.0

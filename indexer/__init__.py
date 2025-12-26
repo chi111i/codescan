@@ -10,7 +10,9 @@ from .parser import (
     get_parser_for_file,
     register_parser,
 )
-from .vector_store import (
+
+# 从原始 vector_store_legacy.py 文件导入（避免与 vector_store/ 包冲突）
+from .vector_store_legacy import (
     BaseVectorStore,
     QdrantVectorStore,
     InMemoryVectorStore,
@@ -20,6 +22,7 @@ from .vector_store import (
     CodeReranker,
     create_vector_store,
 )
+
 from .indexer import CodeIndexer, FileTracker, GitIgnoreParser
 from .code_reader import CodeReader
 from .storage import (
