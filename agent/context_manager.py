@@ -253,6 +253,7 @@ class ContextManager:
         kept.sort(key=lambda x: x.timestamp)
         self._conversation = kept
         self._conversation_tokens = kept_tokens
+        self._recalculate_total_tokens()
 
         logger.debug(f"[ContextManager] 优先级裁剪，保留 {len(kept)} 条消息")
 
@@ -261,6 +262,8 @@ class ContextManager:
         # 先按 FIFO 移除旧消息
         half_count = len(self._conversation) // 2
         self._conversation = self._conversation[-half_count:]
+        self._conversation_tokens = sum(item.token_count for item in self._conversation)
+        self._recalculate_total_tokens()
 
         # 如果还超限，再按优先级裁剪
         if self._conversation_tokens > self.config.max_conversation_tokens:

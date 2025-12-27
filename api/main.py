@@ -260,6 +260,22 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"关闭 LLM 客户端失败: {e}")
 
+    # 关闭索引器资源（向量存储、嵌入缓存、文件追踪器）
+    if app_state.indexer:
+        try:
+            await app_state.indexer.aclose()
+            logger.info("索引器资源已关闭")
+        except Exception as e:
+            logger.warning(f"关闭索引器失败: {e}")
+
+    # 关闭所有嵌入缓存（单例模式）
+    try:
+        from indexer.embedding_cache import close_all_caches
+        close_all_caches()
+        logger.info("嵌入缓存已关闭")
+    except Exception as e:
+        logger.warning(f"关闭嵌入缓存失败: {e}")
+
     logger.info("API 服务关闭")
 
 

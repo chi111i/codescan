@@ -1160,3 +1160,52 @@ class CodeIndexer:
 
         logger.info(f"直接解析完成: {file_count} 个文件, {len(all_units)} 个代码单元")
         return all_units
+
+    def close(self) -> None:
+        """同步关闭资源
+
+        释放向量存储、嵌入缓存和文件追踪器等资源。
+        在应用关闭时调用。
+        """
+        logger.info("关闭 CodeIndexer 资源...")
+
+        # 关闭向量存储
+        if self.vector_store:
+            try:
+                if hasattr(self.vector_store, 'close'):
+                    self.vector_store.close()
+            except Exception as e:
+                logger.warning(f"关闭向量存储失败: {e}")
+
+        # 关闭嵌入缓存
+        if self.embedding_cache:
+            try:
+                if hasattr(self.embedding_cache, 'close'):
+                    self.embedding_cache.close()
+            except Exception as e:
+                logger.warning(f"关闭嵌入缓存失败: {e}")
+
+        # 关闭文件追踪器
+        if self.file_tracker:
+            try:
+                self.file_tracker.close()
+            except Exception as e:
+                logger.warning(f"关闭文件追踪器失败: {e}")
+
+        # 关闭批处理器
+        if self._batch_processor:
+            try:
+                if hasattr(self._batch_processor, 'close'):
+                    self._batch_processor.close()
+            except Exception as e:
+                logger.warning(f"关闭批处理器失败: {e}")
+
+        logger.info("CodeIndexer 资源已关闭")
+
+    async def aclose(self) -> None:
+        """异步关闭资源
+
+        在异步上下文中释放资源。
+        """
+        import asyncio
+        await asyncio.to_thread(self.close)
