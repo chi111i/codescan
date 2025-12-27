@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 from pathlib import Path
-from typing import List, Set, Optional
+from typing import List, Set, Optional, Tuple
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -191,7 +191,7 @@ class FileFilter:
 
         return False
 
-    def should_ignore(self, file_path: Path) -> tuple[bool, str]:
+    def should_ignore(self, file_path: Path) -> Tuple[bool, str]:
         """判断文件是否应该忽略
 
         Args:

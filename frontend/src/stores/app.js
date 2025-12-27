@@ -15,6 +15,10 @@ export const useAppStore = defineStore('app', () => {
   const scanHistory = ref([])
   const rules = ref([])
 
+  // ============ 索引进度状态 ============
+  const indexProgress = ref(null)
+  const indexWebSocket = ref(null)
+
   // ============ 请求去重与缓存机制 ============
   // 存储正在进行的请求 Promise，避免并发重复请求
   const pendingRequests = {}
@@ -166,6 +170,97 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  // ============ 异步索引（带 WebSocket 进度） ============
+
+  // 启动异步索引
+  const startAsyncIndex = async (config) => {
+    try {
+      const result = await api.indexProjectAsync(config)
+      if (result.success) {
+        const indexId = result.data.index_id
+        indexProgress.value = {
+          indexId,
+          status: 'pending',
+          progress: 0,
+          current_step: '等待开始...',
+          total_files: 0,
+          processed_files: 0,
+          total_units: 0,
+          processed_units: 0,
+          embedding_progress: 0,
+          error_message: null,
+        }
+        // 连接 WebSocket
+        connectIndexWebSocket(indexId)
+      }
+      return result
+    } catch (error) {
+      console.error('Failed to start async index:', error)
+      return null
+    }
+  }
+
+  // 连接索引进度 WebSocket
+  const connectIndexWebSocket = (indexId) => {
+    // 关闭已有连接
+    if (indexWebSocket.value) {
+      indexWebSocket.value.close()
+    }
+
+    const ws = api.createIndexWebSocket(indexId)
+
+    ws.onopen = () => {
+      console.log(`[Index WS] Connected: ${indexId}`)
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'index_progress' || data.type === 'index_status') {
+          indexProgress.value = {
+            indexId: data.index_id,
+            status: data.status,
+            progress: data.progress,
+            current_step: data.current_step,
+            total_files: data.total_files || 0,
+            processed_files: data.processed_files || 0,
+            total_units: data.total_units || 0,
+            processed_units: data.processed_units || 0,
+            embedding_progress: data.embedding_progress || 0,
+            error_message: data.error_message,
+          }
+
+          // 索引完成后刷新统计
+          if (data.status === 'completed') {
+            invalidateCache('stats')
+            fetchStats(true)
+          }
+        }
+      } catch (e) {
+        console.error('[Index WS] Parse error:', e)
+      }
+    }
+
+    ws.onerror = (error) => {
+      console.error('[Index WS] Error:', error)
+    }
+
+    ws.onclose = () => {
+      console.log(`[Index WS] Closed: ${indexId}`)
+      indexWebSocket.value = null
+    }
+
+    indexWebSocket.value = ws
+  }
+
+  // 关闭索引进度显示
+  const closeIndexProgress = () => {
+    if (indexWebSocket.value) {
+      indexWebSocket.value.close()
+    }
+    indexProgress.value = null
+  }
+
   return {
     // 状态
     isConnected,
@@ -173,6 +268,7 @@ export const useAppStore = defineStore('app', () => {
     currentScan,
     scanHistory,
     rules,
+    indexProgress,
 
     // 方法
     checkHealth,
@@ -182,5 +278,7 @@ export const useAppStore = defineStore('app', () => {
     startScan,
     fetchScanResult,
     invalidateCache,
+    startAsyncIndex,
+    closeIndexProgress,
   }
 })

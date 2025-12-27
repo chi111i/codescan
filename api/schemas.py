@@ -205,6 +205,34 @@ class IndexResultSchema(BaseModel):
     indexed_at: datetime
 
 
+class IndexStatus(str, Enum):
+    """索引状态"""
+    PENDING = "pending"
+    SCANNING = "scanning"     # 扫描文件
+    PARSING = "parsing"       # 解析代码
+    EMBEDDING = "embedding"   # 生成嵌入向量
+    STORING = "storing"       # 存储向量
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class IndexProgressSchema(BaseModel):
+    """索引进度"""
+    index_id: str
+    target_path: str
+    status: IndexStatus = IndexStatus.PENDING
+    progress: float = 0.0           # 0.0 - 1.0
+    current_step: str = ""
+    total_files: int = 0
+    processed_files: int = 0
+    total_units: int = 0
+    processed_units: int = 0
+    embedding_progress: float = 0.0  # 嵌入进度 0.0 - 1.0
+    error_message: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
 class SearchResultSchema(BaseModel):
     """搜索结果"""
     query: str

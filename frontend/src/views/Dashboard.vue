@@ -22,6 +22,14 @@
       </div>
     </div>
 
+    <!-- 索引进度条 -->
+    <IndexProgressBar
+      v-if="appStore.indexProgress"
+      :progress="appStore.indexProgress"
+      :visible="!!appStore.indexProgress"
+      @close="appStore.closeIndexProgress()"
+    />
+
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <StatCard
@@ -304,7 +312,18 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <!-- 索引项目 -->
+        <button @click="showIndexDialog = true" class="action-card group">
+          <div class="action-icon bg-gradient-to-br from-indigo-500 to-violet-600 group-hover:scale-110">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <span class="font-medium text-gray-800">索引项目</span>
+          <span class="text-xs text-gray-500 mt-1">建立代码索引</span>
+        </button>
+
         <router-link to="/scan" class="action-card group">
           <div class="action-icon bg-gradient-to-br from-blue-500 to-blue-600 group-hover:scale-110">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,6 +365,61 @@
         </router-link>
       </div>
     </div>
+
+    <!-- 索引项目对话框 -->
+    <div v-if="showIndexDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showIndexDialog = false">
+      <div class="glass-card rounded-2xl p-6 w-full max-w-md mx-4">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">索引项目</h3>
+            <p class="text-sm text-gray-500">为项目代码建立向量索引</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">项目路径</label>
+            <input
+              v-model="indexPath"
+              type="text"
+              placeholder="输入项目目录路径..."
+              class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+            />
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              v-model="clearExisting"
+              type="checkbox"
+              id="clearExisting"
+              class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+            />
+            <label for="clearExisting" class="text-sm text-gray-600">清空现有索引</label>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+          <button
+            @click="showIndexDialog = false"
+            class="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 transition"
+          >
+            取消
+          </button>
+          <button
+            @click="startIndex"
+            :disabled="!indexPath || indexing"
+            class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {{ indexing ? '索引中...' : '开始索引' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -354,6 +428,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import StatCard from '../components/StatCard.vue'
+import IndexProgressBar from '../components/IndexProgressBar.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -363,6 +438,32 @@ const stats = computed(() => appStore.stats)
 const scanHistory = computed(() => appStore.scanHistory)
 const rulesCount = ref(0)
 const rulesCoverage = ref(78)
+
+// 索引对话框状态
+const showIndexDialog = ref(false)
+const indexPath = ref('')
+const clearExisting = ref(false)
+const indexing = ref(false)
+
+// 开始索引
+const startIndex = async () => {
+  if (!indexPath.value) return
+
+  indexing.value = true
+  showIndexDialog.value = false
+
+  try {
+    await appStore.startAsyncIndex({
+      target_path: indexPath.value,
+      clear_existing: clearExisting.value,
+    })
+  } catch (error) {
+    console.error('索引失败:', error)
+    alert('索引启动失败: ' + (error.message || '未知错误'))
+  } finally {
+    indexing.value = false
+  }
+}
 
 const recentScans = computed(() => {
   return [...scanHistory.value]

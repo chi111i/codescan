@@ -27,6 +27,11 @@ export const useAuditStore = defineStore('audit', () => {
   const WS_MAX_RECONNECT_ATTEMPTS = 5
   const WS_RECONNECT_DELAY = 3000
 
+  // 标记是否为“主动关闭”（用于避免页面切换时触发自动重连）
+  // 说明：浏览器 WebSocket 的 close 事件有时会返回非 1000（例如 1006），
+  // 如果不区分主动关闭，会导致切页后仍在后台不断重连、解析消息，进而造成卡顿。
+  // 这里通过给具体 ws 实例挂载 __manualClose 标记来避免竞态。
+
   // ============ 消息缓冲 (性能优化) ============
   let messageBuffer = ''
   let messageBufferTimer = null
@@ -40,6 +45,15 @@ export const useAuditStore = defineStore('audit', () => {
   const quickScanProgress = ref(null)
   const quickScanResult = ref(null)
   let quickScanWs = null
+
+  // ============ LLM 调用过程状态 (实时展示) ============
+  const llmCallHistory = ref([])  // LLM 调用历史 [{call_id, status, content_preview, tool_calls, ...}]
+  const currentLlmCall = ref(null)  // 当前正在进行的 LLM 调用
+  const isLlmThinking = ref(false)  // LLM 是否正在思考
+
+  // ============ 实时发现状态 ============
+  const realtimeFindings = ref([])  // 实时发现的漏洞列表
+  const analysisProgress = ref(null)  // 分析进度 {current, total, current_site}
 
   // ============ 计算属性 ============
   const hasActiveSession = computed(() => !!currentSession.value)
@@ -222,12 +236,21 @@ export const useAuditStore = defineStore('audit', () => {
       clearTimeout(messageBufferTimer)
       messageBufferTimer = null
     }
+    // 清空 LLM 调用历史和实时发现
+    llmCallHistory.value = []
+    currentLlmCall.value = null
+    isLlmThinking.value = false
+    realtimeFindings.value = []
+    analysisProgress.value = null
   }
 
   // ============ 对话方法 ============
 
   const sendMessage = async (message) => {
     if (!message.trim() || !currentSession.value || isProcessing.value) return null
+
+    // 确保 WebSocket 已连接（在发送消息前）
+    ensureWebSocketConnected()
 
     // 取消之前未完成的请求
     cancelPendingRequest()
@@ -243,11 +266,23 @@ export const useAuditStore = defineStore('audit', () => {
     currentProcessingStep.value = '正在分析...'
 
     // 创建新的 AbortController
+    // 重要：必须把 signal 传给 axios 才能真正取消请求，否则“取消/切页”后请求仍会继续，
+    // 可能导致页面切换卡顿、回包写入 store 等问题。
     currentAbortController = new AbortController()
+
+    // 等待 WebSocket 连接就绪（最多等待 2 秒）
+    const wsConnected = await waitForWebSocketReady(2000)
+    if (!wsConnected) {
+      console.warn('[AuditStore] WebSocket 未能及时连接，但将继续发送请求')
+    }
 
     try {
       console.log('[DEBUG] 发送 chat 请求:', currentSession.value.session_id, message)
-      const result = await api.chatWithAgent(currentSession.value.session_id, message)
+      const result = await api.chatWithAgent(
+        currentSession.value.session_id,
+        message,
+        { signal: currentAbortController.signal }
+      )
       console.log('[DEBUG] chat 响应:', result)
 
       if (result.success && result.data.message) {
@@ -297,12 +332,46 @@ export const useAuditStore = defineStore('audit', () => {
   }
 
   // 检查并恢复 WebSocket 连接（用于页面返回时）
+  // 修复：只在 WebSocket 完全关闭（CLOSED）时才重连，避免在 CLOSING 状态时创建新连接
   const ensureWebSocketConnected = () => {
-    if (currentSession.value && (!ws || ws.readyState !== WebSocket.OPEN)) {
+    // 只有当没有 WebSocket 或者 WebSocket 已完全关闭时才重连
+    // 不要在 CONNECTING 或 CLOSING 状态时干扰
+    const shouldReconnect = currentSession.value && (!ws || ws.readyState === WebSocket.CLOSED)
+    if (shouldReconnect) {
       console.log('[AuditStore] 恢复 WebSocket 连接:', currentSession.value.session_id)
       wsReconnectAttempts = 0  // 恢复连接时重置重试计数
       connectWebSocket(currentSession.value.session_id)
     }
+  }
+
+  // 等待 WebSocket 连接就绪
+  const waitForWebSocketReady = (timeoutMs = 2000) => {
+    return new Promise((resolve) => {
+      // 如果已经连接，立即返回
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        resolve(true)
+        return
+      }
+
+      const startTime = Date.now()
+      const checkInterval = 50  // 50ms 检查一次
+
+      const checkConnection = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          resolve(true)
+          return
+        }
+
+        if (Date.now() - startTime >= timeoutMs) {
+          resolve(false)
+          return
+        }
+
+        setTimeout(checkConnection, checkInterval)
+      }
+
+      checkConnection()
+    })
   }
 
   // ============ WebSocket 方法 ============
@@ -315,18 +384,31 @@ export const useAuditStore = defineStore('audit', () => {
 
     try {
       if (ws) {
-        ws.close()
+        // 关闭旧连接：标记为主动关闭，避免 onclose 触发自动重连
+        try {
+          ws.__manualClose = true
+          ws.onopen = null
+          ws.onmessage = null
+          ws.onerror = null
+          ws.onclose = null
+          ws.close(1000, 'Reconnecting')
+        } catch (e) {
+          // ignore
+        }
         ws = null
       }
 
-      ws = api.createAgentWebSocket(sessionId)
+      const wsInstance = api.createAgentWebSocket(sessionId)
+      // 给具体实例打标记，避免竞态（旧 ws close 事件晚到）
+      wsInstance.__manualClose = false
+      ws = wsInstance
 
-      ws.onopen = () => {
+      wsInstance.onopen = () => {
         console.log('Agent WebSocket connected')
         wsReconnectAttempts = 0
       }
 
-      ws.onmessage = (event) => {
+      wsInstance.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
           handleWebSocketMessage(data)
@@ -335,12 +417,20 @@ export const useAuditStore = defineStore('audit', () => {
         }
       }
 
-      ws.onerror = (error) => {
+      wsInstance.onerror = (error) => {
         console.error('WebSocket error:', error)
       }
 
-      ws.onclose = (event) => {
+      wsInstance.onclose = (event) => {
         console.log('WebSocket disconnected, code:', event.code)
+        // 主动关闭时，清理 ws 引用并返回，不进行重连
+        if (wsInstance.__manualClose) {
+          // 只有当这个实例是当前的 ws 时才清理
+          if (ws === wsInstance) {
+            ws = null
+          }
+          return
+        }
         // 只有当会话 ID 匹配且非正常关闭时才重连
         const isCurrentSession = currentSession.value && currentSession.value.session_id === sessionId
         if (isCurrentSession && event.code !== 1000 && wsReconnectAttempts < WS_MAX_RECONNECT_ATTEMPTS) {
@@ -356,16 +446,46 @@ export const useAuditStore = defineStore('audit', () => {
   }
 
   const disconnectWebSocket = () => {
+    // 清除重连定时器
     if (wsReconnectTimer) {
       clearTimeout(wsReconnectTimer)
       wsReconnectTimer = null
     }
     wsReconnectAttempts = 0
 
-    if (ws) {
-      ws.close(1000, 'User disconnect')
-      ws = null
+    // 清除消息缓冲定时器（防止页面切换后仍尝试更新状态）
+    if (messageBufferTimer) {
+      clearTimeout(messageBufferTimer)
+      messageBufferTimer = null
     }
+    messageBuffer = ''
+
+    // 关闭 WebSocket
+    // 修复：不要立即将 ws 设为 null，保持 onclose 处理器以尊重 __manualClose 标记
+    // 这可以防止竞态条件：在旧连接完全关闭前创建新连接
+    if (ws) {
+      try {
+        ws.__manualClose = true
+        // 只清除 onopen/onmessage/onerror，保留 onclose 让其自然触发
+        // 这样 onclose 中的 __manualClose 检查才能正常工作
+        ws.onopen = null
+        ws.onmessage = null
+        ws.onerror = null
+        // 注意：不再设置 ws.onclose = null
+        ws.close(1000, 'User disconnect')
+        // 注意：不再设置 ws = null
+        // WebSocket 会进入 CLOSING 状态，然后变成 CLOSED
+        // ensureWebSocketConnected 已修复为只在 CLOSED 状态时重连
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // 重置处理状态（防止页面切换后卡在处理中状态）
+    isProcessing.value = false
+    currentProcessingStep.value = ''
+    isLlmThinking.value = false
+    currentLlmCall.value = null
   }
 
   // 批量刷新消息缓冲到 UI，减少渲染频率
@@ -444,6 +564,90 @@ export const useAuditStore = defineStore('audit', () => {
         console.error('WebSocket error:', data.data?.error)
         isProcessing.value = false
         currentProcessingStep.value = ''
+        break
+
+      // === LLM 调用过程事件 (实时展示) ===
+      case 'llm_call_start':
+        isLlmThinking.value = true
+        currentLlmCall.value = {
+          call_id: data.data?.call_id,
+          status: 'thinking',
+          messages_count: data.data?.messages_count,
+          tools_count: data.data?.tools_count,
+          current_question: data.data?.current_question,
+          started_at: data.data?.timestamp || new Date().toISOString(),
+        }
+        currentProcessingStep.value = 'LLM 正在思考...'
+        break
+
+      case 'llm_call_end':
+        isLlmThinking.value = false
+        if (currentLlmCall.value) {
+          currentLlmCall.value.status = 'completed'
+          currentLlmCall.value.content_preview = data.data?.content_preview || ''
+          currentLlmCall.value.content = data.data?.content || ''
+          currentLlmCall.value.tool_calls = data.data?.tool_calls || []
+          currentLlmCall.value.tool_calls_count = data.data?.tool_calls_count || 0
+          currentLlmCall.value.usage = data.data?.usage
+          currentLlmCall.value.finished_at = data.data?.timestamp || new Date().toISOString()
+          // 添加到历史记录
+          llmCallHistory.value.push({ ...currentLlmCall.value })
+          // 限制历史记录数量 (最近50条)
+          if (llmCallHistory.value.length > 50) {
+            llmCallHistory.value.shift()
+          }
+          // 重置当前调用状态，为下一次调用做准备
+          currentLlmCall.value = null
+        }
+        currentProcessingStep.value = data.data?.tool_calls_count > 0
+          ? `执行 ${data.data.tool_calls_count} 个工具调用`
+          : '处理响应中...'
+        break
+
+      case 'llm_thinking':
+        // 可选：流式思考内容
+        if (data.data?.content) {
+          if (currentLlmCall.value) {
+            currentLlmCall.value.thinking_content = (currentLlmCall.value.thinking_content || '') + data.data.content
+          }
+        }
+        break
+
+      // === 漏洞发现事件 ===
+      case 'new_finding':
+        if (data.data) {
+          const findingId = data.data.id  // 保存到局部变量避免闭包问题
+          // 添加到实时发现列表顶部
+          realtimeFindings.value.unshift({
+            ...data.data,
+            _isNew: true,  // 标记为新发现（用于高亮）
+            received_at: new Date().toISOString(),
+          })
+          // 限制显示数量 (最近100条)
+          if (realtimeFindings.value.length > 100) {
+            realtimeFindings.value.pop()
+          }
+          // 3秒后移除新发现标记
+          if (findingId) {
+            setTimeout(() => {
+              const finding = realtimeFindings.value.find(f => f.id === findingId)
+              if (finding) finding._isNew = false
+            }, 3000)
+          }
+        }
+        break
+
+      // === 分析进度事件 ===
+      case 'analysis_progress':
+        analysisProgress.value = {
+          current: data.data?.current || 0,
+          total: data.data?.total || 0,
+          current_site: data.data?.current_site || null,
+          percentage: data.data?.total > 0
+            ? Math.round((data.data.current / data.data.total) * 100)
+            : 0,
+        }
+        currentProcessingStep.value = `分析触发点 ${data.data?.current || 0}/${data.data?.total || 0}`
         break
     }
   }
@@ -556,7 +760,16 @@ export const useAuditStore = defineStore('audit', () => {
 
   const disconnectQuickScanWebSocket = () => {
     if (quickScanWs) {
-      quickScanWs.close(1000, 'Scan completed')
+      try {
+        quickScanWs.__manualClose = true
+        quickScanWs.onopen = null
+        quickScanWs.onmessage = null
+        quickScanWs.onerror = null
+        quickScanWs.onclose = null
+        quickScanWs.close(1000, 'Scan completed')
+      } catch (e) {
+        // ignore
+      }
       quickScanWs = null
     }
   }
@@ -599,6 +812,15 @@ export const useAuditStore = defineStore('audit', () => {
     isQuickScanning,
     quickScanProgress,
     quickScanResult,
+
+    // LLM 调用过程 (实时展示)
+    llmCallHistory,
+    currentLlmCall,
+    isLlmThinking,
+
+    // 实时发现
+    realtimeFindings,
+    analysisProgress,
 
     // 会话方法
     fetchExistingSessions,

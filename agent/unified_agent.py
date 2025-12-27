@@ -160,6 +160,17 @@ class UnifiedAgentConfig:
     on_prescan_complete: Optional[Callable[[PreScanResult], None]] = None  # 预扫描完成回调
     on_enhancement_complete: Optional[Callable[[EnhancementResult], None]] = None  # 深度增强完成回调
 
+    # === LLM 调用过程回调（用于实时展示） ===
+    on_llm_call_start: Optional[Callable[[Dict[str, Any]], Any]] = None  # LLM调用开始: {call_id, messages_count, tools_count}
+    on_llm_call_end: Optional[Callable[[Dict[str, Any]], Any]] = None  # LLM调用结束: {call_id, content, tool_calls, usage}
+    on_llm_thinking: Optional[Callable[[str], Any]] = None  # LLM思考过程（流式内容）
+
+    # === 漏洞发现回调 ===
+    on_finding_reported: Optional[Callable[[Dict[str, Any]], Any]] = None  # 漏洞报告: Finding 数据
+
+    # === 分析进度回调 ===
+    on_analysis_progress: Optional[Callable[[Dict[str, Any]], Any]] = None  # 进度: {current, total, current_site}
+
 
 class UnifiedAuditAgent:
     """统一审计智能体
@@ -200,6 +211,7 @@ class UnifiedAuditAgent:
         call_chain_analyzer=None,
         variant_analyzer=None,
         vector_store=None,
+        rule_manager=None,  # 规则管理器（可选，用于预扫描）
     ):
         """初始化统一审计智能体
 
@@ -211,6 +223,7 @@ class UnifiedAuditAgent:
             call_chain_analyzer: 调用链分析器（可选）
             variant_analyzer: 变体分析器（可选）
             vector_store: 向量存储（可选）
+            rule_manager: 规则管理器（可选，用于预扫描）
         """
         self.session_id = session_id
         self.llm_client = llm_client
@@ -221,6 +234,7 @@ class UnifiedAuditAgent:
         self.call_chain_analyzer = call_chain_analyzer
         self.variant_analyzer = variant_analyzer
         self.vector_store = vector_store
+        self.rule_manager = rule_manager  # 存储规则管理器引用
 
         # 工具管理器
         self.tool_manager = AgentToolManager()
@@ -249,6 +263,9 @@ class UnifiedAuditAgent:
         # === 对话历史压缩状态 ===
         self._compressed_history_summary: str = ""  # 压缩后的历史摘要
 
+        # === 主事件循环引用（用于跨线程回调调度） ===
+        self._main_loop: Optional[asyncio.AbstractEventLoop] = None
+
         logger.info(f"[UnifiedAgent] 创建会话: {session_id}")
 
     async def initialize(self):
@@ -258,6 +275,13 @@ class UnifiedAuditAgent:
         """
         if self._initialized:
             return
+
+        # 保存主事件循环引用（用于跨线程回调调度）
+        try:
+            self._main_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._main_loop = None
+            logger.warning("[UnifiedAgent] 无法获取运行中的事件循环")
 
         logger.info("[UnifiedAgent] 开始初始化...")
 
@@ -298,24 +322,69 @@ class UnifiedAuditAgent:
             f"[UnifiedAgent] 初始化完成，注册了 {self.tool_manager.count()} 个工具"
         )
 
+    def _schedule_async_callback(self, callback: Callable, *args) -> bool:
+        """在主事件循环中安全调度异步回调
+
+        用于从线程池中的同步执行器调用异步回调函数。
+
+        Args:
+            callback: 异步回调函数
+            *args: 回调参数
+
+        Returns:
+            bool: 是否成功调度
+        """
+        if not callback:
+            return False
+
+        try:
+            result = callback(*args)
+            if asyncio.iscoroutine(result):
+                if self._main_loop and self._main_loop.is_running():
+                    # 使用 call_soon_threadsafe 调度到主事件循环
+                    future = asyncio.run_coroutine_threadsafe(result, self._main_loop)
+                    # 等待结果（带超时）
+                    try:
+                        future.result(timeout=5.0)
+                        return True
+                    except Exception as e:
+                        logger.warning(f"[UnifiedAgent] 异步回调执行失败: {e}")
+                        return False
+                else:
+                    # 没有运行中的事件循环，尝试创建新的
+                    try:
+                        asyncio.run(result)
+                        return True
+                    except RuntimeError as e:
+                        logger.warning(f"[UnifiedAgent] 无法执行异步回调: {e}")
+                        return False
+            else:
+                # 同步回调，直接返回
+                return True
+        except Exception as e:
+            logger.warning(f"[UnifiedAgent] 回调调度失败: {e}")
+            return False
+
     async def _run_prescan(self, code_units: List[CodeUnit]):
         """执行规则预扫描和深度增强分析
 
         Args:
             code_units: 代码单元列表
         """
-        from rules import RuleManager
-
         logger.info("[UnifiedAgent] 开始执行规则预扫描...")
 
         try:
-            rule_manager = RuleManager()
+            # 使用传入的 rule_manager，如果没有则跳过预扫描
+            if self.rule_manager is None:
+                logger.warning("[UnifiedAgent] 未提供 rule_manager，跳过预扫描")
+                self._prescan_context = ""
+                return
 
             # 1. 规则预扫描
             prescan_config = PreScanConfig(
                 enabled_risk_levels=self.config.prescan_risk_levels,
             )
-            preprocessor = RuleScanPreprocessor(rule_manager, prescan_config)
+            preprocessor = RuleScanPreprocessor(self.rule_manager, prescan_config)
 
             # 获取项目路径
             project_path = self.indexer.project_path if hasattr(self.indexer, 'project_path') else ""
@@ -344,7 +413,7 @@ class UnifiedAuditAgent:
                     enable_call_chain=self.config.enable_call_chain,
                     enable_taint_analysis=True,
                 )
-                enhancer = DeepAnalysisEnhancer(rule_manager, enhance_config)
+                enhancer = DeepAnalysisEnhancer(self.rule_manager, enhance_config)
 
                 # 使用线程池执行同步增强操作
                 self.enhancement_result = await asyncio.to_thread(
@@ -551,6 +620,63 @@ class UnifiedAuditAgent:
 
     def _register_security_tools(self):
         """注册安全分析工具"""
+        # === 报告发现（核心工具 - 用于逐个输出漏洞） ===
+        self.tool_manager.register_tool(
+            name="report_finding",
+            description="报告一个安全发现。当你确认发现安全漏洞时，必须使用此工具立即报告，而不是等到最后总结。每发现一个漏洞就调用一次。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "severity": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "info"],
+                        "description": "严重程度: critical(紧急), high(高危), medium(中危), low(低危), info(信息)"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "漏洞标题，简洁明了（如：SQL注入漏洞、命令执行漏洞）"
+                    },
+                    "vulnerability_type": {
+                        "type": "string",
+                        "description": "漏洞类型（如：sql_injection, command_injection, xss, file_read, file_write, ssrf, idor, auth_bypass）"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "漏洞所在文件路径"
+                    },
+                    "line_number": {
+                        "type": "integer",
+                        "description": "漏洞所在行号"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "漏洞详细描述，包括成因和影响"
+                    },
+                    "code_evidence": {
+                        "type": "string",
+                        "description": "漏洞代码证据（相关代码片段）"
+                    },
+                    "attack_scenario": {
+                        "type": "string",
+                        "description": "攻击场景说明（如何利用此漏洞，不含具体payload）"
+                    },
+                    "fix_suggestion": {
+                        "type": "string",
+                        "description": "修复建议"
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "description": "置信度 0.0-1.0，表示对此发现的确信程度",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    }
+                },
+                "required": ["severity", "title", "vulnerability_type", "file_path", "description"]
+            },
+            executor=self._execute_report_finding,
+            category="finding_management",
+        )
+
         # 确认发现
         self.tool_manager.register_tool(
             name="confirm_finding",
@@ -675,6 +801,105 @@ class UnifiedAuditAgent:
             },
             executor=self._execute_get_site_details,
             category="prescan",
+        )
+
+        # === 深度调用链分析工具 ===
+        self.tool_manager.register_tool(
+            name="analyze_sink_call_chain",
+            description="""分析指定 Sink 触发点的完整调用链。从入口点到危险函数的完整调用路径，包括：
+- 所有调用者层级
+- 入口点识别（HTTP 路由、API 端点等）
+- 污点传播路径分析
+- 消毒函数检测
+使用此工具深入理解用户输入如何到达危险函数。""",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "site_id": {
+                        "type": "string",
+                        "description": "预扫描触发点 ID（如 sink-0001），或直接使用 symbol_name"
+                    },
+                    "symbol_name": {
+                        "type": "string",
+                        "description": "函数/方法名（如果不使用 site_id）"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "限定在特定文件中（可选）"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "最大调用链深度，默认 10",
+                        "default": 10
+                    },
+                    "include_code": {
+                        "type": "boolean",
+                        "description": "是否包含各节点的代码片段",
+                        "default": True
+                    }
+                }
+            },
+            executor=self._execute_analyze_sink_call_chain,
+            category="deep_analysis",
+        )
+
+        self.tool_manager.register_tool(
+            name="find_similar_sinks",
+            description="""使用向量检索查找与指定 Sink 相似的代码模式。用于：
+- 发现变体漏洞
+- 查找相似的危险代码模式
+- 批量识别同类安全问题""",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "site_id": {
+                        "type": "string",
+                        "description": "预扫描触发点 ID 作为查询模式"
+                    },
+                    "code_pattern": {
+                        "type": "string",
+                        "description": "代码模式描述（如果不使用 site_id）"
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "返回相似结果数量，默认 10",
+                        "default": 10
+                    },
+                    "min_similarity": {
+                        "type": "number",
+                        "description": "最小相似度阈值（0-1），默认 0.7",
+                        "default": 0.7
+                    }
+                }
+            },
+            executor=self._execute_find_similar_sinks,
+            category="deep_analysis",
+        )
+
+        self.tool_manager.register_tool(
+            name="analyze_entry_to_sink",
+            description="""分析从指定入口点到 Sink 的完整数据流路径。综合调用链和污点分析，给出可利用性评估。""",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "entry_point": {
+                        "type": "string",
+                        "description": "入口点函数名（如 'handle_upload'）"
+                    },
+                    "sink_site_id": {
+                        "type": "string",
+                        "description": "目标 Sink 触发点 ID"
+                    },
+                    "include_intermediate_code": {
+                        "type": "boolean",
+                        "description": "是否包含中间节点代码",
+                        "default": True
+                    }
+                },
+                "required": ["entry_point", "sink_site_id"]
+            },
+            executor=self._execute_analyze_entry_to_sink,
+            category="deep_analysis",
         )
 
         logger.debug("[UnifiedAgent] 安全分析工具已注册")
@@ -1037,11 +1262,29 @@ class UnifiedAuditAgent:
 
 ## 工作流程
 
-1. **理解需求**：首先理解用户想要分析什么
-2. **选择工具**：根据需求选择合适的工具
-3. **执行分析**：调用工具获取信息
-4. **综合判断**：基于工具返回的信息进行安全分析
-5. **输出结果**：清晰地向用户报告发现
+### 智能决策循环
+
+你是一个自主的安全分析智能体，应按以下循环进行分析：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  观察 → 思考 → 行动 → 观察 → ...（循环直到完成）                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Step 1: 观察预扫描结果，识别高优先级触发点
+Step 2: 对每个触发点，使用深度分析工具获取完整上下文
+Step 3: 基于上下文判断是否为真实漏洞
+Step 4: 如确认漏洞，使用 find_similar_sinks 查找变体
+Step 5: 输出结构化发现报告
+```
+
+### 分析阶段
+
+1. **理解阶段**：阅读预扫描结果，理解代码库结构
+2. **深度分析**：使用 `analyze_sink_call_chain` 获取调用链上下文
+3. **可利用性评估**：使用 `analyze_entry_to_sink` 判断攻击路径
+4. **变体发现**：使用 `find_similar_sinks` 批量检测同类问题
+5. **结果输出**：结构化报告每个确认的安全问题
 
 ## 重要原则
 
@@ -1057,6 +1300,84 @@ class UnifiedAuditAgent:
 - 业务流程是否可被跳过或篡改
 - 用户输入是否经过适当验证
 - 危险函数调用是否安全
+
+## 🔍 深度分析工具使用策略
+
+### 核心分析工作流
+
+1. **预扫描触发点 → 深度调用链分析**
+   - 当预扫描发现危险函数触发点时，使用 `analyze_sink_call_chain` 分析完整调用链
+   - 该工具会返回：所有调用者、入口点、调用深度、污点传播路径
+
+2. **相似代码发现 → 批量变体检测**
+   - 确认一个漏洞后，使用 `find_similar_sinks` 查找相似代码模式
+   - 可发现：同类漏洞变体、复制粘贴的危险代码、未被规则覆盖的变种
+
+3. **入口点 → Sink 完整链路分析**
+   - 使用 `analyze_entry_to_sink` 分析从 HTTP 入口到危险函数的完整数据流
+   - 可判断：是否有消毒函数、数据流是否可控、漏洞可利用性
+
+### 工具选择决策树
+
+```
+发现 Sink 触发点
+  │
+  ├─→ 需要了解调用链？ → analyze_sink_call_chain
+  │     └─→ 返回入口点列表 → 选择关键入口点
+  │
+  ├─→ 需要查找变体？ → find_similar_sinks
+  │     └─→ 返回相似代码 → 逐个验证
+  │
+  └─→ 需要分析可利用性？ → analyze_entry_to_sink
+        └─→ 返回完整路径 + 消毒检测 → 判断风险等级
+```
+
+### 最佳实践
+
+1. **优先使用深度分析工具**：面对预扫描结果，先用深度工具获取完整上下文
+2. **链级思考**：不要只看单个函数，要看整条调用链上的所有节点
+3. **证据收集**：每个发现都要有调用链路径作为证据
+4. **批量检测**：确认一个漏洞后，立即使用 `find_similar_sinks` 查找变体
+
+## 🚨 漏洞报告要求（必须遵守）
+
+### 核心规则：发现即报告
+
+**当你确认发现安全漏洞时，必须立即调用 `report_finding` 工具报告，不要等到分析完成后才报告！**
+
+### 工作流程
+
+```
+分析触发点 → 确认是漏洞 → 立即调用 report_finding → 继续分析下一个
+                 ↓
+              不是漏洞 → 跳过，继续分析下一个
+```
+
+### report_finding 调用示例
+
+当发现 SQL 注入漏洞时：
+```json
+{{
+  "severity": "high",
+  "title": "SQL注入漏洞",
+  "vulnerability_type": "sql_injection",
+  "file_path": "login.php",
+  "line_number": 45,
+  "description": "用户输入未经过滤直接拼接到SQL查询中",
+  "code_evidence": "$query = \"SELECT * FROM users WHERE username='\" . $_POST['user'] . \"'\";",
+  "attack_scenario": "攻击者可通过构造恶意输入获取数据库中的敏感数据",
+  "fix_suggestion": "使用参数化查询或预处理语句",
+  "confidence": 0.95
+}}
+```
+
+### 严重程度判断标准
+
+- **critical**: RCE、任意文件读写、反序列化漏洞
+- **high**: SQL注入、SSRF、认证绕过、敏感信息泄露
+- **medium**: XSS、CSRF、不安全的会话管理
+- **low**: 信息泄露、弱加密、日志注入
+- **info**: 最佳实践建议、配置优化
 
 ## ⚠️ 工具调用格式要求（严格遵守）
 
@@ -1130,7 +1451,30 @@ class UnifiedAuditAgent:
 
 {self._prescan_context}
 
-**建议**：从上述高优先级触发点开始深入分析，使用 `read_file` 查看完整上下文，使用 `get_callers`/`get_callees` 追踪调用链，使用 `analyze_taint_path` 分析数据流。
+### 🎯 推荐分析流程
+
+1. **深度调用链分析**（首选）
+   ```
+   analyze_sink_call_chain(site_id="sink-0001")
+   ```
+   返回完整调用链、入口点、污点路径，一次调用获取所有上下文。
+
+2. **入口点到 Sink 链路分析**
+   ```
+   analyze_entry_to_sink(entry_name="handle_request", sink_name="os.system")
+   ```
+   分析数据如何从 HTTP 入口流向危险函数，评估可利用性。
+
+3. **变体发现**
+   ```
+   find_similar_sinks(code_snippet="os.system(user_input)", top_k=10)
+   ```
+   确认一个漏洞后，查找代码库中的相似模式。
+
+4. **补充工具**
+   - `read_file` - 查看特定代码行
+   - `get_callers`/`get_callees` - 单跳调用关系
+   - `analyze_taint_path` - 污点传播分析
 """
 
         base_prompt += "\n使用中文回复。"
@@ -1152,6 +1496,31 @@ class UnifiedAuditAgent:
         logger.info(f"[UnifiedAgent][{call_id}] 开始 LLM 调用")
         print(f"[{timestamp}] [UnifiedAgent][{call_id}] 开始 LLM 调用: messages={len(messages)}, tools={len(tools)}")  # 强制输出
         logger.info(f"[UnifiedAgent][{call_id}] 请求参数: messages={len(messages)}, tools={len(tools)}, temp={self.config.temperature}, max_tokens={self.config.max_tokens}")
+
+        # === 触发 LLM 调用开始回调 ===
+        if self.config.on_llm_call_start:
+            try:
+                # 获取最后一条用户消息作为当前问题摘要
+                last_user_msg = ""
+                for m in reversed(messages):
+                    if m.role == "user":
+                        last_user_msg = (m.content or "")[:200]
+                        break
+
+                start_event = {
+                    "type": "llm_call_start",
+                    "call_id": call_id,
+                    "session_id": self.session_id,
+                    "messages_count": len(messages),
+                    "tools_count": len(tools),
+                    "timestamp": timestamp,
+                    "current_question": last_user_msg,
+                }
+                result = self.config.on_llm_call_start(start_event)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                logger.warning(f"[UnifiedAgent][{call_id}] on_llm_call_start 回调失败: {e}")
 
         # 记录消息摘要（避免日志过长）
         for i, msg in enumerate(messages):
@@ -1228,6 +1597,37 @@ class UnifiedAuditAgent:
             # === 保存到文件 ===
             if self.config.save_requests_to_file and request_data:
                 await self._save_debug_log(call_id, request_data, response_data)
+
+            # === 触发 LLM 调用结束回调 ===
+            if self.config.on_llm_call_end:
+                try:
+                    # 构建工具调用列表（用于前端展示）
+                    tool_calls_data = []
+                    if response.tool_calls:
+                        for tc in response.tool_calls:
+                            tool_calls_data.append({
+                                "id": tc.id,
+                                "name": tc.name,
+                                "arguments": tc.arguments,
+                            })
+
+                    end_event = {
+                        "type": "llm_call_end",
+                        "call_id": call_id,
+                        "session_id": self.session_id,
+                        "content": response_content,
+                        "content_preview": content_preview,
+                        "tool_calls": tool_calls_data,
+                        "tool_calls_count": tool_calls_count,
+                        "usage": usage_info,
+                        "timestamp": datetime.now().isoformat(),
+                        "has_more_tool_calls": tool_calls_count > 0,
+                    }
+                    result = self.config.on_llm_call_end(end_event)
+                    if asyncio.iscoroutine(result):
+                        await result
+                except Exception as e:
+                    logger.warning(f"[UnifiedAgent][{call_id}] on_llm_call_end 回调失败: {e}")
 
             # 更新统计
             if response.usage:
@@ -1773,6 +2173,55 @@ class UnifiedAuditAgent:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def _execute_report_finding(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行报告发现 - 保存漏洞并通过回调通知前端"""
+        import uuid as uuid_module
+
+        try:
+            # 生成发现 ID
+            finding_id = f"finding-{uuid_module.uuid4().hex[:8]}"
+
+            # 提取参数
+            finding_data = {
+                "id": finding_id,
+                "session_id": self.session_id,
+                "severity": args.get("severity", "medium"),
+                "title": args.get("title", "未命名发现"),
+                "vulnerability_type": args.get("vulnerability_type", "unknown"),
+                "file_path": args.get("file_path", ""),
+                "line_number": args.get("line_number"),
+                "description": args.get("description", ""),
+                "code_evidence": args.get("code_evidence", ""),
+                "attack_scenario": args.get("attack_scenario", ""),
+                "fix_suggestion": args.get("fix_suggestion", ""),
+                "confidence": args.get("confidence", 0.8),
+                "status": "pending",  # pending, confirmed, rejected
+                "reported_at": datetime.now().isoformat(),
+            }
+
+            # 存储到发现列表（内存）
+            if not hasattr(self, '_findings'):
+                self._findings: List[Dict[str, Any]] = []
+            self._findings.append(finding_data)
+
+            logger.info(f"[UnifiedAgent] 报告发现: {finding_data['title']} ({finding_data['severity']}) - {finding_data['file_path']}")
+
+            # 触发回调通知前端（使用安全的跨线程调度）
+            if self.config.on_finding_reported:
+                self._schedule_async_callback(self.config.on_finding_reported, finding_data)
+
+            return {
+                "success": True,
+                "finding_id": finding_id,
+                "message": f"发现已记录: {finding_data['title']}",
+                "severity": finding_data['severity'],
+                "file_path": finding_data['file_path'],
+            }
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] 报告发现失败: {e}")
+            return {"success": False, "error": str(e)}
+
     def _execute_confirm_finding(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """执行确认发现"""
         finding_id = args.get("finding_id", "")
@@ -1973,6 +2422,432 @@ class UnifiedAuditAgent:
                         result["taint_info"] = enhanced.taint_info.to_dict()
                     break
 
+        return result
+
+    # ============ 深度分析工具执行器 ============
+
+    def _execute_analyze_sink_call_chain(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """分析 Sink 触发点的完整调用链"""
+        site_id = args.get("site_id")
+        symbol_name = args.get("symbol_name")
+        file_path = args.get("file_path")
+        max_depth = args.get("max_depth", 10)
+        include_code = args.get("include_code", True)
+
+        # 获取目标 site 或 symbol
+        target_site = None
+        target_symbol = symbol_name
+
+        if site_id and self.prescan_result:
+            # 计算当前分析进度
+            total_sites = len(self.prescan_result.filtered_sites)
+            current_index = 0
+            for i, s in enumerate(self.prescan_result.filtered_sites):
+                if s.id == site_id:
+                    target_site = s
+                    target_symbol = s.symbol
+                    file_path = file_path or s.file_path
+                    current_index = i + 1
+                    break
+
+            # 触发分析进度回调（使用安全的跨线程调度）
+            if target_site and self.config.on_analysis_progress:
+                progress_data = {
+                    "current": current_index,
+                    "total": total_sites,
+                    "current_site": {
+                        "id": site_id,
+                        "sink_name": target_site.sink_name,
+                        "file_path": target_site.file_path,
+                        "line": target_site.line_start,
+                    },
+                }
+                self._schedule_async_callback(self.config.on_analysis_progress, progress_data)
+
+            if not target_site:
+                return {"success": False, "error": f"未找到触发点: {site_id}"}
+
+        if not target_symbol:
+            return {"success": False, "error": "需要提供 site_id 或 symbol_name"}
+
+        # 如果有深度增强结果，直接返回
+        if target_site and self.enhancement_result:
+            for enhanced in self.enhancement_result.enhanced_sites:
+                if enhanced.site.id == site_id:
+                    result = {
+                        "success": True,
+                        "symbol": target_symbol,
+                        "file_path": target_site.file_path,
+                        "line": target_site.line_start,
+                        "risk_level": target_site.risk_level.value,
+                        "sink_category": target_site.sink_category.value,
+                    }
+                    if enhanced.call_chain_info:
+                        result["call_chain"] = enhanced.call_chain_info.to_dict()
+                    if enhanced.taint_info:
+                        result["taint_info"] = enhanced.taint_info.to_dict()
+                    result["enhanced_score"] = enhanced.enhanced_score
+                    result["analysis_notes"] = enhanced.analysis_notes
+
+                    # 如果需要代码，添加相关代码
+                    if include_code and enhanced.call_chain_info:
+                        result["caller_code"] = self._get_caller_code(
+                            enhanced.call_chain_info.callers[:5]
+                        )
+                    return result
+
+        # 没有增强结果，使用 call_chain_analyzer
+        if not self.call_chain_analyzer:
+            return {"success": False, "error": "调用链分析器未配置"}
+
+        try:
+            # 查找节点
+            nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(target_symbol)
+            if file_path:
+                nodes = [n for n in nodes if file_path in n.file_path]
+
+            if not nodes:
+                return {"success": False, "error": f"未找到符号: {target_symbol}"}
+
+            node = nodes[0]
+            callers = self._collect_call_chain(node.id, max_depth, include_code)
+            entry_points = self._find_reachable_entry_points(node.id, max_depth)
+
+            return {
+                "success": True,
+                "symbol": node.qualified_name,
+                "file_path": node.file_path,
+                "line": node.line_start,
+                "callers": callers,
+                "entry_points": entry_points,
+                "call_chain_depth": len(callers),
+                "has_entry_point": len(entry_points) > 0,
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _execute_find_similar_sinks(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """查找与指定 Sink 相似的代码模式"""
+        site_id = args.get("site_id")
+        code_pattern = args.get("code_pattern")
+        top_k = args.get("top_k", 10)
+        min_similarity = args.get("min_similarity", 0.7)
+
+        # 获取查询代码
+        query_code = code_pattern
+        if site_id and self.prescan_result:
+            for s in self.prescan_result.filtered_sites:
+                if s.id == site_id:
+                    query_code = s.call_snippet or s.symbol
+                    break
+
+        if not query_code:
+            return {"success": False, "error": "需要提供 site_id 或 code_pattern"}
+
+        if not self.vector_store:
+            return {"success": False, "error": "向量存储未配置"}
+
+        try:
+            # 生成查询向量
+            embed_response = self.llm_client.embed([query_code])
+            if not embed_response or not embed_response.embeddings or not embed_response.embeddings[0]:
+                return {"success": False, "error": "无法生成嵌入向量"}
+
+            # 搜索相似代码
+            results = self.vector_store.search(
+                query_embedding=embed_response.embeddings[0],
+                top_k=top_k * 2,
+            )
+
+            # 过滤和格式化
+            similar_codes = []
+            for r in results:
+                if r.score < min_similarity:
+                    continue
+
+                metadata = r.metadata or {}
+                similar_codes.append({
+                    "file_path": metadata.get("file_path", ""),
+                    "symbol": metadata.get("symbol", ""),
+                    "line_start": metadata.get("line_start", 0),
+                    "line_end": metadata.get("line_end", 0),
+                    "similarity": round(r.score, 3),
+                    "code_preview": (metadata.get("code") or "")[:300],
+                    "language": metadata.get("language", ""),
+                })
+
+                if len(similar_codes) >= top_k:
+                    break
+
+            # 标记哪些是已知的 Sink
+            if self.prescan_result:
+                known_sinks = {s.symbol for s in self.prescan_result.filtered_sites}
+                for item in similar_codes:
+                    item["is_known_sink"] = item["symbol"] in known_sinks
+
+            return {
+                "success": True,
+                "query_pattern": query_code[:100],
+                "similar_codes": similar_codes,
+                "total": len(similar_codes),
+                "potential_variants": len([c for c in similar_codes if c.get("is_known_sink", False)]),
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _execute_analyze_entry_to_sink(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """分析从入口点到 Sink 的完整数据流路径"""
+        entry_point = args.get("entry_point", "")
+        sink_site_id = args.get("sink_site_id", "")
+        include_intermediate_code = args.get("include_intermediate_code", True)
+
+        if not entry_point or not sink_site_id:
+            return {"success": False, "error": "entry_point 和 sink_site_id 是必需参数"}
+
+        # 获取 Sink 信息
+        sink_site = None
+        if self.prescan_result:
+            for s in self.prescan_result.filtered_sites:
+                if s.id == sink_site_id:
+                    sink_site = s
+                    break
+
+        if not sink_site:
+            return {"success": False, "error": f"未找到 Sink 触发点: {sink_site_id}"}
+
+        if not self.call_chain_analyzer:
+            return {"success": False, "error": "调用链分析器未配置"}
+
+        try:
+            # 查找入口点和 Sink 节点
+            entry_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(entry_point)
+            sink_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(sink_site.symbol)
+
+            if not entry_nodes:
+                return {"success": False, "error": f"未找到入口点: {entry_point}"}
+            if not sink_nodes:
+                return {"success": False, "error": f"未找到 Sink 节点: {sink_site.symbol}"}
+
+            entry_node = entry_nodes[0]
+            sink_node = sink_nodes[0]
+
+            # 查找路径
+            paths = self._find_paths_between(entry_node.id, sink_node.id, max_depth=15)
+
+            if not paths:
+                return {
+                    "success": True,
+                    "connected": False,
+                    "message": f"未找到从 {entry_point} 到 {sink_site.symbol} 的调用路径",
+                    "entry_point": {
+                        "name": entry_node.qualified_name,
+                        "file": entry_node.file_path,
+                        "line": entry_node.line_start,
+                    },
+                    "sink": {
+                        "name": sink_node.qualified_name,
+                        "file": sink_node.file_path,
+                        "line": sink_node.line_start,
+                        "risk_level": sink_site.risk_level.value,
+                    },
+                }
+
+            # 格式化路径
+            formatted_paths = []
+            for path in paths[:5]:  # 最多返回 5 条路径
+                path_nodes = []
+                for node_id in path:
+                    node = self.call_chain_analyzer.call_graph.get_node(node_id)
+                    if node:
+                        node_info = {
+                            "name": node.qualified_name,
+                            "file": node.file_path,
+                            "line": node.line_start,
+                            "type": node.node_type.value,
+                        }
+                        if include_intermediate_code:
+                            code = self._get_node_code(node)
+                            if code:
+                                node_info["code"] = code[:500]
+                        path_nodes.append(node_info)
+                formatted_paths.append({
+                    "length": len(path_nodes),
+                    "nodes": path_nodes,
+                })
+
+            # 检查是否有消毒函数
+            has_sanitizer = False
+            sanitizers = []
+            for path in formatted_paths:
+                for node in path["nodes"]:
+                    if node.get("type") == "sanitizer":
+                        has_sanitizer = True
+                        sanitizers.append(node["name"])
+
+            return {
+                "success": True,
+                "connected": True,
+                "entry_point": {
+                    "name": entry_node.qualified_name,
+                    "file": entry_node.file_path,
+                    "line": entry_node.line_start,
+                },
+                "sink": {
+                    "name": sink_node.qualified_name,
+                    "file": sink_node.file_path,
+                    "line": sink_node.line_start,
+                    "risk_level": sink_site.risk_level.value,
+                    "category": sink_site.sink_category.value,
+                },
+                "paths": formatted_paths,
+                "total_paths": len(paths),
+                "shortest_path_length": min(len(p) for p in paths),
+                "has_sanitizer": has_sanitizer,
+                "sanitizers": list(set(sanitizers)),
+                "exploitability": "high" if not has_sanitizer else "low",
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _collect_call_chain(self, node_id: str, max_depth: int, include_code: bool) -> List[Dict[str, Any]]:
+        """收集调用链信息"""
+        if not self.call_chain_analyzer:
+            return []
+
+        chain = []
+        visited = {node_id}
+        queue = [(node_id, 0)]
+
+        while queue and len(chain) < 30:
+            current_id, depth = queue.pop(0)
+            if depth >= max_depth:
+                continue
+
+            for caller in self.call_chain_analyzer.call_graph.get_callers(current_id):
+                if caller.id in visited:
+                    continue
+
+                visited.add(caller.id)
+                queue.append((caller.id, depth + 1))
+
+                caller_info = {
+                    "name": caller.qualified_name,
+                    "file": caller.file_path,
+                    "line": caller.line_start,
+                    "depth": depth + 1,
+                    "type": caller.node_type.value,
+                }
+
+                if include_code:
+                    code = self._get_node_code(caller)
+                    if code:
+                        caller_info["code"] = code[:500]
+
+                chain.append(caller_info)
+
+        return chain
+
+    def _find_reachable_entry_points(self, node_id: str, max_depth: int) -> List[Dict[str, Any]]:
+        """查找可达的入口点"""
+        if not self.call_chain_analyzer:
+            return []
+
+        from analyzer.call_chain import NodeType
+
+        entry_points = []
+        visited = set()
+
+        def dfs(current_id: str, depth: int):
+            if current_id in visited or depth > max_depth:
+                return
+            visited.add(current_id)
+
+            node = self.call_chain_analyzer.call_graph.get_node(current_id)
+            if node and node.node_type == NodeType.ENTRY_POINT:
+                entry_points.append({
+                    "name": node.qualified_name,
+                    "file": node.file_path,
+                    "line": node.line_start,
+                    "decorators": node.metadata.get("decorators", []),
+                })
+
+            for caller in self.call_chain_analyzer.call_graph.get_callers(current_id):
+                dfs(caller.id, depth + 1)
+
+        dfs(node_id, 0)
+        return entry_points
+
+    def _find_paths_between(self, start_id: str, end_id: str, max_depth: int = 15) -> List[List[str]]:
+        """查找两个节点之间的所有路径"""
+        if not self.call_chain_analyzer:
+            return []
+
+        paths = []
+        visited = set()
+
+        def dfs(current_id: str, path: List[str], depth: int):
+            if depth > max_depth or len(paths) >= 10:
+                return
+
+            if current_id == end_id:
+                paths.append(path.copy())
+                return
+
+            visited.add(current_id)
+
+            for callee in self.call_chain_analyzer.call_graph.get_callees(current_id):
+                if callee.id not in visited:
+                    path.append(callee.id)
+                    dfs(callee.id, path, depth + 1)
+                    path.pop()
+
+            visited.remove(current_id)
+
+        dfs(start_id, [start_id], 0)
+        return paths
+
+    def _get_node_code(self, node) -> Optional[str]:
+        """获取节点的代码"""
+        if hasattr(self, '_code_units_cache') and self._code_units_cache:
+            for unit in self._code_units_cache.values():
+                # 匹配逻辑：文件路径必须匹配，符号可以是完整名或简短名
+                if unit.file_path == node.file_path:
+                    # 尝试多种匹配方式
+                    node_name = getattr(node, 'name', '') or ''
+                    qualified_name = getattr(node, 'qualified_name', '') or ''
+                    if (unit.symbol == node_name or
+                        unit.symbol == qualified_name or
+                        qualified_name.endswith('.' + unit.symbol) or
+                        node_name == unit.symbol):
+                        return unit.code
+        return None
+
+    def _get_caller_code(self, callers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """获取调用者的代码片段"""
+        result = []
+        for caller in callers:
+            code = None
+            caller_name = caller.get("name", "")
+            caller_file = caller.get("file", "")
+
+            if hasattr(self, '_code_units_cache') and self._code_units_cache:
+                for unit in self._code_units_cache.values():
+                    if unit.file_path == caller_file:
+                        # 尝试多种匹配方式
+                        if (unit.symbol == caller_name or
+                            caller_name.endswith('.' + unit.symbol) or
+                            caller_name == unit.symbol):
+                            code = unit.code
+                            break
+            if code:
+                result.append({
+                    "name": caller_name,
+                    "file": caller_file,
+                    "code": code[:500],
+                })
         return result
 
 

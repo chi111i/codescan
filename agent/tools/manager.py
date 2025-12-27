@@ -9,12 +9,31 @@
 """
 
 import asyncio
+import functools
 import logging
+import sys
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Callable, Awaitable, Union
+from concurrent.futures import ThreadPoolExecutor
 
 from .registry import ToolRegistry
 from .executor import ToolExecutor, ToolResult
+
+
+# Python 3.8 compatibility: provide asyncio.to_thread if not available
+if sys.version_info < (3, 9):
+    _executor = ThreadPoolExecutor(max_workers=4)
+
+    async def _to_thread(func, *args, **kwargs):
+        """Python 3.8 compatible version of asyncio.to_thread"""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            _executor,
+            functools.partial(func, *args, **kwargs)
+        )
+    asyncio_to_thread = _to_thread
+else:
+    asyncio_to_thread = asyncio.to_thread
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +339,7 @@ class AgentToolManager:
                 data = await executor(arguments)
             else:
                 # 同步执行（在线程池中运行以避免阻塞）
-                data = await asyncio.to_thread(executor, arguments)
+                data = await asyncio_to_thread(executor, arguments)
 
             # 处理结果
             success = data.get("success", True) if isinstance(data, dict) else True

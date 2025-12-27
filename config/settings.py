@@ -407,25 +407,24 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
 # 用户配置持久化
 # -----------------------------------------------------------------------------
 #
-# 说明：.user_config.yaml 属于“用户私有配置”（如 API Key、私有 base_url），
-# 不应存放在项目仓库根目录中（避免误提交/泄露）。
+# 说明：.user_config.yaml 属于"用户私有配置"（如 API Key、私有 base_url）。
 #
-# 默认保存位置：
-# - Linux/macOS:   ~/.config/codescan/user_config.yaml (遵循 XDG_CONFIG_HOME)
-# - Windows:       %USERPROFILE%\.config\codescan\user_config.yaml (由 Path.home() 推导)
-#
-# 兼容：若检测到旧版路径 <repo>/.user_config.yaml，将在读取时兼容并提示迁移。
+# 默认保存位置：项目根目录下的 .user_config.yaml
+# 备选位置（通过环境变量 CODESCAN_USER_CONFIG 指定）：
+# - Linux/macOS:   ~/.config/codescan/user_config.yaml
+# - Windows:       %USERPROFILE%\.config\codescan\user_config.yaml
 
+# 项目根目录的配置文件（默认）
+_PROJECT_USER_CONFIG_FILE = Path(__file__).parent.parent / ".user_config.yaml"
+
+# XDG 风格的备选位置
 _XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
-_DEFAULT_USER_CONFIG_DIR = _XDG_CONFIG_HOME / "codescan"
+_XDG_USER_CONFIG_FILE = _XDG_CONFIG_HOME / "codescan" / "user_config.yaml"
 
-# 可通过环境变量强制指定用户配置路径
+# 优先使用环境变量指定的路径，否则使用项目根目录
 USER_CONFIG_FILE = Path(
-    os.environ.get("CODESCAN_USER_CONFIG", str(_DEFAULT_USER_CONFIG_DIR / "user_config.yaml"))
+    os.environ.get("CODESCAN_USER_CONFIG", str(_PROJECT_USER_CONFIG_FILE))
 )
-
-# 旧版（不推荐）路径：项目根目录下的 .user_config.yaml
-LEGACY_USER_CONFIG_FILE = Path(__file__).parent.parent / ".user_config.yaml"
 
 
 def save_user_config(config_updates: Dict[str, Any]) -> bool:
@@ -464,31 +463,30 @@ def save_user_config(config_updates: Dict[str, Any]) -> bool:
 def load_user_config() -> Dict[str, Any]:
     """加载用户本地配置
 
+    优先级：
+    1. 环境变量指定的路径 (CODESCAN_USER_CONFIG)
+    2. 项目根目录的 .user_config.yaml（默认）
+    3. XDG 风格的备选位置 (~/.config/codescan/user_config.yaml)
+
     Returns:
         用户配置字典
     """
-    # 1) 新位置
+    # 1) 首选位置（默认为项目根目录，可通过环境变量覆盖）
     if USER_CONFIG_FILE.exists():
         try:
             with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"加载用户配置失败: {e}")
+            logger.warning(f"加载用户配置失败: {e}")
             return {}
 
-    # 2) 兼容旧位置（项目根目录）
-    if LEGACY_USER_CONFIG_FILE.exists():
+    # 2) 备选位置（XDG 风格）
+    if _XDG_USER_CONFIG_FILE.exists():
         try:
-            import logging
-            logging.getLogger(__name__).warning(
-                f"检测到旧版用户配置文件: {LEGACY_USER_CONFIG_FILE}。建议迁移到: {USER_CONFIG_FILE}"
-            )
-            with open(LEGACY_USER_CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(_XDG_USER_CONFIG_FILE, "r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"加载旧版用户配置失败: {e}")
+            logger.warning(f"加载备选用户配置失败: {e}")
             return {}
 
     return {}
@@ -503,16 +501,9 @@ def clear_user_config() -> bool:
     try:
         if USER_CONFIG_FILE.exists():
             USER_CONFIG_FILE.unlink()
-        # 不主动删除旧文件，避免用户误删；仅在存在时提示用户自行处理
-        if LEGACY_USER_CONFIG_FILE.exists():
-            import logging
-            logging.getLogger(__name__).warning(
-                f"旧版用户配置文件仍存在: {LEGACY_USER_CONFIG_FILE}（未删除）。可手动迁移/删除。"
-            )
         return True
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"清除用户配置失败: {e}")
+        logger.error(f"清除用户配置失败: {e}")
         return False
 
 

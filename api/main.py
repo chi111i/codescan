@@ -11,48 +11,97 @@ from typing import Dict, Optional, List
 from contextlib import asynccontextmanager
 
 
+class FlushingStreamHandler(logging.StreamHandler):
+    """自动刷新的 StreamHandler，解决 Windows 上 uvicorn reload 子进程日志不显示问题"""
+
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
+
 def setup_logging():
     """配置日志系统 - 确保所有模块日志正确输出到终端
 
-    注意: 此函数会在 uvicorn reload 后被重新调用，确保日志配置一致
+    注意: 此函数设计为幂等，多次调用不会重复添加 handler
+
+    Windows uvicorn --reload 子进程日志问题的解决方案:
+    1. 使用 sys.stdout 而非 sys.stderr（Windows 终端对 stdout 处理更好）
+    2. 使用自定义 FlushingStreamHandler 每次日志后立即刷新
+    3. 设置环境变量禁用 Python 输出缓冲
+    4. 设置 Windows 终端为 UTF-8 编码
     """
+    import os
     import io
+
+    # 禁用 Python 输出缓冲
+    os.environ['PYTHONUNBUFFERED'] = '1'
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+    # Windows 特殊处理：设置 stdout/stderr 为 UTF-8 编码和无缓冲模式
+    if sys.platform == 'win32':
+        try:
+            # 尝试设置 Windows 控制台为 UTF-8 模式
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleOutputCP(65001)  # UTF-8 code page
+        except Exception:
+            pass
+
+    # 重新配置 stdout/stderr 为 UTF-8 编码
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
+        except Exception:
+            pass
+    if hasattr(sys.stderr, 'reconfigure'):
+        try:
+            sys.stderr.reconfigure(encoding='utf-8', line_buffering=True)
+        except Exception:
+            pass
 
     # 创建格式化器
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    # 创建控制台处理器（使用 stderr + UTF-8 编码以避免 Windows 终端乱码）
-    # 在 Windows 上强制使用 UTF-8 编码
-    if sys.platform == 'win32':
-        # 尝试设置控制台编码为 UTF-8
-        try:
-            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-        except Exception:
-            pass  # 如果失败则使用默认编码
-
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.DEBUG)
-    console_handler.setFormatter(formatter)
-
     # 配置根 logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
 
-    # 清除已有处理器，避免重复
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
+    # 幂等检查：如果已经有 FlushingStreamHandler，则跳过添加
+    has_flushing_handler = any(
+        isinstance(h, FlushingStreamHandler) for h in root_logger.handlers
+    )
 
-    # 添加控制台处理器
-    root_logger.addHandler(console_handler)
+    if not has_flushing_handler:
+        # 清除已有处理器（仅在首次配置时）
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
 
-    # 设置第三方库日志级别（减少噪音）
+        # 使用 sys.stdout 替代 sys.stderr（Windows 对 stdout 的子进程继承更可靠）
+        # 并使用自动刷新的 Handler 确保日志立即显示
+        console_handler = FlushingStreamHandler(sys.stdout)
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(formatter)
+
+        # 添加控制台处理器
+        root_logger.addHandler(console_handler)
+
+        # 输出启动信息（仅首次）
+        root_logger.info("Logging system initialized")
+
+    # 设置第三方库日志级别（减少噪音）- 每次都设置以确保一致性
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
     logging.getLogger("watchfiles").setLevel(logging.WARNING)
+
+    # 确保 uvicorn（含 reload worker）日志统一走根 logger 的控制台处理器
+    # 关键：清除 uvicorn 自带的 handler，强制 propagate 到根 logger
+    for uvicorn_logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(uvicorn_logger_name)
+        uvicorn_logger.handlers.clear()
+        uvicorn_logger.setLevel(logging.INFO)
+        uvicorn_logger.propagate = True
 
     # 确保本项目模块日志输出
     for module in ["llm_client", "agent", "analyzer", "indexer", "api", "rules", "config", "prompts"]:
@@ -60,12 +109,12 @@ def setup_logging():
         module_logger.setLevel(logging.INFO)
         module_logger.propagate = True  # 确保传播到根 logger
 
-    # 输出启动信息
-    root_logger.info("日志系统初始化完成")
 
-
-# 在模块加载时立即配置日志
-setup_logging()
+# 注意：不在模块导入时调用 setup_logging()
+# uvicorn --reload 模式下会在 worker 进程中重新配置日志，覆盖这里的设置
+# 改为仅在 lifespan（worker 启动后）中调用，确保日志配置生效
+#
+# 如果需要在导入时输出启动日志，使用 print() 而非 logger
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,6 +154,7 @@ from .schemas import (
     FindingSchema, VulnFindingSchema, TaintPathSchema,
     CallGraphStatsSchema, CodeUnitSchema, CodeSpanSchema,
     ScanStatus, SeverityLevel, VulnTypeEnum,
+    IndexStatus, IndexProgressSchema,
     APIResponse, ErrorResponse,
 )
 from pydantic import BaseModel
@@ -118,6 +168,7 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
     """HTTP 请求日志中间件 - 记录所有 HTTP 请求和响应"""
 
     async def dispatch(self, request: Request, call_next):
+        import sys as _sys
         start_time = time.time()
         method = request.method
         path = request.url.path
@@ -131,6 +182,9 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
             if query:
                 log_msg += f"?{query[:100]}"
             logger.info(log_msg)
+            # 诊断：使用 stderr.write 强制输出（无缓冲）
+            _sys.stderr.write(f"[HTTP-DEBUG] {log_msg}\n")
+            _sys.stderr.flush()
 
         # 执行请求
         response = await call_next(request)
@@ -139,7 +193,11 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
         duration = time.time() - start_time
 
         if not skip_logging:
-            logger.info(f"[HTTP] {method} {path} -> {response.status_code} ({duration:.3f}s)")
+            log_msg = f"[HTTP] {method} {path} -> {response.status_code} ({duration:.3f}s)"
+            logger.info(log_msg)
+            # 诊断：使用 stderr.write 强制输出（无缓冲）
+            _sys.stderr.write(f"[HTTP-DEBUG] {log_msg}\n")
+            _sys.stderr.flush()
 
         return response
 
@@ -165,6 +223,15 @@ class AppState:
 
         # WebSocket 连接
         self.websocket_connections: Dict[str, WebSocket] = {}
+
+        # 索引任务 WebSocket 连接（分离于扫描）
+        self.index_ws_connections: Dict[str, WebSocket] = {}
+
+        # 索引任务状态
+        self.index_tasks: Dict[str, IndexProgressSchema] = {}
+
+        # 后台任务跟踪（用于优雅关闭）
+        self.background_tasks: Dict[str, asyncio.Task] = {}
 
         # 交互式审计会话管理器（延迟初始化）
         self.interactive_session_manager = None
@@ -226,6 +293,9 @@ app_state = AppState()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    # 重新配置日志系统（uvicorn 启动后会覆盖模块级配置）
+    setup_logging()
+
     # 启动时异步初始化（不阻塞事件循环）
     try:
         await app_state.initialize_async()
@@ -246,13 +316,34 @@ async def lifespan(app: FastAPI):
     yield
 
     # 关闭时清理
+    logger.info("开始优雅关闭...")
+
+    # 1. 取消并等待所有后台扫描任务
+    if app_state.background_tasks:
+        logger.info(f"取消 {len(app_state.background_tasks)} 个后台任务...")
+        for task_id, task in list(app_state.background_tasks.items()):
+            if not task.done():
+                task.cancel()
+        # 等待所有任务完成（带超时）
+        if app_state.background_tasks:
+            pending = [t for t in app_state.background_tasks.values() if not t.done()]
+            if pending:
+                done, still_pending = await asyncio.wait(pending, timeout=10.0)
+                if still_pending:
+                    logger.warning(f"{len(still_pending)} 个任务未能在超时内完成")
+                for task in still_pending:
+                    task.cancel()
+        app_state.background_tasks.clear()
+        logger.info("后台任务已清理")
+
+    # 2. 取消广播任务
     broadcast_task.cancel()
     try:
         await broadcast_task
     except asyncio.CancelledError:
         pass
 
-    # 关闭 LLM 客户端 HTTP 连接
+    # 3. 关闭 LLM 客户端 HTTP 连接
     if app_state.llm_client:
         try:
             app_state.llm_client.close()
@@ -275,6 +366,14 @@ async def lifespan(app: FastAPI):
         logger.info("嵌入缓存已关闭")
     except Exception as e:
         logger.warning(f"关闭嵌入缓存失败: {e}")
+
+    # 4. 关闭数据库连接
+    if app_state.db:
+        try:
+            app_state.db.close_all()
+            logger.info("数据库连接已关闭")
+        except Exception as e:
+            logger.warning(f"关闭数据库连接失败: {e}")
 
     logger.info("API 服务关闭")
 
@@ -371,9 +470,152 @@ async def health_check():
 
 # ============ 索引接口 ============
 
+
+async def broadcast_index_progress(index_id: str, progress: IndexProgressSchema):
+    """广播索引进度到 WebSocket"""
+    if index_id in app_state.index_ws_connections:
+        ws = app_state.index_ws_connections[index_id]
+        try:
+            await ws.send_json({
+                "type": "index_progress",
+                "index_id": index_id,
+                "status": progress.status.value,
+                "progress": progress.progress,
+                "current_step": progress.current_step,
+                "total_files": progress.total_files,
+                "processed_files": progress.processed_files,
+                "total_units": progress.total_units,
+                "processed_units": progress.processed_units,
+                "embedding_progress": progress.embedding_progress,
+                "error_message": progress.error_message,
+            })
+        except Exception as e:
+            logger.warning(f"广播索引进度失败: {e}")
+
+
+async def run_index_task(index_id: str, target_path: Path, clear_existing: bool):
+    """后台执行索引任务（支持定期进度广播）"""
+    progress = app_state.index_tasks.get(index_id)
+    if not progress:
+        return
+
+    # 定期广播控制
+    last_broadcast_time = time.time()
+    broadcast_interval = 0.5  # 每 0.5 秒广播一次
+
+    async def maybe_broadcast():
+        """如果距上次广播超过间隔，则广播进度"""
+        nonlocal last_broadcast_time
+        now = time.time()
+        if now - last_broadcast_time >= broadcast_interval:
+            last_broadcast_time = now
+            await broadcast_index_progress(index_id, progress)
+
+    try:
+        progress.status = IndexStatus.SCANNING
+        progress.current_step = "扫描文件..."
+        progress.started_at = datetime.now()
+        await broadcast_index_progress(index_id, progress)
+
+        if clear_existing and app_state.indexer:
+            app_state.indexer.clear_index()
+
+        if not app_state.indexer:
+            raise Exception("索引器未初始化")
+
+        # 用于线程安全的进度更新队列
+        progress_queue = asyncio.Queue()
+
+        # 解析阶段进度回调（在线程池中执行）
+        def on_parse_progress(processed: int, total: int):
+            progress.processed_files = processed
+            progress.total_files = total
+            progress.progress = 0.1 + 0.3 * (processed / max(total, 1))
+            progress.current_step = f"解析文件: {processed}/{total}"
+            # 将广播请求放入队列
+            try:
+                progress_queue.put_nowait(("parse", processed, total))
+            except asyncio.QueueFull:
+                pass  # 忽略队列满的情况
+
+        # 嵌入阶段进度回调
+        def on_embed_progress(processed: int, total: int, msg: str = ""):
+            progress.processed_units = processed
+            progress.total_units = total
+            progress.embedding_progress = processed / max(total, 1)
+            progress.progress = 0.4 + 0.5 * (processed / max(total, 1))
+            progress.current_step = msg or f"生成嵌入: {processed}/{total}"
+            try:
+                progress_queue.put_nowait(("embed", processed, total))
+            except asyncio.QueueFull:
+                pass
+
+        # 启动进度广播协程
+        async def progress_broadcaster():
+            """定期从队列读取进度并广播"""
+            while True:
+                try:
+                    # 等待进度更新，超时后检查是否需要广播
+                    await asyncio.wait_for(progress_queue.get(), timeout=broadcast_interval)
+                    await maybe_broadcast()
+                except asyncio.TimeoutError:
+                    # 超时，检查是否需要广播（即使没有新进度）
+                    await maybe_broadcast()
+                except asyncio.CancelledError:
+                    break
+
+        # 启动广播任务
+        broadcaster_task = asyncio.create_task(progress_broadcaster())
+
+        try:
+            # 阶段1: 解析文件
+            progress.status = IndexStatus.PARSING
+            progress.progress = 0.1
+            await broadcast_index_progress(index_id, progress)
+
+            # 使用线程池执行同步的索引操作
+            count = await asyncio.to_thread(
+                app_state.indexer.index_directory,
+                str(target_path),
+                on_parse_progress,
+                on_embed_progress  # 传递嵌入回调
+            )
+
+            # 获取统计
+            stats = await asyncio.to_thread(app_state.indexer.get_stats)
+
+            # 完成
+            progress.status = IndexStatus.COMPLETED
+            progress.progress = 1.0
+            progress.current_step = "索引完成"
+            progress.total_units = stats.get("total_units", count)
+            progress.processed_units = progress.total_units
+            progress.completed_at = datetime.now()
+            await broadcast_index_progress(index_id, progress)
+
+            # 使统计缓存失效
+            app_state.invalidate_stats_cache()
+
+        finally:
+            # 取消广播任务
+            broadcaster_task.cancel()
+            try:
+                await broadcaster_task
+            except asyncio.CancelledError:
+                pass
+
+    except Exception as e:
+        import traceback
+        logger.error(f"索引任务失败: {e}\n{traceback.format_exc()}")
+        progress.status = IndexStatus.FAILED
+        progress.error_message = str(e)
+        progress.current_step = f"错误: {e}"
+        await broadcast_index_progress(index_id, progress)
+
+
 @app.post("/api/index", response_model=APIResponse)
 async def index_project(request: IndexRequest, background_tasks: BackgroundTasks):
-    """索引项目代码"""
+    """索引项目代码（同步模式，兼容旧接口）"""
     if not app_state.indexer:
         raise HTTPException(status_code=500, detail="索引器未初始化")
 
@@ -408,6 +650,57 @@ async def index_project(request: IndexRequest, background_tasks: BackgroundTasks
     except Exception as e:
         logger.error(f"索引失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/index/async", response_model=APIResponse)
+async def index_project_async(request: IndexRequest):
+    """异步索引项目代码（后台执行，WebSocket 推送进度）
+
+    返回 index_id，客户端可通过 /ws/index/{index_id} 接收进度更新
+    """
+    if not app_state.indexer:
+        raise HTTPException(status_code=500, detail="索引器未初始化")
+
+    target_path = Path(request.target_path)
+    if not target_path.exists():
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
+
+    # 生成索引任务 ID
+    index_id = str(uuid.uuid4())
+
+    # 创建进度跟踪对象
+    progress = IndexProgressSchema(
+        index_id=index_id,
+        target_path=str(target_path),
+        status=IndexStatus.PENDING,
+        progress=0.0,
+        current_step="等待开始...",
+    )
+    app_state.index_tasks[index_id] = progress
+
+    # 启动后台任务
+    task = asyncio.create_task(run_index_task(index_id, target_path, request.clear_existing))
+    app_state.background_tasks[f"index_{index_id}"] = task
+
+    return APIResponse(
+        success=True,
+        message="索引任务已创建",
+        data={"index_id": index_id, "target_path": str(target_path)},
+    )
+
+
+@app.get("/api/index/{index_id}/progress", response_model=APIResponse)
+async def get_index_progress(index_id: str):
+    """获取索引任务进度"""
+    progress = app_state.index_tasks.get(index_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="索引任务不存在")
+
+    return APIResponse(
+        success=True,
+        message="获取进度成功",
+        data=progress.model_dump(),
+    )
 
 
 @app.get("/api/index/stats", response_model=APIResponse)
@@ -1015,7 +1308,9 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         await save_scan_results_to_db(scan_id, task, all_findings, all_vuln_findings)
 
     except Exception as e:
-        logger.error(f"扫描任务失败: {e}")
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"扫描任务失败: {e}\n{error_trace}")
         task.status = ScanStatus.FAILED
         task.error_message = str(e)
         task.current_step = f"错误: {e}"
@@ -1103,8 +1398,9 @@ async def broadcast_analysis_detail(scan_id: str, detail_type: str, data: dict):
             logger.warning(f"WebSocket 分析详情发送失败: {e}")
 
 
-# 用于存储待广播的交互日志
-_pending_interactions = []
+# 用于存储待广播的交互日志（使用线程安全队列避免竞态条件）
+import queue
+_pending_interactions: queue.Queue = queue.Queue()
 
 
 def queue_interaction_broadcast(interaction):
@@ -1113,10 +1409,13 @@ def queue_interaction_broadcast(interaction):
     这是一个同步函数，作为 InteractionRepository 的回调。
     交互日志会被加入队列，由异步任务进行广播。
 
+    注意：使用 queue.Queue 确保线程安全，因为此函数可能从
+    工作线程（如 asyncio.to_thread）中调用。
+
     Args:
         interaction: LLMInteraction 对象
     """
-    _pending_interactions.append(interaction)
+    _pending_interactions.put_nowait(interaction)
 
 
 async def broadcast_interaction(interaction):
@@ -1145,22 +1444,26 @@ async def process_interaction_broadcast_queue():
 
     该任务在应用启动时创建，持续运行直到应用关闭。
     从 _pending_interactions 队列中取出交互日志并广播到 WebSocket。
-    """
-    global _pending_interactions
 
+    使用 queue.Queue.get() 的非阻塞模式配合 asyncio.sleep() 实现
+    异步友好的队列消费。
+    """
     logger.info("交互日志广播队列处理任务已启动")
 
     while True:
         try:
-            # 检查队列中是否有待处理的交互日志
-            if _pending_interactions:
-                # 取出所有待处理的交互日志
-                interactions_to_broadcast = _pending_interactions[:]
-                _pending_interactions = []
+            # 批量处理队列中的所有待处理项
+            interactions_to_broadcast = []
+            while True:
+                try:
+                    interaction = _pending_interactions.get_nowait()
+                    interactions_to_broadcast.append(interaction)
+                except queue.Empty:
+                    break
 
-                # 广播每个交互日志
-                for interaction in interactions_to_broadcast:
-                    await broadcast_interaction(interaction)
+            # 广播每个交互日志
+            for interaction in interactions_to_broadcast:
+                await broadcast_interaction(interaction)
 
             # 短暂休眠，避免 CPU 空转
             await asyncio.sleep(0.1)
@@ -1170,7 +1473,7 @@ async def process_interaction_broadcast_queue():
             raise
         except Exception as e:
             logger.error(f"处理交互日志广播队列时出错: {e}")
-            await asyncio.sleep(1)  # 出错后稍长休眠
+            await asyncio.sleep(1)
 
 
 async def save_scan_results_to_db(
@@ -1288,7 +1591,7 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
                     "use_chain_analysis": request.use_chain_analysis,
                 }
             )
-            app_state.scan_repo.create(db_task)
+            await asyncio.to_thread(app_state.scan_repo.create, db_task)
             logger.info(f"扫描任务 {scan_id} 已保存到数据库")
         except Exception as e:
             logger.error(f"保存扫描任务到数据库失败: {e}")
@@ -1296,7 +1599,13 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     # 启动后台任务 - 使用 asyncio.create_task 替代 background_tasks
     # BackgroundTasks 对异步函数支持有问题
     print(f"[API] 创建扫描任务 {scan_id}")
-    asyncio.create_task(run_scan_task(scan_id, request))
+    task = asyncio.create_task(run_scan_task(scan_id, request))
+    app_state.background_tasks[scan_id] = task
+
+    # 任务完成后自动清理
+    def cleanup_task(t):
+        app_state.background_tasks.pop(scan_id, None)
+    task.add_done_callback(cleanup_task)
 
     return APIResponse(
         success=True,
@@ -1319,7 +1628,7 @@ async def get_scan_result(scan_id: str):
 
     # 从数据库中查找历史记录
     if app_state.scan_repo:
-        db_task = app_state.scan_repo.get_by_id(scan_id)
+        db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
         if db_task:
             # 获取发现统计
             finding_stats = {}
@@ -1327,9 +1636,11 @@ async def get_scan_result(scan_id: str):
             vuln_findings_list = []
 
             if app_state.finding_repo:
-                finding_stats = app_state.finding_repo.get_stats(scan_id)
+                finding_stats = await asyncio.to_thread(app_state.finding_repo.get_stats, scan_id)
                 # 加载实际的发现数据
-                db_findings = app_state.finding_repo.get_by_scan_id(scan_id, limit=200)
+                db_findings = await asyncio.to_thread(
+                    app_state.finding_repo.get_by_scan_id, scan_id, 200
+                )
                 for f in db_findings:
                     f_dict = f.to_dict()
                     if f.finding_type == "security":
@@ -1394,18 +1705,20 @@ async def get_scan_findings(
 
     # 从数据库中查找
     if app_state.finding_repo:
-        db_findings = app_state.finding_repo.get_by_scan_id(
+        db_findings = await asyncio.to_thread(
+            app_state.finding_repo.get_by_scan_id,
             scan_id,
-            severity=severity,
-            category=category,
-            limit=limit,
-            offset=offset,
+            severity,
+            category,
+            limit,
+            offset,
         )
-        if db_findings or app_state.scan_repo.get_by_id(scan_id):
+        scan_exists = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id) if app_state.scan_repo else None
+        if db_findings or scan_exists:
             # 分离 security 和 vuln 类型
             findings = [f.to_dict() for f in db_findings if f.finding_type == "security"]
             vuln_findings = [f.to_dict() for f in db_findings if f.finding_type == "vuln"]
-            total = app_state.finding_repo.count(scan_id=scan_id)
+            total = await asyncio.to_thread(app_state.finding_repo.count, scan_id)
 
             return APIResponse(
                 success=True,
@@ -1451,13 +1764,17 @@ async def list_scans(
 
     # 添加数据库中的历史记录
     if app_state.scan_repo:
-        db_tasks = app_state.scan_repo.list_all(status=status, limit=limit, offset=offset)
+        db_tasks = await asyncio.to_thread(
+            app_state.scan_repo.list_all, status, limit, offset
+        )
         for db_task in db_tasks:
             if db_task.scan_id not in seen_ids:
                 # 获取发现数量
                 finding_count = 0
                 if app_state.finding_repo:
-                    finding_count = app_state.finding_repo.count(scan_id=db_task.scan_id)
+                    finding_count = await asyncio.to_thread(
+                        app_state.finding_repo.count, db_task.scan_id
+                    )
 
                 tasks.append({
                     "scan_id": db_task.scan_id,
@@ -1502,11 +1819,12 @@ async def get_scan_interactions(
     if not app_state.interaction_repo:
         raise HTTPException(status_code=500, detail="交互日志仓库未初始化")
 
-    interactions = app_state.interaction_repo.get_by_scan_id(
+    interactions = await asyncio.to_thread(
+        app_state.interaction_repo.get_by_scan_id,
         scan_id,
-        interaction_type=interaction_type,
-        limit=limit,
-        offset=offset,
+        interaction_type,
+        limit,
+        offset,
     )
 
     return APIResponse(
@@ -1527,7 +1845,9 @@ async def get_scan_timeline(scan_id: str, limit: int = 100):
     if not app_state.interaction_repo:
         raise HTTPException(status_code=500, detail="交互日志仓库未初始化")
 
-    timeline = app_state.interaction_repo.get_timeline(scan_id, limit)
+    timeline = await asyncio.to_thread(
+        app_state.interaction_repo.get_timeline, scan_id, limit
+    )
 
     return APIResponse(
         success=True,
@@ -1555,10 +1875,11 @@ async def get_latest_interactions(
     if not app_state.interaction_repo:
         raise HTTPException(status_code=500, detail="交互日志仓库未初始化")
 
-    interactions = app_state.interaction_repo.get_latest(
+    interactions = await asyncio.to_thread(
+        app_state.interaction_repo.get_latest,
         scan_id,
-        since_id=since_id,
-        limit=limit,
+        since_id,
+        limit,
     )
 
     return APIResponse(
@@ -1578,11 +1899,15 @@ async def get_scan_stats(scan_id: str):
 
     # 获取交互统计
     if app_state.interaction_repo:
-        stats["interactions"] = app_state.interaction_repo.get_stats(scan_id)
+        stats["interactions"] = await asyncio.to_thread(
+            app_state.interaction_repo.get_stats, scan_id
+        )
 
     # 获取发现统计
     if app_state.finding_repo:
-        stats["findings"] = app_state.finding_repo.get_stats(scan_id)
+        stats["findings"] = await asyncio.to_thread(
+            app_state.finding_repo.get_stats, scan_id
+        )
 
     return APIResponse(
         success=True,
@@ -2062,8 +2387,61 @@ async def websocket_scan_progress(websocket: WebSocket, scan_id: str):
                 })
 
     except WebSocketDisconnect:
+        pass  # 正常断开连接
+    except Exception as e:
+        logger.warning(f"WebSocket 连接异常: {e}")
+    finally:
+        # 确保清理连接（无论正常断开还是异常）
         if scan_id in app_state.websocket_connections:
             del app_state.websocket_connections[scan_id]
+
+
+@app.websocket("/ws/index/{index_id}")
+async def websocket_index_progress(websocket: WebSocket, index_id: str):
+    """WebSocket 实时索引进度"""
+    await websocket.accept()
+    app_state.index_ws_connections[index_id] = websocket
+
+    try:
+        # 如果任务已存在，立即发送当前状态
+        if index_id in app_state.index_tasks:
+            progress = app_state.index_tasks[index_id]
+            await websocket.send_json({
+                "type": "index_progress",
+                "index_id": index_id,
+                "status": progress.status.value,
+                "progress": progress.progress,
+                "current_step": progress.current_step,
+                "total_files": progress.total_files,
+                "processed_files": progress.processed_files,
+                "total_units": progress.total_units,
+                "processed_units": progress.processed_units,
+                "embedding_progress": progress.embedding_progress,
+            })
+
+        while True:
+            # 保持连接，等待消息
+            data = await websocket.receive_text()
+
+            # 返回当前状态
+            if index_id in app_state.index_tasks:
+                progress = app_state.index_tasks[index_id]
+                await websocket.send_json({
+                    "type": "index_status",
+                    "index_id": index_id,
+                    "status": progress.status.value,
+                    "progress": progress.progress,
+                    "current_step": progress.current_step,
+                })
+
+    except WebSocketDisconnect:
+        pass  # 正常断开连接
+    except Exception as e:
+        logger.warning(f"索引 WebSocket 连接异常: {e}")
+    finally:
+        # 确保清理连接
+        if index_id in app_state.index_ws_connections:
+            del app_state.index_ws_connections[index_id]
 
 
 # ============ 代码单元接口 ============
@@ -2160,4 +2538,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
+        log_config=None,  # 禁用 uvicorn 默认日志配置，使用应用自定义配置
     )

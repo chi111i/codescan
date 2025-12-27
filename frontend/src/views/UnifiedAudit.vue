@@ -311,7 +311,7 @@
       </div>
 
       <!-- 中栏：主对话区域 -->
-      <div class="col-span-9 glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
+      <div class="col-span-6 glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
         <div class="flex items-center justify-between mb-4 shrink-0">
           <h3 class="font-semibold text-gray-800 flex items-center gap-2">
             <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -331,6 +331,7 @@
           <div
             v-for="(msg, index) in chatMessages"
             :key="index"
+            v-memo="[msg.role, msg.content, msg.tool_calls && msg.tool_calls.length]"
             class="chat-message"
             :class="msg.role"
           >
@@ -422,16 +423,88 @@
           </div>
         </div>
       </div>
+
+      <!-- 右栏：LLM 过程 + 实时发现 -->
+      <div class="col-span-3 flex flex-col gap-4 min-h-0 overflow-hidden">
+        <!-- 分析进度 -->
+        <AnalysisProgressBar v-if="analysisProgress" :progress="analysisProgress" class="shrink-0" />
+
+        <!-- LLM 调用过程面板 -->
+        <div class="glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden" style="flex: 1 1 45%;">
+          <div class="flex items-center justify-between mb-3 shrink-0">
+            <h4 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
+              <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+              LLM 调用过程
+            </h4>
+            <span class="text-xs text-gray-400">{{ llmCallHistory.length }} 次</span>
+          </div>
+
+          <!-- 当前 LLM 调用 (思考中) -->
+          <LLMCallCard
+            v-if="currentLlmCall && isLlmThinking"
+            :call="currentLlmCall"
+            :is-new="true"
+            class="mb-2 shrink-0"
+          />
+
+          <!-- LLM 调用历史 -->
+          <div class="flex-1 overflow-y-auto space-y-2 dark-scroll">
+            <LLMCallCard
+              v-for="(call, index) in llmCallHistory.slice().reverse().slice(0, 10)"
+              :key="call.call_id || index"
+              :call="call"
+            />
+            <div v-if="llmCallHistory.length === 0 && !currentLlmCall" class="text-center py-6 text-gray-400 text-sm">
+              等待 LLM 调用...
+            </div>
+          </div>
+        </div>
+
+        <!-- 实时发现面板 -->
+        <div class="glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden" style="flex: 1 1 55%;">
+          <div class="flex items-center justify-between mb-3 shrink-0">
+            <h4 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
+              <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              实时发现
+            </h4>
+            <span class="text-xs px-2 py-0.5 rounded-full" :class="realtimeFindings.length > 0 ? 'bg-red-100 text-red-700' : 'text-gray-400'">
+              {{ realtimeFindings.length }} 个
+            </span>
+          </div>
+
+          <!-- 发现列表 -->
+          <div class="flex-1 overflow-y-auto space-y-2 dark-scroll">
+            <FindingCard
+              v-for="finding in realtimeFindings.slice(0, 20)"
+              :key="finding.id"
+              :finding="finding"
+            />
+            <div v-if="realtimeFindings.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              暂无发现
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuditStore } from '../stores/auditStore'
 import ScanConfigPanel from '../components/ScanConfigPanel.vue'
+import LLMCallCard from '../components/LLMCallCard.vue'
+import FindingCard from '../components/FindingCard.vue'
+import AnalysisProgressBar from '../components/AnalysisProgressBar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -454,6 +527,13 @@ const {
   isQuickScanning,
   quickScanProgress,
   quickScanResult,
+  // LLM 调用过程状态
+  llmCallHistory,
+  currentLlmCall,
+  isLlmThinking,
+  // 实时发现状态
+  realtimeFindings,
+  analysisProgress,
 } = storeToRefs(auditStore)
 
 // ============ 本地状态 ============
@@ -638,13 +718,40 @@ const formatNumber = (num) => {
   return num.toString()
 }
 
+// 简易 markdown 渲染（性能优化 + 安全处理）
+// - v-html 必须先做基础 HTML 转义，避免把 LLM 输出当作 HTML 注入页面
+// - 使用小型缓存，避免在流式输出/高频更新时反复做同样的正则替换
+const MD_CACHE_MAX = 200
+const markdownCache = new Map()
+
+const escapeHtml = (str) => {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const renderMarkdown = (text) => {
   if (!text) return ''
-  return text
+
+  const key = String(text)
+  const cached = markdownCache.get(key)
+  if (cached) return cached
+
+  const safeText = escapeHtml(key)
+  const html = safeText
     .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre class="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs my-2"><code>$2</code></pre>')
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded text-sm">$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\n/g, '<br>')
+
+  markdownCache.set(key, html)
+  if (markdownCache.size > MD_CACHE_MAX) {
+    markdownCache.clear()
+  }
+  return html
 }
 
 const getSessionBadgeClass = (status) => {
@@ -679,10 +786,22 @@ onMounted(async () => {
   auditStore.ensureWebSocketConnected()
 })
 
+// 统一资源清理：切页时关闭 WebSocket/取消请求，避免后台持续重连/解析消息导致卡顿
+const cleanupResources = () => {
+  try {
+    auditStore.cleanup()
+  } catch (e) {
+    // ignore
+  }
+}
+
+// 路由离开前立即清理（比 onUnmounted 更早，配合 transition 可显著降低“切页卡死”概率）
+onBeforeRouteLeave(() => {
+  cleanupResources()
+})
+
 onUnmounted(() => {
-  // 取消正在进行的请求并断开 WebSocket 连接，防止资源泄漏
-  auditStore.cancelPendingRequest()
-  auditStore.disconnectWebSocket()
+  cleanupResources()
 })
 
 watch(chatMessages, () => {

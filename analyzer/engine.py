@@ -7,7 +7,7 @@ import logging
 import re
 import time
 from typing import List, Optional, Dict, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 
 from config import AuditConfig
 from llm_client import BaseLLMClient, ChatMessage, OutputValidator, CHAIN_ANALYSIS_SCHEMA
@@ -20,6 +20,9 @@ from .sink_scanner import SinkCallScanner, SinkCallSite, SinkCategory
 from .chain_context import ChainContextCollector, ChainContext
 
 logger = logging.getLogger(__name__)
+
+# 单个 LLM 分析任务的超时时间（秒）
+LLM_TASK_TIMEOUT = 120  # 2 分钟
 
 
 class SecurityAnalyzer:
@@ -340,13 +343,15 @@ class SecurityAnalyzer:
             for i, future in enumerate(as_completed(futures)):
                 candidate = futures[future]
                 try:
-                    finding = future.result()
+                    finding = future.result(timeout=LLM_TASK_TIMEOUT)
                     if finding:
                         findings.append(finding)
                         logger.info(
                             f"[{i+1}/{len(candidates)}] 发现问题: "
                             f"{finding.title} in {finding.file_path}"
                         )
+                except FuturesTimeoutError:
+                    logger.warning(f"分析超时 {candidate.symbol}，跳过该任务")
                 except Exception as e:
                     logger.exception(f"分析错误 {candidate.symbol}: {e}")
 
@@ -548,13 +553,15 @@ class SecurityAnalyzer:
                 progress = 0.50 + (i + 1) / total_contexts * 0.08
                 report_progress(progress, f"LLM 分析 {i+1}/{total_contexts}")
                 try:
-                    finding = future.result()
+                    finding = future.result(timeout=LLM_TASK_TIMEOUT)
                     if finding:
                         findings.append(finding)
                         logger.info(
                             f"[{i+1}/{total_contexts}] 发现问题: "
                             f"{finding.title} (置信度: {finding.confidence:.2f})"
                         )
+                except FuturesTimeoutError:
+                    logger.warning(f"分析超时 {ctx.sink_site.symbol}，跳过该任务")
                 except Exception as e:
                     logger.exception(f"分析错误 {ctx.sink_site.symbol}: {e}")
 
@@ -593,10 +600,13 @@ class SecurityAnalyzer:
             }
 
             for future in as_completed(futures):
+                candidate = futures[future]
                 try:
-                    finding = future.result()
+                    finding = future.result(timeout=LLM_TASK_TIMEOUT)
                     if finding:
                         findings.append(finding)
+                except FuturesTimeoutError:
+                    logger.warning(f"Fallback 分析超时 {candidate.symbol}，跳过该任务")
                 except Exception as e:
                     logger.exception(f"Fallback 分析错误: {e}")
 
@@ -641,17 +651,22 @@ class SecurityAnalyzer:
 
         logger.info(f"[ChainAnalysis] 发现 {len(sink_sites)} 个危险函数触发点")
 
-        # 2. 构建调用图
+        # 2. 构建调用图（每次分析都重建，避免复用过期结果）
         if self.call_chain_analyzer is None:
             self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
 
-        if self._call_graph is None:
-            logger.info("[ChainAnalysis] 构建调用图...")
-            self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
-            logger.info(
-                f"[ChainAnalysis] 调用图: {len(self._call_graph.nodes)} 节点, "
-                f"{len(self._call_graph.edges)} 边"
-            )
+        # 重置状态，避免复用过期的调用图
+        self._call_graph = None
+        self._taint_flows = None
+        if self.call_chain_analyzer:
+            self.call_chain_analyzer.taint_paths = []
+
+        logger.info("[ChainAnalysis] 构建调用图...")
+        self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+        logger.info(
+            f"[ChainAnalysis] 调用图: {len(self._call_graph.nodes)} 节点, "
+            f"{len(self._call_graph.edges)} 边"
+        )
 
         # 3. 收集调用链上下文
         logger.info("[ChainAnalysis] 收集调用链上下文...")
@@ -679,13 +694,15 @@ class SecurityAnalyzer:
             for i, future in enumerate(as_completed(futures)):
                 ctx = futures[future]
                 try:
-                    finding = future.result()
+                    finding = future.result(timeout=LLM_TASK_TIMEOUT)
                     if finding:
                         findings.append(finding)
                         logger.info(
                             f"[{i+1}/{len(chain_contexts)}] 发现问题: "
                             f"{finding.title} in {finding.file_path}"
                         )
+                except FuturesTimeoutError:
+                    logger.warning(f"分析超时 {ctx.sink_site.symbol}，跳过该任务")
                 except Exception as e:
                     logger.exception(f"分析错误 {ctx.sink_site.symbol}: {e}")
 
@@ -885,6 +902,8 @@ class SecurityAnalyzer:
 
             return finding
 
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception as e:
             logger.exception(f"调用链分析错误 {chain_context.sink_site.symbol}: {e}")
             import traceback
@@ -1115,6 +1134,8 @@ class SecurityAnalyzer:
                     )
                 return finding
 
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception as e:
             logger.error(f"Analysis failed for {candidate.symbol}: {e}")
 
@@ -1351,13 +1372,15 @@ class SecurityAnalyzer:
             for i, future in enumerate(as_completed(futures)):
                 candidate = futures[future]
                 try:
-                    finding = future.result()
+                    finding = future.result(timeout=LLM_TASK_TIMEOUT)
                     if finding:
                         findings.append(finding)
                         logger.info(
                             f"[{i+1}/{len(candidates)}] Found issue: "
                             f"{finding.title} in {finding.file_path}"
                         )
+                except FuturesTimeoutError:
+                    logger.warning(f"Analysis timeout for {candidate.symbol}, skipping")
                 except Exception as e:
                     logger.error(f"Analysis error for {candidate.symbol}: {e}")
 
@@ -1507,6 +1530,8 @@ class SecurityAnalyzer:
 
             return finding
 
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception as e:
             logger.error(f"Error analyzing candidate {candidate.symbol}: {e}")
             import traceback
@@ -1596,13 +1621,15 @@ class SecurityAnalyzer:
             for i, future in enumerate(as_completed(futures)):
                 candidate = futures[future]
                 try:
-                    finding = future.result()
+                    finding = future.result(timeout=LLM_TASK_TIMEOUT)
                     if finding:
                         findings.append(finding)
                         logger.info(
                             f"[{i+1}/{len(candidates)}] Found issue: "
                             f"{finding.title} in {finding.file_path}"
                         )
+                except FuturesTimeoutError:
+                    logger.warning(f"Analysis timeout for {candidate.symbol}, skipping")
                 except Exception as e:
                     logger.error(f"Analysis error for {candidate.symbol}: {e}")
 
@@ -1692,6 +1719,8 @@ class SecurityAnalyzer:
             finding = self._parse_agent_result(result, candidate)
             return finding
 
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception as e:
             logger.error(f"Agent analysis failed for {candidate.symbol}: {e}")
             # Fallback to legacy method
@@ -1760,6 +1789,8 @@ class SecurityAnalyzer:
 
             return finding
 
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception as e:
             logger.error(f"Failed to parse agent result: {e}")
             return None

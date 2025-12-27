@@ -791,17 +791,35 @@ class OpenAICompatibleClient(BaseLLMClient):
         return BatchProcessor(client, config, FAST_RETRY_CONFIG)
 
     def close(self):
-        """关闭客户端"""
-        self._client.close()
-        # 如果嵌入模型客户端是独立创建的，也需要关闭
-        if self._embedding_client is not self._client:
-            self._embedding_client.close()
+        """关闭客户端（安全的重复调用）"""
+        # 使用 getattr 安全检查，避免在对象未完全初始化时出错
+        if not getattr(self, '_closed', False):
+            self._closed = True
+            try:
+                if hasattr(self, '_client') and self._client:
+                    self._client.close()
+            except Exception:
+                pass  # 忽略关闭时的错误
+            try:
+                # 如果嵌入模型客户端是独立创建的，也需要关闭
+                if hasattr(self, '_embedding_client') and self._embedding_client:
+                    if self._embedding_client is not getattr(self, '_client', None):
+                        self._embedding_client.close()
+            except Exception:
+                pass  # 忽略关闭时的错误
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def __del__(self):
+        """析构函数，确保资源释放"""
+        try:
+            self.close()
+        except Exception:
+            pass  # 析构函数中不应抛出异常
 
 
 class MockLLMClient(BaseLLMClient):

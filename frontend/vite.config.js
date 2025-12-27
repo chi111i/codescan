@@ -12,10 +12,13 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      // API 请求代理（含 WebSocket）
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        ws: true,  // 启用 WebSocket 代理，支持 /api/agent/ws/* 等路径
       },
+      // 兼容旧的 /ws 路径
       '/ws': {
         target: 'ws://localhost:8000',
         ws: true,

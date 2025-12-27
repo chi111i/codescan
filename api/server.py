@@ -10,11 +10,45 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import logging
+import sys
 import json
 from pathlib import Path
 
+
+def setup_logging():
+    """配置日志系统 - 确保所有模块日志正确输出到终端"""
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    # 直接使用 sys.stderr（不包装 TextIOWrapper，避免 uvicorn 子进程中的 I/O 问题）
+    # Windows 终端乱码问题可以通过设置环境变量 PYTHONIOENCODING=utf-8 解决
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    root_logger.addHandler(console_handler)
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+
+    for module in ["llm_client", "agent", "analyzer", "indexer", "api", "rules", "config"]:
+        module_logger = logging.getLogger(module)
+        module_logger.setLevel(logging.INFO)
+        module_logger.propagate = True
+
+
+setup_logging()
+
 # 导入核心模块
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 logger = logging.getLogger(__name__)
@@ -576,4 +610,4 @@ async def get_system_stats():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None)

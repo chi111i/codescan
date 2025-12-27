@@ -28,7 +28,16 @@ export const checkHealth = () => api.get('/health')
 
 // 索引相关
 export const indexProject = (data) => api.post('/index', data)
+export const indexProjectAsync = (data) => api.post('/index/async', data)
+export const getIndexProgress = (indexId) => api.get(`/index/${indexId}/progress`)
 export const getIndexStats = () => api.get('/index/stats')
+
+// 索引进度 WebSocket 连接
+export const createIndexWebSocket = (indexId) => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return new WebSocket(`${protocol}//${host}/ws/index/${indexId}`)
+}
 
 // 搜索相关
 export const searchCode = (data) => api.post('/search', data)
@@ -121,7 +130,13 @@ export const listActiveUnifiedSessions = () => api.get('/agent/sessions/active')
 export const restoreUnifiedSession = (sessionId) => api.post(`/agent/session/${sessionId}/restore`)
 
 // 对话交互
-export const chatWithAgent = (sessionId, message) => api.post(`/agent/session/${sessionId}/chat`, { message })
+// NOTE: 允许传入 axios config（例如 AbortController.signal），用于页面切换/用户取消时
+// 及时终止长请求，避免路由切换后仍有回包写入 store 造成卡顿。
+export const chatWithAgent = (sessionId, message, config = {}) => api.post(
+  `/agent/session/${sessionId}/chat`,
+  { message },
+  config
+)
 export const getAgentMessages = (sessionId, limit = 50) => api.get(`/agent/session/${sessionId}/messages`, { params: { limit } })
 export const getAgentToolCalls = (sessionId, limit = 100) => api.get(`/agent/session/${sessionId}/tool-calls`, { params: { limit } })
 export const clearAgentHistory = (sessionId) => api.post(`/agent/session/${sessionId}/clear-history`)

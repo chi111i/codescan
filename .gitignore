@@ -50,5 +50,9 @@ frontend/dist/
 # Misc
 nul
 *.log
+*.txt
 .DS_Store
 Thumbs.db
+
+# Reference projects (not part of main codebase)
+参考项目/

@@ -140,7 +140,58 @@ async def create_session(request: CreateUnifiedSessionRequest):
         # 导入统一智能体
         from agent import UnifiedAuditAgent, UnifiedAgentConfig, create_unified_agent
 
-        # 创建配置
+        # === 创建 WebSocket 广播回调函数 ===
+        async def broadcast_llm_event(event_data: dict):
+            """广播 LLM 调用事件到 WebSocket"""
+            if session_id in _ws_connections:
+                ws = _ws_connections[session_id]
+                try:
+                    event_type = event_data.get("type", "llm_call_end")
+                    ws_event_type = (
+                        WSEventType.LLM_CALL_START if event_type == "llm_call_start"
+                        else WSEventType.LLM_CALL_END
+                    )
+                    await _safe_send_json(ws, WSEvent(
+                        type=ws_event_type,
+                        session_id=session_id,
+                        data=event_data,
+                    ))
+                    logger.info(f"[Session {session_id}] LLM 事件广播成功: {event_type}")
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] 广播 LLM 事件失败: {e}")
+            else:
+                logger.debug(f"[Session {session_id}] WebSocket 未连接，跳过 LLM 事件广播")
+
+        async def broadcast_finding_event(finding_data: dict):
+            """广播新发现事件到 WebSocket"""
+            if session_id in _ws_connections:
+                ws = _ws_connections[session_id]
+                try:
+                    await _safe_send_json(ws, WSEvent(
+                        type=WSEventType.NEW_FINDING,
+                        session_id=session_id,
+                        data=finding_data,
+                    ))
+                    logger.info(f"[Session {session_id}] 发现事件广播成功: {finding_data.get('title')}")
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] 广播发现事件失败: {e}")
+            else:
+                logger.debug(f"[Session {session_id}] WebSocket 未连接，跳过发现事件广播")
+
+        async def broadcast_analysis_progress(progress_data: dict):
+            """广播分析进度到 WebSocket"""
+            if session_id in _ws_connections:
+                ws = _ws_connections[session_id]
+                try:
+                    await _safe_send_json(ws, WSEvent(
+                        type=WSEventType.ANALYSIS_PROGRESS,
+                        session_id=session_id,
+                        data=progress_data,
+                    ))
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] 广播分析进度失败: {e}")
+
+        # 创建配置（含 WebSocket 回调）
         agent_config = UnifiedAgentConfig(
             enable_call_chain=request.enable_call_chain,
             enable_variant_analysis=request.enable_variant_analysis,
@@ -148,6 +199,11 @@ async def create_session(request: CreateUnifiedSessionRequest):
             enable_prescan=request.enable_prescan,
             prescan_risk_levels=request.prescan_risk_levels,
             enable_deep_enhancement=request.enable_deep_enhancement,
+            # === LLM 调用过程回调（实时广播到前端） ===
+            on_llm_call_start=broadcast_llm_event,
+            on_llm_call_end=broadcast_llm_event,
+            on_finding_reported=broadcast_finding_event,
+            on_analysis_progress=broadcast_analysis_progress,
         )
 
         # 获取可选的分析器
@@ -167,11 +223,16 @@ async def create_session(request: CreateUnifiedSessionRequest):
             call_chain_analyzer=call_chain_analyzer,
             variant_analyzer=variant_analyzer,
             vector_store=app_state.vector_store if hasattr(app_state, 'vector_store') else None,
+            rule_manager=app_state.rule_manager,  # 传入规则管理器用于预扫描
         )
 
         # 【重要】先索引目标代码，然后再初始化智能体
         # 这样智能体初始化时可以获取到代码单元，进行预扫描
         if request.target_path:
+            # 清空旧索引，确保不同项目数据不混淆
+            logger.info(f"[Session {session_id}] 阶段1/3: 清空旧索引，准备索引新项目...")
+            await asyncio.to_thread(app_state.indexer.clear_index)
+
             logger.info(f"[Session {session_id}] 阶段1/3: 开始索引目标代码 - {request.target_path}")
             import time
             start_time = time.time()
@@ -325,10 +386,60 @@ async def restore_session(session_id: str):
 
         config = db_session.config or {}
 
-        # 创建配置
+        # === 创建 WebSocket 广播回调函数 ===
+        async def broadcast_llm_event(event_data: dict):
+            """广播 LLM 调用事件到 WebSocket"""
+            if session_id in _ws_connections:
+                ws = _ws_connections[session_id]
+                try:
+                    event_type = event_data.get("type", "llm_call_end")
+                    ws_event_type = (
+                        WSEventType.LLM_CALL_START if event_type == "llm_call_start"
+                        else WSEventType.LLM_CALL_END
+                    )
+                    await _safe_send_json(ws, WSEvent(
+                        type=ws_event_type,
+                        session_id=session_id,
+                        data=event_data,
+                    ))
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] 广播 LLM 事件失败: {e}")
+
+        async def broadcast_finding_event(finding_data: dict):
+            """广播新发现事件到 WebSocket"""
+            if session_id in _ws_connections:
+                ws = _ws_connections[session_id]
+                try:
+                    await _safe_send_json(ws, WSEvent(
+                        type=WSEventType.NEW_FINDING,
+                        session_id=session_id,
+                        data=finding_data,
+                    ))
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] 广播发现事件失败: {e}")
+
+        async def broadcast_analysis_progress(progress_data: dict):
+            """广播分析进度到 WebSocket"""
+            if session_id in _ws_connections:
+                ws = _ws_connections[session_id]
+                try:
+                    await _safe_send_json(ws, WSEvent(
+                        type=WSEventType.ANALYSIS_PROGRESS,
+                        session_id=session_id,
+                        data=progress_data,
+                    ))
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] 广播分析进度失败: {e}")
+
+        # 创建配置（含 WebSocket 回调）
         agent_config = UnifiedAgentConfig(
             enable_call_chain=config.get("enable_call_chain", True),
             enable_variant_analysis=config.get("enable_variant_analysis", True),
+            # === LLM 调用过程回调（实时广播到前端） ===
+            on_llm_call_start=broadcast_llm_event,
+            on_llm_call_end=broadcast_llm_event,
+            on_finding_reported=broadcast_finding_event,
+            on_analysis_progress=broadcast_analysis_progress,
         )
 
         # 获取可选的分析器
@@ -345,10 +456,15 @@ async def restore_session(session_id: str):
             call_chain_analyzer=call_chain_analyzer,
             variant_analyzer=None,
             vector_store=app_state.vector_store if hasattr(app_state, 'vector_store') else None,
+            rule_manager=app_state.rule_manager,  # 传入规则管理器用于预扫描
         )
 
         # 【重要】先重新索引目标代码（如果有），再初始化智能体
         if db_session.target_path:
+            # 清空旧索引，确保恢复会话时数据干净
+            logger.info(f"[Session] 恢复会话 - 清空旧索引...")
+            await asyncio.to_thread(app_state.indexer.clear_index)
+
             logger.info(f"[Session] 恢复会话时重新索引: {db_session.target_path}")
             await asyncio.to_thread(
                 app_state.indexer.index_directory,

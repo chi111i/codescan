@@ -157,6 +157,14 @@ class WSEventType(str, Enum):
     PRESCAN_COMPLETE = "prescan_complete"
     ENHANCEMENT_START = "enhancement_start"
     ENHANCEMENT_COMPLETE = "enhancement_complete"
+    # === LLM 调用过程事件（实时展示） ===
+    LLM_CALL_START = "llm_call_start"  # LLM 调用开始
+    LLM_CALL_END = "llm_call_end"  # LLM 调用结束（含响应内容和工具调用）
+    LLM_THINKING = "llm_thinking"  # LLM 思考中（流式内容）
+    # === 漏洞发现事件 ===
+    NEW_FINDING = "new_finding"  # 新发现的漏洞
+    # === 分析进度事件 ===
+    ANALYSIS_PROGRESS = "analysis_progress"  # 分析进度（第X/Y个触发点）
 
 
 class WSEvent(BaseModel):

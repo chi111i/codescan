@@ -110,9 +110,12 @@ class FileTracker:
         Args:
             db_path: SQLite 数据库路径
         """
+        import threading
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self._lock = threading.Lock()  # 添加线程锁保护数据库操作
+        self._closed = False  # 追踪关闭状态
         self._init_schema()
 
     def _init_schema(self) -> None:
@@ -143,12 +146,15 @@ class FileTracker:
         Returns:
             (mtime, content_hash) 或 None
         """
-        cursor = self._conn.execute(
-            "SELECT mtime, content_hash FROM file_index WHERE file_path = ?",
-            (file_path,)
-        )
-        row = cursor.fetchone()
-        return (row[0], row[1]) if row else None
+        with self._lock:
+            if self._closed or not self._conn:
+                return None
+            cursor = self._conn.execute(
+                "SELECT mtime, content_hash FROM file_index WHERE file_path = ?",
+                (file_path,)
+            )
+            row = cursor.fetchone()
+            return (row[0], row[1]) if row else None
 
     def update_file_state(
         self,
@@ -158,44 +164,63 @@ class FileTracker:
         unit_ids: List[str]
     ) -> None:
         """更新文件状态"""
-        self._conn.execute("""
-            INSERT OR REPLACE INTO file_index
-            (file_path, mtime, content_hash, unit_ids, indexed_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            file_path,
-            mtime,
-            content_hash,
-            ",".join(unit_ids),
-            time.time()
-        ))
-        self._conn.commit()
+        with self._lock:
+            if self._closed or not self._conn:
+                return
+            self._conn.execute("""
+                INSERT OR REPLACE INTO file_index
+                (file_path, mtime, content_hash, unit_ids, indexed_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                file_path,
+                mtime,
+                content_hash,
+                ",".join(unit_ids),
+                time.time()
+            ))
+            self._conn.commit()
 
     def get_unit_ids(self, file_path: str) -> List[str]:
         """获取文件关联的代码单元 ID 列表"""
-        cursor = self._conn.execute(
-            "SELECT unit_ids FROM file_index WHERE file_path = ?",
-            (file_path,)
-        )
-        row = cursor.fetchone()
-        if row and row[0]:
-            return row[0].split(",")
-        return []
+        with self._lock:
+            if self._closed or not self._conn:
+                return []
+            cursor = self._conn.execute(
+                "SELECT unit_ids FROM file_index WHERE file_path = ?",
+                (file_path,)
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                return row[0].split(",")
+            return []
 
     def remove_file(self, file_path: str) -> List[str]:
         """移除文件记录，返回其关联的代码单元 ID"""
-        unit_ids = self.get_unit_ids(file_path)
-        self._conn.execute(
-            "DELETE FROM file_index WHERE file_path = ?",
-            (file_path,)
-        )
-        self._conn.commit()
-        return unit_ids
+        with self._lock:
+            if self._closed or not self._conn:
+                return []
+            # 先获取 unit_ids
+            cursor = self._conn.execute(
+                "SELECT unit_ids FROM file_index WHERE file_path = ?",
+                (file_path,)
+            )
+            row = cursor.fetchone()
+            unit_ids = row[0].split(",") if row and row[0] else []
+            # 删除记录
+            self._conn.execute(
+                "DELETE FROM file_index WHERE file_path = ?",
+                (file_path,)
+            )
+            self._conn.commit()
+            return unit_ids
 
     def get_all_tracked_files(self) -> Set[str]:
         """获取所有已追踪的文件路径"""
-        cursor = self._conn.execute("SELECT file_path FROM file_index")
-        return {row[0] for row in cursor.fetchall()}
+        with self._lock:
+            if self._closed or not self._conn:
+                return set()
+            cursor = self._conn.execute("SELECT file_path FROM file_index")
+            return {row[0] for row in cursor.fetchall()}
 
     def check_file_changed(self, file_path: Path) -> bool:
         """检查文件是否已变更
@@ -227,24 +252,51 @@ class FileTracker:
 
     def get_stats(self) -> Dict[str, Any]:
         """获取追踪统计"""
-        cursor = self._conn.execute("SELECT COUNT(*) FROM file_index")
-        total = cursor.fetchone()[0]
+        with self._lock:
+            if self._closed or not self._conn:
+                return {"tracked_files": 0, "db_path": str(self.db_path)}
+            cursor = self._conn.execute("SELECT COUNT(*) FROM file_index")
+            total = cursor.fetchone()[0]
 
-        return {
-            "tracked_files": total,
-            "db_path": str(self.db_path),
-        }
+            return {
+                "tracked_files": total,
+                "db_path": str(self.db_path),
+            }
 
     def clear(self) -> None:
         """清空所有追踪记录"""
-        self._conn.execute("DELETE FROM file_index")
-        self._conn.commit()
+        with self._lock:
+            if not self._closed and self._conn:
+                self._conn.execute("DELETE FROM file_index")
+                self._conn.commit()
 
     def close(self) -> None:
-        """关闭数据库连接"""
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        """关闭数据库连接（线程安全）"""
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._conn:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass  # 忽略关闭时的错误
+                self._conn = None
+
+    def __enter__(self) -> 'FileTracker':
+        """上下文管理器入口"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """上下文管理器出口"""
+        self.close()
+
+    def __del__(self) -> None:
+        """析构函数，确保资源释放"""
+        try:
+            self.close()
+        except Exception:
+            pass  # 析构函数中不应抛出异常
 
 
 class CodeIndexer:
@@ -446,6 +498,8 @@ class CodeIndexer:
                     logger.debug("[PARSE]   - %s: %s", u.unit_type.value, u.symbol)
 
             return units
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception:
             logger.exception("[PARSE] 解析失败: %s", file_path)
             return []
@@ -531,14 +585,16 @@ class CodeIndexer:
             )
             self._async_embedding_client = OpenAIEmbeddingClient(config, FAST_RETRY_CONFIG)
 
-            # Create batch processor with dynamic sizing
+            # Create batch processor with optimized dynamic sizing
+            # Increased batch size for better throughput (150 vs 50)
             batch_config = BatchConfig(
-                initial_batch_size=50,
-                min_batch_size=5,
-                max_batch_size=200,
+                initial_batch_size=150,  # Optimized: 3x increase
+                min_batch_size=10,
+                max_batch_size=300,
                 recovery_factor=0.1,
                 reduction_factor=0.5,
                 success_threshold=3,
+                max_concurrent_batches=3,  # Enable concurrent requests
             )
             self._batch_processor = BatchProcessor(
                 self._async_embedding_client,
@@ -617,18 +673,24 @@ class CodeIndexer:
     def index_directory(
         self,
         target_path: Optional[str] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+        embedding_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> int:
         """索引目录
 
         Args:
             target_path: 目标路径，默认使用配置中的路径
-            progress_callback: 进度回调函数 (current, total)
+            progress_callback: 解析进度回调函数 (current, total)
+            embedding_callback: 嵌入进度回调函数 (current, total, message)
 
         Returns:
             索引的代码单元数量
         """
-        path = Path(target_path or self.scan_config.target_path).resolve()
+        # 处理路径：去除前后空格，避免相对路径错误拼接
+        raw_path = target_path or self.scan_config.target_path
+        if raw_path:
+            raw_path = raw_path.strip()
+        path = Path(raw_path).resolve()
 
         if not path.exists():
             raise FileNotFoundError(f"目标路径不存在: {path}")
@@ -658,8 +720,13 @@ class CodeIndexer:
 
             last_log_percent = 0
             for i, future in enumerate(as_completed(futures)):
-                units = future.result()
-                all_units.extend(units)
+                file_path = futures[future]
+                try:
+                    units = future.result()
+                    all_units.extend(units)
+                except Exception as e:
+                    logger.error(f"Failed to parse {file_path}: {e}")
+                    continue
 
                 if progress_callback:
                     progress_callback(i + 1, total_files)
@@ -681,7 +748,7 @@ class CodeIndexer:
 
         # 生成嵌入并存储
         logger.info(f"[嵌入生成] 开始为 {len(chunked_units)} 个代码单元生成嵌入向量...")
-        embeddings = self._generate_embeddings(chunked_units)
+        embeddings = self._generate_embeddings(chunked_units, embedding_callback)
         logger.info(f"[嵌入完成] 成功生成 {len(embeddings)} 个嵌入向量")
 
         logger.info(f"[存储中] 正在将 {len(chunked_units)} 个代码单元写入向量数据库...")
