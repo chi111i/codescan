@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+import hashlib
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 
@@ -18,6 +19,12 @@ from .models import Finding, Candidate, AnalysisContext, Severity, Evidence
 from .prompts import build_analysis_prompt, build_chain_analysis_prompt
 from .sink_scanner import SinkCallScanner, SinkCallSite, SinkCategory
 from .chain_context import ChainContextCollector, ChainContext
+from .fc_adapter import (
+    FunctionCallingAdapter,
+    FCAdapterConfig,
+    FCSecurityTools,
+    FCAnalysisResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +71,7 @@ class SecurityAnalyzer:
 
         # 新增：Agent 模式标志
         self.use_agent_mode = True  # 默认使用 Agent 模式
+        self.use_function_calling = False  # Function Calling 模式开关
 
         # 新增：输出验证器（用于链级分析）
         self.output_validator = OutputValidator(
@@ -734,8 +742,15 @@ class SecurityAnalyzer:
         try:
             sink_site = chain_context.sink_site
 
-            # 生成调用链 ID
+            # 生成调用链 ID（用于日志和关联）
             chain_id = f"chain-{sink_site.id}"
+
+            # 生成全局唯一的 Finding ID
+            # 使用 scan_id + 时间戳 + 内容哈希确保唯一性
+            timestamp = int(time.time() * 1000)  # 毫秒级时间戳
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
+            finding_id = f"f-{finding_hash}"
 
             # 获取 sink 类别
             sink_category = sink_site.sink_category.value
@@ -855,7 +870,7 @@ class SecurityAnalyzer:
             )
 
             finding = Finding(
-                id=f"finding-{chain_id}",
+                id=finding_id,  # 使用全局唯一的 finding_id
                 title=result.get("issue_type", "Security Issue"),
                 file_path=sink_site.file_path,
                 line_start=sink_site.line_start,
@@ -1811,3 +1826,753 @@ class SecurityAnalyzer:
         findings = [f for f in findings if f.confidence >= min_confidence]
 
         return findings
+
+    def analyze_selected_sinks(
+        self,
+        selected_sites: List["SinkCallSite"],
+        code_units: List[CodeUnit],
+        use_chain_analysis: bool = True,
+        max_chain_depth: int = 5,
+        max_chains_per_sink: int = 10,
+        progress_callback: Optional[callable] = None,
+        on_tool_call: Optional[callable] = None,
+        on_llm_thinking: Optional[callable] = None,
+    ) -> List[Finding]:
+        """分析用户选中的触发点
+
+        这是"两步确认"模式的核心方法：
+        1. 用户已通过前端选择了感兴趣的触发点
+        2. 此方法仅对选中的触发点进行 LLM 深度分析
+
+        Args:
+            selected_sites: 用户选中的 SinkCallSite 列表
+            code_units: 代码单元列表（用于构建调用图）
+            use_chain_analysis: 是否使用调用链分析
+            max_chain_depth: 最大调用链深度
+            max_chains_per_sink: 每个触发点最大调用链数量
+            progress_callback: 进度回调函数
+            on_tool_call: FC 模式的工具调用回调（可选）
+            on_llm_thinking: FC 模式的 LLM 思考状态回调（可选）
+
+        Returns:
+            Finding 列表
+        """
+        from .sink_scanner import SinkCallSite
+
+        if not selected_sites:
+            logger.warning("没有选中的触发点")
+            return []
+
+        logger.info(f"[SelectedAnalysis] 开始分析 {len(selected_sites)} 个选中的触发点")
+
+        # 记录开始
+        if self.interaction_repo:
+            self.interaction_repo.log_thinking(
+                self.scan_id,
+                f"开始对 {len(selected_sites)} 个用户选中的触发点进行深度分析"
+            )
+
+        all_findings = []
+        total_sites = len(selected_sites)
+
+        if use_chain_analysis:
+            # 构建调用图
+            logger.info("[SelectedAnalysis] 构建调用图...")
+            if progress_callback:
+                progress_callback(0.05, "正在构建调用图...")
+
+            chain_analyzer = CallChainAnalyzer(self.rule_manager)
+            call_graph = chain_analyzer.build_call_graph(code_units)
+
+            logger.info(f"[SelectedAnalysis] 调用图: {len(call_graph.nodes)} 节点, {len(call_graph.edges)} 边")
+
+            # 创建符号到 CodeUnit 的映射
+            symbol_to_unit = {}
+            for unit in code_units:
+                symbol_to_unit[unit.symbol] = unit
+                if unit.parent_class:
+                    full_name = f"{unit.parent_class}.{unit.symbol}"
+                    symbol_to_unit[full_name] = unit
+
+            # 创建上下文收集器
+            context_collector = ChainContextCollector(code_units)
+
+            # 逐个分析选中的触发点
+            for idx, sink_site in enumerate(selected_sites):
+                site_progress = idx / total_sites
+                if progress_callback:
+                    progress_callback(
+                        0.1 + site_progress * 0.85,
+                        f"正在分析触发点 ({idx + 1}/{total_sites}): {sink_site.symbol}"
+                    )
+
+                logger.info(f"[SelectedAnalysis] 分析触发点 {idx + 1}/{total_sites}: {sink_site.symbol}")
+
+                # 查找到达此触发点的调用链
+                try:
+                    chains = chain_analyzer.find_paths_to_sink(
+                        sink_site.symbol,
+                        max_depth=max_chain_depth,
+                        max_paths=max_chains_per_sink
+                    )
+                except Exception as e:
+                    logger.warning(f"查找调用链失败: {e}")
+                    chains = []
+
+                if not chains:
+                    # 没有调用链，直接分析触发点本身
+                    logger.debug(f"触发点 {sink_site.symbol} 没有调用链，直接分析")
+                    chains = [[sink_site.symbol]]
+
+                # 对每条调用链进行分析
+                for chain_idx, chain in enumerate(chains[:max_chains_per_sink]):
+                    chain_id = f"chain-{sink_site.id}-{chain_idx}"
+
+                    # 收集调用链上下文
+                    try:
+                        chain_context = context_collector.collect_chain_context(
+                            chain,
+                            max_context_units=self.config.analysis.max_chain_context_units
+                        )
+                    except Exception as e:
+                        logger.warning(f"收集调用链上下文失败: {e}")
+                        # 回退：仅使用触发点所在函数的代码
+                        unit = symbol_to_unit.get(sink_site.symbol)
+                        if unit:
+                            chain_context = ChainContext(
+                                chain_path=chain,
+                                nodes=[ChainNode(
+                                    symbol=unit.symbol,
+                                    file_path=unit.file_path,
+                                    line_start=unit.span.start_line,
+                                    line_end=unit.span.end_line,
+                                    code=unit.code,
+                                    node_type="sink"
+                                )],
+                                total_lines=unit.span.end_line - unit.span.start_line + 1,
+                                truncated=False
+                            )
+                        else:
+                            continue
+
+                    # 构建分析 Prompt
+                    prompt = self._build_chain_prompt_for_site(
+                        sink_site,
+                        chain_context,
+                        chain_id
+                    )
+
+                    # 调用 LLM
+                    if self.interaction_repo:
+                        self.interaction_repo.log_thinking(
+                            self.scan_id,
+                            f"正在分析调用链 {chain_id}: {' -> '.join(chain[:5])}{'...' if len(chain) > 5 else ''}"
+                        )
+
+                    try:
+                        # 根据是否启用 Function Calling 模式选择分析方法
+                        if self.use_function_calling:
+                            finding = self.analyze_with_function_calling(
+                                sink_site,
+                                chain_context,
+                                code_units,
+                                on_tool_call=on_tool_call,
+                                on_llm_thinking=on_llm_thinking,
+                            )
+                        else:
+                            finding = self._analyze_chain_with_llm(
+                                sink_site,
+                                chain_context,
+                                chain_id,
+                                prompt
+                            )
+
+                        if finding:
+                            all_findings.append(finding)
+                            logger.info(f"[SelectedAnalysis] 发现问题: {finding.title} ({finding.severity.value})")
+
+                            if self.interaction_repo:
+                                self.interaction_repo.log_finding(
+                                    self.scan_id,
+                                    finding.id,
+                                    finding.to_dict()
+                                )
+
+                    except Exception as e:
+                        logger.error(f"LLM 分析失败: {e}")
+                        continue
+
+        else:
+            # 不使用调用链分析，直接分析每个触发点
+            for idx, sink_site in enumerate(selected_sites):
+                site_progress = idx / total_sites
+                if progress_callback:
+                    progress_callback(
+                        0.1 + site_progress * 0.85,
+                        f"正在分析触发点 ({idx + 1}/{total_sites}): {sink_site.symbol}"
+                    )
+
+                # 简单分析模式
+                finding = self._analyze_sink_site_simple(sink_site, code_units)
+                if finding:
+                    all_findings.append(finding)
+
+        # 过滤和排序
+        all_findings = self._filter_and_sort_findings(all_findings)
+
+        if progress_callback:
+            progress_callback(1.0, f"分析完成，发现 {len(all_findings)} 个问题")
+
+        logger.info(f"[SelectedAnalysis] 完成，共发现 {len(all_findings)} 个问题")
+        return all_findings
+
+    def _build_chain_prompt_for_site(
+        self,
+        sink_site: "SinkCallSite",
+        chain_context: ChainContext,
+        chain_id: str
+    ) -> str:
+        """为触发点构建调用链分析 Prompt"""
+        from .prompts import build_chain_analysis_prompt, SINK_CATEGORY_PROMPTS
+
+        # 获取 Sink 类别特定的提示
+        category_hint = SINK_CATEGORY_PROMPTS.get(
+            sink_site.sink_category.value,
+            "请分析此代码是否存在安全漏洞。"
+        )
+
+        # 构建调用链代码上下文
+        code_context_parts = []
+        for node in chain_context.nodes:
+            code_context_parts.append(
+                f"### {node.symbol} ({node.file_path}:{node.line_start}-{node.line_end})\n"
+                f"```\n{node.code}\n```"
+            )
+        code_context = "\n\n".join(code_context_parts)
+
+        # 构建 Prompt
+        prompt = f"""## 安全审计任务
+
+**触发点**: {sink_site.symbol}
+**文件**: {sink_site.file_path}:{sink_site.line_start}
+**危险函数类别**: {sink_site.sink_category.value}
+**风险等级**: {sink_site.risk_level.value}
+**匹配规则**: {', '.join(sink_site.matched_rule_ids)}
+**匹配模式**: {', '.join(sink_site.matched_patterns)}
+
+**触发代码片段**:
+```
+{sink_site.call_snippet}
+```
+
+{category_hint}
+
+## 调用链路径
+{' -> '.join(chain_context.chain_path)}
+
+## 调用链代码上下文
+{code_context}
+
+## 分析要求
+1. 分析用户输入是否能到达此危险函数
+2. 检查是否有充分的输入验证和过滤
+3. 评估是否存在可利用的安全漏洞
+4. 如果存在问题，描述攻击场景和修复建议
+
+请以 JSON 格式输出分析结果。"""
+
+        return prompt
+
+    def _analyze_chain_with_llm(
+        self,
+        sink_site: "SinkCallSite",
+        chain_context: ChainContext,
+        chain_id: str,
+        prompt: str
+    ) -> Optional[Finding]:
+        """使用 LLM 分析调用链"""
+        from .prompts import get_chain_output_schema, CHAIN_SYSTEM_PROMPT
+
+        try:
+            # 记录 LLM 调用
+            if self.interaction_repo:
+                self.interaction_repo.log_llm_call(
+                    self.scan_id,
+                    CHAIN_SYSTEM_PROMPT[:500] + "...",
+                    prompt[:1000] + "..." if len(prompt) > 1000 else prompt
+                )
+
+            # 调用 LLM
+            response = self.llm_client.chat_completion(
+                messages=[
+                    ChatMessage(role="system", content=CHAIN_SYSTEM_PROMPT),
+                    ChatMessage(role="user", content=prompt),
+                ],
+                temperature=self.config.llm.temperature,
+                max_tokens=self.config.llm.max_tokens,
+                response_format={"type": "json_object"}
+            )
+
+            # 记录响应
+            if self.interaction_repo:
+                self.interaction_repo.log_llm_response(
+                    self.scan_id,
+                    response.content[:2000] if response.content else ""
+                )
+
+            # 解析响应
+            result = self._parse_llm_response(response.content)
+
+            if not result or not result.get("has_issue"):
+                return None
+
+            # 生成唯一的 Finding ID
+            timestamp = int(time.time() * 1000)
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
+            finding_id = f"f-{finding_hash}"
+
+            # 创建 Finding
+            finding = Finding(
+                id=finding_id,
+                title=result.get("issue_type", sink_site.sink_category.value),
+                file_path=sink_site.file_path,
+                line_start=sink_site.line_start,
+                line_end=sink_site.line_end,
+                symbol=sink_site.symbol,
+                severity=Severity(result.get("severity", "medium")),
+                confidence=result.get("confidence", 0.7),
+                category=sink_site.sink_category.value,
+                summary=result.get("summary", ""),
+                details=result.get("details", ""),
+                evidence=[Evidence(
+                    file_path=sink_site.file_path,
+                    line_start=sink_site.line_start,
+                    line_end=sink_site.line_end,
+                    code_snippet=sink_site.call_snippet,
+                    description=f"触发点: {sink_site.symbol}"
+                )],
+                attack_scenario=result.get("attack_scenario", ""),
+                fix_suggestion=result.get("fix_suggestion", ""),
+                rule_ids=sink_site.matched_rule_ids,
+                cwe_ids=result.get("cwe_ids", []),
+                notes=result.get("notes", ""),
+                metadata={
+                    "chain_id": chain_id,
+                    "chain_path": chain_context.chain_path,
+                    "sink_category": sink_site.sink_category.value,
+                    "analysis_mode": "selected_analysis"
+                }
+            )
+
+            return finding
+
+        except Exception as e:
+            logger.error(f"LLM 调用失败: {e}")
+            return None
+
+    def _analyze_sink_site_simple(
+        self,
+        sink_site: "SinkCallSite",
+        code_units: List[CodeUnit]
+    ) -> Optional[Finding]:
+        """简单模式分析触发点（不使用调用链）"""
+        # 查找对应的 CodeUnit
+        target_unit = None
+        for unit in code_units:
+            if unit.symbol == sink_site.symbol and unit.file_path == sink_site.file_path:
+                target_unit = unit
+                break
+
+        if not target_unit:
+            return None
+
+        # 构建简单的分析 prompt
+        prompt = f"""请分析以下代码是否存在安全漏洞：
+
+**函数**: {sink_site.symbol}
+**文件**: {sink_site.file_path}:{sink_site.line_start}
+**危险函数类别**: {sink_site.sink_category.value}
+**匹配的危险模式**: {', '.join(sink_site.matched_patterns)}
+
+**代码**:
+```
+{target_unit.code}
+```
+
+请以 JSON 格式输出分析结果。"""
+
+        try:
+            from .prompts import CHAIN_SYSTEM_PROMPT
+
+            response = self.llm_client.chat_completion(
+                messages=[
+                    ChatMessage(role="system", content=CHAIN_SYSTEM_PROMPT),
+                    ChatMessage(role="user", content=prompt),
+                ],
+                temperature=self.config.llm.temperature,
+                max_tokens=self.config.llm.max_tokens,
+                response_format={"type": "json_object"}
+            )
+
+            result = self._parse_llm_response(response.content)
+
+            if not result or not result.get("has_issue"):
+                return None
+
+            # 生成唯一的 Finding ID
+            timestamp = int(time.time() * 1000)
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
+            finding_id = f"f-{finding_hash}"
+
+            finding = Finding(
+                id=finding_id,
+                title=result.get("issue_type", sink_site.sink_category.value),
+                file_path=sink_site.file_path,
+                line_start=sink_site.line_start,
+                line_end=sink_site.line_end,
+                symbol=sink_site.symbol,
+                severity=Severity(result.get("severity", "medium")),
+                confidence=result.get("confidence", 0.7),
+                category=sink_site.sink_category.value,
+                summary=result.get("summary", ""),
+                details=result.get("details", ""),
+                evidence=[Evidence(
+                    file_path=sink_site.file_path,
+                    line_start=sink_site.line_start,
+                    line_end=sink_site.line_end,
+                    code_snippet=sink_site.call_snippet,
+                    description=f"触发点: {sink_site.symbol}"
+                )],
+                attack_scenario=result.get("attack_scenario", ""),
+                fix_suggestion=result.get("fix_suggestion", ""),
+                rule_ids=sink_site.matched_rule_ids,
+                cwe_ids=result.get("cwe_ids", []),
+                notes=result.get("notes", ""),
+                metadata={
+                    "sink_category": sink_site.sink_category.value,
+                    "analysis_mode": "simple"
+                }
+            )
+
+            return finding
+
+        except Exception as e:
+            logger.error(f"简单分析失败: {e}")
+            return None
+
+    # ========================================================================
+    # Function Calling 模式分析方法
+    # ========================================================================
+
+    def analyze_with_function_calling(
+        self,
+        sink_site: SinkCallSite,
+        chain_context: ChainContext,
+        code_units: List[CodeUnit],
+        on_tool_call: Optional[callable] = None,
+        on_llm_thinking: Optional[callable] = None,
+    ) -> Optional[Finding]:
+        """使用 Function Calling 模式分析触发点
+
+        与普通 LLM 分析的区别：
+        - LLM 可以主动调用工具查看更多代码
+        - 分析过程更加自主和深入
+        - 支持工具调用回调，用于实时展示
+
+        Args:
+            sink_site: 危险函数触发点
+            chain_context: 调用链上下文
+            code_units: 代码单元列表
+            on_tool_call: 工具调用回调 (FCToolCall) -> None
+            on_llm_thinking: LLM 思考状态回调 (str) -> None
+
+        Returns:
+            Finding 或 None
+        """
+        from .prompts import CHAIN_SYSTEM_PROMPT
+
+        try:
+            # 创建安全分析工具集
+            tools = FCSecurityTools(
+                indexer=self.indexer,
+                code_units=code_units,
+                call_chain_analyzer=self.call_chain_analyzer,
+                rule_manager=self.rule_manager,
+            )
+
+            # 配置回调
+            fc_config = FCAdapterConfig(
+                max_tool_calls_per_turn=5,
+                max_turns=8,
+                temperature=0.1,
+                max_tokens=3000,
+                on_tool_call_start=on_tool_call,
+                on_tool_call_end=on_tool_call,
+                on_llm_thinking=on_llm_thinking,
+            )
+
+            # 创建适配器
+            adapter = FunctionCallingAdapter(
+                llm_client=self.llm_client,
+                tools=tools,
+                config=fc_config,
+            )
+
+            # 构建分析提示
+            sink_category = sink_site.sink_category.value
+            chain_id = f"chain-{sink_site.id}"
+
+            system_prompt = f"""{CHAIN_SYSTEM_PROMPT}
+
+## 可用工具
+
+你可以使用以下工具来获取更多代码上下文：
+- read_function_code: 读取指定函数的完整代码
+- find_callers: 查找调用指定函数的位置
+- find_callees: 查找函数调用的其他函数
+- search_code: 搜索代码库中的相关代码
+- get_call_chain: 获取调用链路径
+- check_sanitization: 检查是否有输入验证
+
+分析完成后，使用 report_finding 工具报告你的发现。
+
+## 分析要求
+
+1. 仔细分析提供的调用链代码
+2. 如果需要更多上下文，使用工具查看相关代码
+3. 重点关注用户输入是否能到达危险函数
+4. 评估是否存在可利用的安全漏洞
+5. 使用 report_finding 输出结构化结果"""
+
+            # 构建用户提示（调用链上下文）
+            context_text = chain_context.to_prompt_text()
+
+            user_prompt = f"""## 分析任务
+
+**触发点**: {sink_site.symbol}
+**文件**: {sink_site.file_path}:{sink_site.line_start}
+**危险函数类别**: {sink_category}
+**匹配规则**: {', '.join(sink_site.matched_rule_ids)}
+
+**触发代码**:
+```
+{sink_site.call_snippet}
+```
+
+## 调用链上下文
+
+{context_text}
+
+请分析此代码是否存在安全漏洞。如需更多上下文，请使用提供的工具。
+分析完成后，调用 report_finding 报告你的发现。"""
+
+            # 记录开始分析
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_thinking(
+                    self.scan_id,
+                    f"[FC Mode] 开始分析 {sink_site.symbol}，使用 Function Calling 模式"
+                )
+
+            # 执行分析
+            logger.info(f"[FCAnalysis] 开始 Function Calling 分析: {sink_site.symbol}")
+            result = adapter.analyze(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
+
+            logger.info(
+                f"[FCAnalysis] 完成: LLM调用={result.total_llm_calls}, "
+                f"工具调用={len(result.tool_calls)}, 耗时={result.duration_ms}ms"
+            )
+
+            # 记录工具调用
+            if self.interaction_repo and self.scan_id:
+                for tc in result.tool_calls:
+                    self.interaction_repo.log_tool_call(
+                        self.scan_id,
+                        tool_name=tc.tool_name,
+                        tool_input=tc.arguments,
+                        tool_output=tc.result,
+                    )
+
+            # 检查是否发现问题
+            if not result.has_issue or not result.parsed_result:
+                logger.debug(f"[FCAnalysis] {sink_site.symbol} 未发现问题")
+                return None
+
+            # 从结果构建 Finding
+            parsed = result.parsed_result
+
+            # 生成唯一 Finding ID
+            timestamp = int(time.time() * 1000)
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
+            finding_id = f"fc-{finding_hash}"
+
+            finding = Finding(
+                id=finding_id,
+                title=parsed.get("issue_type", sink_category),
+                file_path=sink_site.file_path,
+                line_start=sink_site.line_start,
+                line_end=sink_site.line_end,
+                symbol=sink_site.symbol,
+                severity=Severity.from_string(parsed.get("severity", "medium")),
+                confidence=parsed.get("confidence", 0.7),
+                category=sink_category,
+                summary=parsed.get("summary", ""),
+                details=parsed.get("details", ""),
+                evidence=[Evidence(
+                    file_path=sink_site.file_path,
+                    line_start=sink_site.line_start,
+                    line_end=sink_site.line_end,
+                    code_snippet=sink_site.call_snippet,
+                    description=f"触发点: {sink_site.symbol}",
+                )],
+                attack_scenario=parsed.get("attack_scenario", ""),
+                fix_suggestion=parsed.get("fix_suggestion", ""),
+                rule_ids=sink_site.matched_rule_ids,
+                notes=parsed.get("notes", ""),
+                metadata={
+                    "chain_id": chain_id,
+                    "chain_length": chain_context.chain_length,
+                    "sink_category": sink_category,
+                    "analysis_mode": "function_calling",
+                    "llm_calls": result.total_llm_calls,
+                    "tool_calls_count": len(result.tool_calls),
+                    "total_tokens": result.total_tokens,
+                },
+            )
+
+            logger.info(f"[FCAnalysis] 发现问题: {finding.title} ({finding.severity.value})")
+
+            # 记录发现
+            if self.interaction_repo and self.scan_id:
+                self.interaction_repo.log_finding(
+                    self.scan_id,
+                    finding_data={
+                        "id": finding.id,
+                        "title": finding.title,
+                        "severity": finding.severity.value,
+                        "confidence": finding.confidence,
+                        "analysis_mode": "function_calling",
+                    }
+                )
+
+            return finding
+
+        except Exception as e:
+            logger.exception(f"[FCAnalysis] Function Calling 分析失败: {e}")
+            return None
+
+    def analyze_chains_with_fc(
+        self,
+        code_units: List[CodeUnit],
+        language: Optional[str] = None,
+        max_candidates: int = 50,
+        max_chain_depth: int = 5,
+        max_llm_calls: int = 30,
+        vuln_types: Optional[List[str]] = None,
+        progress_callback: Optional[callable] = None,
+        on_tool_call: Optional[callable] = None,
+    ) -> List[Finding]:
+        """使用 Function Calling 模式进行链级分析
+
+        这是 analyze_chains 的 Function Calling 版本，
+        LLM 可以主动调用工具获取更多上下文。
+
+        Args:
+            code_units: 代码单元列表
+            language: 限定语言
+            max_candidates: 最大候选点数量
+            max_chain_depth: 最大调用链深度
+            max_llm_calls: 最大 LLM 调用次数
+            vuln_types: 漏洞类型过滤
+            progress_callback: 进度回调
+            on_tool_call: 工具调用回调
+
+        Returns:
+            Finding 列表
+        """
+        from .call_chain import CallChainAnalyzer
+
+        logger.info(f"[FC-P0] 开始 Function Calling 链级分析")
+
+        # 辅助函数
+        def report_progress(progress: float, step: str):
+            if progress_callback:
+                try:
+                    progress_callback(progress, step)
+                except Exception as e:
+                    logger.warning(f"Progress callback failed: {e}")
+
+        report_progress(0.1, "扫描危险函数触发点...")
+
+        # 1. 扫描触发点
+        sink_sites = self.discover_sink_sites(code_units, language)
+        if not sink_sites:
+            logger.info("[FC-P0] 未发现危险函数触发点")
+            return []
+
+        logger.info(f"[FC-P0] 发现 {len(sink_sites)} 个触发点")
+        sink_sites = sink_sites[:max_candidates]
+
+        # 2. 构建调用图
+        report_progress(0.2, "构建调用图...")
+        if self.call_chain_analyzer is None:
+            self.call_chain_analyzer = CallChainAnalyzer(self.rule_manager)
+
+        self._call_graph = self.call_chain_analyzer.build_call_graph(code_units)
+        logger.info(f"[FC-P0] 调用图: {len(self._call_graph.nodes)} 节点")
+
+        # 3. 收集调用链上下文
+        report_progress(0.3, "收集调用链上下文...")
+        context_collector = ChainContextCollector(
+            call_chain_analyzer=self.call_chain_analyzer,
+            code_units=code_units,
+        )
+
+        chain_contexts = context_collector.collect_contexts_batch(
+            sink_sites=sink_sites,
+            max_depth=max_chain_depth,
+        )
+
+        if not chain_contexts:
+            logger.warning("[FC-P0] 未收集到调用链上下文")
+            return []
+
+        logger.info(f"[FC-P0] 收集了 {len(chain_contexts)} 个调用链上下文")
+
+        # 限制分析数量
+        if len(chain_contexts) > max_llm_calls:
+            chain_contexts = chain_contexts[:max_llm_calls]
+
+        # 4. Function Calling 分析
+        report_progress(0.4, f"开始 FC 分析 {len(chain_contexts)} 个上下文...")
+        findings = []
+        total = len(chain_contexts)
+
+        for idx, ctx in enumerate(chain_contexts):
+            progress = 0.4 + (idx + 1) / total * 0.55
+            report_progress(progress, f"FC 分析 {idx+1}/{total}: {ctx.sink_site.symbol}")
+
+            finding = self.analyze_with_function_calling(
+                sink_site=ctx.sink_site,
+                chain_context=ctx,
+                code_units=code_units,
+                on_tool_call=on_tool_call,
+            )
+
+            if finding:
+                findings.append(finding)
+                logger.info(f"[{idx+1}/{total}] 发现: {finding.title}")
+
+        # 5. 过滤和排序
+        findings = self._filter_and_sort_findings(findings)
+
+        report_progress(1.0, f"分析完成，发现 {len(findings)} 个问题")
+        logger.info(f"[FC-P0] 完成，共 {len(findings)} 个发现")
+
+        return findings
+

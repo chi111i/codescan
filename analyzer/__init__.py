@@ -105,6 +105,14 @@ from .session_manager import (
     SessionInfo,
     SessionStatus,
 )
+from .fc_adapter import (
+    FunctionCallingAdapter,
+    FCAdapterConfig,
+    FCAnalysisResult,
+    FCSecurityTools,
+    FCToolCall,
+    FCToolStatus,
+)
 
 __all__ = [
     # 基础模型
@@ -198,4 +206,11 @@ __all__ = [
     "InteractiveSessionManager",
     "SessionInfo",
     "SessionStatus",
+    # Function Calling 适配器
+    "FunctionCallingAdapter",
+    "FCAdapterConfig",
+    "FCAnalysisResult",
+    "FCSecurityTools",
+    "FCToolCall",
+    "FCToolStatus",
 ]

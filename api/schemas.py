@@ -87,6 +87,17 @@ class CallGraphRequest(BaseModel):
     find_taint: bool = Field(True, description="是否查找污点路径")
 
 
+class SelectedAnalysisRequest(BaseModel):
+    """选择性分析请求 - 用于对用户选择的触发点进行 LLM 分析"""
+    target_path: str = Field(..., description="目标项目路径")
+    sink_site_ids: List[str] = Field(..., description="用户选择的触发点 ID 列表")
+    use_chain_analysis: bool = Field(True, description="是否使用调用链分析")
+    max_chain_depth: int = Field(5, description="最大调用链深度")
+    max_chains_per_sink: int = Field(10, description="每个触发点最大调用链数量")
+    languages: Optional[List[str]] = Field(None, description="限定语言列表")
+    use_function_calling: bool = Field(False, description="是否使用 Function Calling 模式（LLM 可主动调用工具）")
+
+
 # ============ 响应模型 ============
 
 class CodeSpanSchema(BaseModel):
@@ -265,6 +276,126 @@ class RuleListSchema(BaseModel):
     """规则列表"""
     total: int
     rules: List[RuleSchema]
+
+
+# ============ 触发点相关 ============
+
+class SinkCategoryEnum(str, Enum):
+    """Sink 类别"""
+    COMMAND_EXEC = "command_exec"
+    CODE_EXEC = "code_exec"
+    SQL_INJECTION = "sql_injection"
+    FILE_READ = "file_read"
+    FILE_WRITE = "file_write"
+    DESERIALIZATION = "deserialization"
+    SSRF = "ssrf"
+    XSS = "xss"
+    PATH_TRAVERSAL = "path_traversal"
+    OTHER = "other"
+
+
+class SinkCallSiteSchema(BaseModel):
+    """危险函数触发点"""
+    id: str
+    unit_id: str
+    file_path: str
+    line_start: int
+    line_end: int
+    symbol: str
+    matched_rule_ids: List[str] = Field(default_factory=list)
+    call_snippet: str
+    sink_category: SinkCategoryEnum
+    risk_level: str
+    matched_patterns: List[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SinkSitesResponseSchema(BaseModel):
+    """触发点列表响应"""
+    scan_id: str
+    total: int
+    sink_sites: List[SinkCallSiteSchema] = Field(default_factory=list)
+    stats: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SinkSitesStatsSchema(BaseModel):
+    """触发点统计"""
+    total: int
+    by_category: Dict[str, int] = Field(default_factory=dict)
+    by_risk_level: Dict[str, int] = Field(default_factory=dict)
+    by_file: Dict[str, int] = Field(default_factory=dict)
+
+
+# ============ 调用图相关 ============
+
+class CallGraphNodeSchema(BaseModel):
+    """调用图节点"""
+    id: str
+    symbol: str
+    file_path: str
+    line_start: int
+    line_end: int
+    node_type: str  # function/method/class/entry_point/sink
+    is_entry_point: bool = False
+    is_sink: bool = False
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CallGraphEdgeSchema(BaseModel):
+    """调用图边"""
+    source: str
+    target: str
+    call_type: str = "call"  # call/invoke/reference
+    line: Optional[int] = None
+
+
+class CallGraphResponseSchema(BaseModel):
+    """调用图响应"""
+    nodes: List[CallGraphNodeSchema] = Field(default_factory=list)
+    edges: List[CallGraphEdgeSchema] = Field(default_factory=list)
+    stats: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CallChainSchema(BaseModel):
+    """调用链"""
+    id: str
+    path: List[str] = Field(default_factory=list)  # 符号列表
+    entry_point: str
+    sink: str
+    depth: int
+    risk_score: float = 0.0
+
+
+class CallChainsResponseSchema(BaseModel):
+    """调用链列表响应"""
+    sink_id: str
+    sink_symbol: str
+    total: int
+    chains: List[CallChainSchema] = Field(default_factory=list)
+
+
+# ============ Function Calling 相关 ============
+
+class ToolCallSchema(BaseModel):
+    """工具调用记录"""
+    id: str
+    tool_name: str
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+    status: str  # pending, running, success, failed
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    duration_ms: int = 0
+
+
+class FCAnalysisProgressSchema(BaseModel):
+    """Function Calling 分析进度"""
+    scan_id: str
+    sink_symbol: str
+    current_turn: int
+    total_tool_calls: int
+    tool_calls: List[ToolCallSchema] = Field(default_factory=list)
+    status: str  # analyzing, completed, failed
 
 
 # ============ 通用响应 ============

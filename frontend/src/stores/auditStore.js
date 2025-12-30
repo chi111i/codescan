@@ -55,6 +55,54 @@ export const useAuditStore = defineStore('audit', () => {
   const realtimeFindings = ref([])  // 实时发现的漏洞列表
   const analysisProgress = ref(null)  // 分析进度 {current, total, current_site}
 
+  // ============ Function Calling 状态 ============
+  const fcState = ref({
+    enabled: false,
+    status: 'idle', // idle, analyzing, completed, failed
+    currentSink: '',
+    currentTurn: 0,
+    totalToolCalls: 0,
+    toolCalls: [],
+    findingsCount: 0,
+  })
+
+  // 重置 FC 状态
+  const resetFCState = () => {
+    fcState.value = {
+      enabled: false,
+      status: 'idle',
+      currentSink: '',
+      currentTurn: 0,
+      totalToolCalls: 0,
+      toolCalls: [],
+      findingsCount: 0,
+    }
+  }
+
+  // 更新 FC 状态
+  const updateFCState = (updates) => {
+    Object.assign(fcState.value, updates)
+  }
+
+  // 添加 FC 工具调用
+  const addFCToolCall = (toolCall) => {
+    fcState.value.toolCalls.push(toolCall)
+    fcState.value.totalToolCalls++
+  }
+
+  // 更新 FC 工具调用状态
+  const updateFCToolCallStatus = (toolName, status, output = null) => {
+    const existing = fcState.value.toolCalls.find(
+      tc => tc.toolName === toolName && tc.status === 'running'
+    )
+    if (existing) {
+      existing.status = status
+      if (output !== null) {
+        existing.output = output
+      }
+    }
+  }
+
   // ============ 计算属性 ============
   const hasActiveSession = computed(() => !!currentSession.value)
 
@@ -242,6 +290,8 @@ export const useAuditStore = defineStore('audit', () => {
     isLlmThinking.value = false
     realtimeFindings.value = []
     analysisProgress.value = null
+    // 清空 FC 状态
+    resetFCState()
   }
 
   // ============ 对话方法 ============
@@ -649,6 +699,51 @@ export const useAuditStore = defineStore('audit', () => {
         }
         currentProcessingStep.value = `分析触发点 ${data.data?.current || 0}/${data.data?.total || 0}`
         break
+
+      // === Function Calling 事件 ===
+      case 'fc_tool_call':
+        fcState.value.enabled = true
+        fcState.value.status = 'analyzing'
+        if (data.sink_symbol) {
+          fcState.value.currentSink = data.sink_symbol
+        }
+        if (data.status === 'start') {
+          addFCToolCall({
+            id: `tc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+            toolName: data.tool_name || 'unknown',
+            status: 'running',
+            input: data.tool_input || {},
+            output: null,
+            timestamp: data.timestamp || new Date().toISOString(),
+          })
+        } else if (data.status === 'end') {
+          updateFCToolCallStatus(data.tool_name, 'completed', data.tool_output)
+        }
+        break
+
+      case 'fc_llm_thinking':
+        fcState.value.enabled = true
+        fcState.value.status = 'analyzing'
+        if (data.sink_symbol) {
+          fcState.value.currentSink = data.sink_symbol
+        }
+        if (data.message) {
+          currentProcessingStep.value = data.message
+        }
+        break
+
+      case 'fc_turn_complete':
+        if (data.turn !== undefined) {
+          fcState.value.currentTurn = data.turn
+        }
+        break
+
+      case 'fc_analysis_complete':
+        fcState.value.status = data.success ? 'completed' : 'failed'
+        if (data.findings_count !== undefined) {
+          fcState.value.findingsCount = data.findings_count
+        }
+        break
     }
   }
 
@@ -821,6 +916,13 @@ export const useAuditStore = defineStore('audit', () => {
     // 实时发现
     realtimeFindings,
     analysisProgress,
+
+    // Function Calling 状态
+    fcState,
+    resetFCState,
+    updateFCState,
+    addFCToolCall,
+    updateFCToolCallStatus,
 
     // 会话方法
     fetchExistingSessions,

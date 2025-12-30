@@ -441,8 +441,22 @@
         </div>
       </div>
 
-      <!-- 右栏：发现管理 -->
-      <div class="col-span-4 glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
+      <!-- 右栏：发现管理 + FC 面板 -->
+      <div class="col-span-4 flex flex-col gap-4 min-h-0 overflow-hidden">
+        <!-- FC 进度面板（当启用时显示） -->
+        <FCProgressPanel
+          v-if="fcState.enabled"
+          :current-sink="fcState.currentSink"
+          :current-turn="fcState.currentTurn"
+          :total-tool-calls="fcState.totalToolCalls"
+          :tool-calls="fcState.toolCalls"
+          :findings-count="fcState.findingsCount"
+          :status="fcState.status"
+          class="shrink-0"
+        />
+
+        <!-- 发现管理面板 -->
+        <div class="glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden flex-1">
         <div class="flex items-center justify-between mb-4 shrink-0">
           <h3 class="font-semibold text-gray-800 flex items-center gap-2">
             <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -581,6 +595,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -589,8 +604,31 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as api from '../api'
+import FCProgressPanel from '../components/FCProgressPanel.vue'
 
 // ============ 状态 ============
+
+// Function Calling 状态
+const fcState = reactive({
+  enabled: false,
+  status: 'idle', // idle, analyzing, completed, failed
+  currentSink: '',
+  currentTurn: 0,
+  totalToolCalls: 0,
+  toolCalls: [],
+  findingsCount: 0,
+})
+
+// 重置 FC 状态
+const resetFCState = () => {
+  fcState.enabled = false
+  fcState.status = 'idle'
+  fcState.currentSink = ''
+  fcState.currentTurn = 0
+  fcState.totalToolCalls = 0
+  fcState.toolCalls = []
+  fcState.findingsCount = 0
+}
 
 // 会话管理
 const currentSession = ref(null)
@@ -809,6 +847,7 @@ const deleteSession = async (sessionId) => {
     if (currentSession.value?.session_id === sessionId) {
       currentSession.value = null
       disconnectWebSocket()
+      resetFCState()
     }
   } catch (error) {
     console.error('删除会话失败:', error)
@@ -860,6 +899,7 @@ const analyzeSelected = async () => {
 
   isAnalyzing.value = true
   currentAnalysisStep.value = '正在准备分析...'
+  resetFCState()
 
   // 添加用户消息
   chatMessages.value.push({
@@ -1155,11 +1195,88 @@ const handleWebSocketMessage = (data) => {
       // 使用辅助函数避免重复添加
       if (data.finding) {
         addFindingsToList([data.finding])
+        fcState.findingsCount++
       }
       break
     case 'progress':
       currentAnalysisStep.value = data.current_step || ''
       break
+    // FC 相关消息处理
+    case 'fc_tool_call':
+      handleFCToolCall(data)
+      break
+    case 'fc_llm_thinking':
+      handleFCLLMThinking(data)
+      break
+    case 'fc_turn_complete':
+      handleFCTurnComplete(data)
+      break
+    case 'fc_analysis_complete':
+      handleFCAnalysisComplete(data)
+      break
+  }
+}
+
+// FC 工具调用处理
+const handleFCToolCall = (data) => {
+  fcState.enabled = true
+  fcState.status = 'analyzing'
+
+  if (data.sink_symbol) {
+    fcState.currentSink = data.sink_symbol
+  }
+
+  const toolCall = {
+    id: `tc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    toolName: data.tool_name || 'unknown',
+    status: data.status || 'running', // running, completed, error
+    input: data.tool_input || {},
+    output: data.tool_output || null,
+    timestamp: data.timestamp || new Date().toISOString(),
+  }
+
+  if (data.status === 'start') {
+    toolCall.status = 'running'
+    fcState.toolCalls.push(toolCall)
+    fcState.totalToolCalls++
+  } else if (data.status === 'end') {
+    // 更新已有的工具调用状态
+    const existing = fcState.toolCalls.find(
+      tc => tc.toolName === data.tool_name && tc.status === 'running'
+    )
+    if (existing) {
+      existing.status = 'completed'
+      existing.output = data.tool_output
+    }
+  }
+}
+
+// FC LLM 思考处理
+const handleFCLLMThinking = (data) => {
+  fcState.enabled = true
+  fcState.status = 'analyzing'
+
+  if (data.sink_symbol) {
+    fcState.currentSink = data.sink_symbol
+  }
+
+  if (data.message) {
+    currentAnalysisStep.value = data.message
+  }
+}
+
+// FC 轮次完成处理
+const handleFCTurnComplete = (data) => {
+  if (data.turn !== undefined) {
+    fcState.currentTurn = data.turn
+  }
+}
+
+// FC 分析完成处理
+const handleFCAnalysisComplete = (data) => {
+  fcState.status = data.success ? 'completed' : 'failed'
+  if (data.findings_count !== undefined) {
+    fcState.findingsCount = data.findings_count
   }
 }
 

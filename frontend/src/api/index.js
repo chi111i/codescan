@@ -52,6 +52,20 @@ export const getScanTimeline = (scanId) => api.get(`/scan/${scanId}/timeline`)
 export const getLatestInteractions = (scanId, sinceId) => api.get(`/scan/${scanId}/interactions/latest`, { params: { since_id: sinceId } })
 export const getScanStats = (scanId) => api.get(`/scan/${scanId}/stats`)
 
+// ============ 两步扫描模式 API ============
+
+// 第一步：触发点扫描（不进行 LLM 分析）
+export const scanSinkSites = (data) => api.post('/scan/sink-sites', data)
+
+// 获取已扫描的触发点列表
+export const getScanSinkSites = (scanId, params = {}) => api.get(`/scan/${scanId}/sink-sites`, { params })
+
+// 获取指定触发点的调用链
+export const getSinkCallChains = (scanId, siteId, params = {}) => api.get(`/scan/${scanId}/sink-sites/${siteId}/chains`, { params })
+
+// 第二步：对选中的触发点进行 LLM 分析
+export const analyzeSelectedSinks = (data) => api.post('/analyze/selected', data)
+
 // 调用图相关
 export const analyzeCallGraph = (data) => api.post('/callgraph', data)
 

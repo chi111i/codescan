@@ -5,9 +5,10 @@ import uuid
 import asyncio
 import logging
 import time
+import queue
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from contextlib import asynccontextmanager
 
 
@@ -136,6 +137,14 @@ from analyzer import (
     CallChainAnalyzer,
     HighRiskVulnDetector,
     VulnType,
+    SinkCallScanner,
+    SinkCallSite,
+    CallGraph,
+    FunctionCallingAdapter,
+    FCAdapterConfig,
+    FCSecurityTools,
+    FCToolCall,
+    FCToolStatus,
 )
 from storage import (
     DatabaseManager,
@@ -149,12 +158,16 @@ from storage import (
 from serialization import to_jsonable
 from .schemas import (
     ScanRequest, IndexRequest, SearchRequest, CallGraphRequest,
+    SelectedAnalysisRequest,
     ScanResultSchema, IndexResultSchema, SearchResultSchema,
     StatsSchema, RuleListSchema, RuleSchema,
     FindingSchema, VulnFindingSchema, TaintPathSchema,
     CallGraphStatsSchema, CodeUnitSchema, CodeSpanSchema,
+    CallGraphNodeSchema, CallGraphEdgeSchema, CallChainSchema,
     ScanStatus, SeverityLevel, VulnTypeEnum,
     IndexStatus, IndexProgressSchema,
+    SinkCallSiteSchema, SinkSitesResponseSchema, SinkCategoryEnum,
+    ToolCallSchema, FCAnalysisProgressSchema,
     APIResponse, ErrorResponse,
 )
 from pydantic import BaseModel
@@ -313,6 +326,9 @@ async def lifespan(app: FastAPI):
     # 启动后台任务处理交互日志广播队列
     broadcast_task = asyncio.create_task(process_interaction_broadcast_queue())
 
+    # 启动后台任务处理 FC 事件广播队列
+    fc_broadcast_task = asyncio.create_task(process_fc_event_queue())
+
     yield
 
     # 关闭时清理
@@ -340,6 +356,13 @@ async def lifespan(app: FastAPI):
     broadcast_task.cancel()
     try:
         await broadcast_task
+    except asyncio.CancelledError:
+        pass
+
+    # 2.1 取消 FC 广播任务
+    fc_broadcast_task.cancel()
+    try:
+        await fc_broadcast_task
     except asyncio.CancelledError:
         pass
 
@@ -1046,7 +1069,6 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             logger.info(f"扫描任务 {scan_id}: 用户选择的漏洞类型: {vuln_type_strs}")
 
         # 创建线程安全的进度回调
-        import queue
         progress_queue = queue.Queue()
 
         def analysis_progress_callback(progress: float, step: str):
@@ -1398,8 +1420,196 @@ async def broadcast_analysis_detail(scan_id: str, detail_type: str, data: dict):
             logger.warning(f"WebSocket 分析详情发送失败: {e}")
 
 
+async def broadcast_fc_tool_call(
+    scan_id: str,
+    sink_symbol: str,
+    tool_call: Dict[str, Any],
+    status: str = "running"
+):
+    """广播 Function Calling 工具调用事件
+
+    实时发送 LLM 工具调用信息到前端，用于展示分析过程。
+
+    Args:
+        scan_id: 扫描 ID
+        sink_symbol: 当前分析的触发点符号
+        tool_call: 工具调用信息，包含 id, tool_name, arguments, result 等
+        status: 工具调用状态 (pending, running, success, failed)
+    """
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "fc_tool_call",
+                "scan_id": scan_id,
+                "sink_symbol": sink_symbol,
+                "tool_call": to_jsonable(tool_call),
+                "status": status,
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket FC 工具调用发送失败: {e}")
+
+
+async def broadcast_fc_progress(
+    scan_id: str,
+    sink_symbol: str,
+    current_turn: int,
+    total_tool_calls: int,
+    tool_calls: List[Dict[str, Any]],
+    status: str = "analyzing"
+):
+    """广播 Function Calling 分析进度
+
+    发送 FC 模式下的分析进度信息。
+
+    Args:
+        scan_id: 扫描 ID
+        sink_symbol: 当前分析的触发点符号
+        current_turn: 当前对话轮次
+        total_tool_calls: 总工具调用次数
+        tool_calls: 工具调用历史列表
+        status: 分析状态 (analyzing, completed, failed)
+    """
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "fc_progress",
+                "scan_id": scan_id,
+                "sink_symbol": sink_symbol,
+                "current_turn": current_turn,
+                "total_tool_calls": total_tool_calls,
+                "tool_calls": to_jsonable(tool_calls[-10:]),  # 只发送最近 10 条
+                "status": status,
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket FC 进度发送失败: {e}")
+
+
+async def broadcast_fc_finding(scan_id: str, finding: Dict[str, Any]):
+    """广播 Function Calling 模式发现的新结果
+
+    当 LLM 通过 report_finding 工具报告发现时推送。
+
+    Args:
+        scan_id: 扫描 ID
+        finding: 发现结果
+    """
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "fc_finding",
+                "scan_id": scan_id,
+                "finding": to_jsonable(finding),
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket FC 发现推送失败: {e}")
+
+
+async def broadcast_fc_llm_thinking(scan_id: str, sink_symbol: str, message: str):
+    """广播 LLM 思考状态消息
+
+    当 LLM 开始新一轮分析或有中间思考内容时推送。
+
+    Args:
+        scan_id: 扫描 ID
+        sink_symbol: 当前分析的 sink 符号
+        message: 思考状态消息
+    """
+    if scan_id in app_state.websocket_connections:
+        ws = app_state.websocket_connections[scan_id]
+        try:
+            await ws.send_json({
+                "type": "fc_llm_thinking",
+                "scan_id": scan_id,
+                "sink_symbol": sink_symbol,
+                "message": message,
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.warning(f"WebSocket LLM 思考状态推送失败: {e}")
+
+
+# FC 事件队列（用于从同步代码中安全发送事件）
+_pending_fc_events: queue.Queue = queue.Queue()
+
+
+def queue_fc_event(event_type: str, scan_id: str, data: Dict[str, Any]):
+    """将 FC 事件加入广播队列
+
+    这是一个同步函数，可从 analyzer 线程中调用。
+
+    Args:
+        event_type: 事件类型 (tool_call, progress, finding)
+        scan_id: 扫描 ID
+        data: 事件数据
+    """
+    _pending_fc_events.put_nowait({
+        "event_type": event_type,
+        "scan_id": scan_id,
+        "data": data,
+    })
+
+
+async def process_fc_event_queue():
+    """后台任务：处理 FC 事件广播队列"""
+    logger.info("FC 事件广播队列处理任务已启动")
+
+    while True:
+        try:
+            events_to_broadcast = []
+            while True:
+                try:
+                    event = _pending_fc_events.get_nowait()
+                    events_to_broadcast.append(event)
+                except queue.Empty:
+                    break
+
+            for event in events_to_broadcast:
+                event_type = event["event_type"]
+                scan_id = event["scan_id"]
+                data = event["data"]
+
+                if event_type == "tool_call":
+                    await broadcast_fc_tool_call(
+                        scan_id,
+                        data.get("sink_symbol", ""),
+                        data.get("tool_call", {}),
+                        data.get("status", "running"),
+                    )
+                elif event_type == "progress":
+                    await broadcast_fc_progress(
+                        scan_id,
+                        data.get("sink_symbol", ""),
+                        data.get("current_turn", 0),
+                        data.get("total_tool_calls", 0),
+                        data.get("tool_calls", []),
+                        data.get("status", "analyzing"),
+                    )
+                elif event_type == "finding":
+                    await broadcast_fc_finding(scan_id, data.get("finding", {}))
+                elif event_type == "llm_thinking":
+                    await broadcast_fc_llm_thinking(
+                        scan_id,
+                        data.get("sink_symbol", ""),
+                        data.get("message", ""),
+                    )
+
+            await asyncio.sleep(0.05)
+
+        except asyncio.CancelledError:
+            logger.info("FC 事件广播队列处理任务已停止")
+            raise
+        except Exception as e:
+            logger.error(f"处理 FC 事件广播队列时出错: {e}")
+            await asyncio.sleep(1)
+
+
 # 用于存储待广播的交互日志（使用线程安全队列避免竞态条件）
-import queue
 _pending_interactions: queue.Queue = queue.Queue()
 
 
@@ -1801,6 +2011,933 @@ async def list_scans(
             "offset": offset,
         },
     )
+
+
+# ============ 触发点扫描接口 ============
+
+@app.get("/api/scan/{scan_id}/sink-sites", response_model=APIResponse)
+async def get_sink_sites(
+    scan_id: str,
+    category: Optional[str] = None,
+    risk_level: Optional[str] = None,
+    limit: int = 200,
+    offset: int = 0,
+):
+    """获取扫描任务的危险函数触发点列表
+
+    此 API 用于展示用户可选择的触发点，供后续深度分析。
+
+    Args:
+        scan_id: 扫描任务 ID
+        category: 按 Sink 类别过滤 (command_exec, sql_injection, etc.)
+        risk_level: 按风险等级过滤 (critical, high, medium, low)
+        limit: 返回数量限制
+        offset: 偏移量
+
+    Returns:
+        触发点列表及统计信息
+    """
+    if not app_state.indexer or not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
+
+    # 验证扫描任务存在
+    scan_exists = scan_id in app_state.scan_tasks
+    if not scan_exists and app_state.scan_repo:
+        db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
+        scan_exists = db_task is not None
+
+    if not scan_exists:
+        raise HTTPException(status_code=404, detail="扫描任务不存在")
+
+    try:
+        # 获取扫描任务的目标路径
+        target_path = None
+        if scan_id in app_state.scan_tasks:
+            target_path = app_state.scan_tasks[scan_id].target_path
+        elif app_state.scan_repo:
+            db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
+            if db_task:
+                target_path = db_task.target_path
+
+        if not target_path:
+            raise HTTPException(status_code=400, detail="无法获取扫描目标路径")
+
+        # 获取代码单元
+        code_units = await asyncio.to_thread(
+            app_state.indexer.parse_directory_without_index,
+            target_path,
+            None  # languages
+        )
+
+        if not code_units:
+            return APIResponse(
+                success=True,
+                message="未找到代码单元",
+                data={
+                    "scan_id": scan_id,
+                    "total": 0,
+                    "sink_sites": [],
+                    "stats": {"total": 0, "by_category": {}, "by_risk_level": {}, "by_file": {}},
+                },
+            )
+
+        # 使用 SinkCallScanner 扫描触发点
+        scanner = SinkCallScanner(app_state.rule_manager)
+        sink_sites = await asyncio.to_thread(
+            scanner.scan,
+            code_units,
+            None,  # language
+            [category] if category else None  # categories
+        )
+
+        # 按风险等级过滤
+        if risk_level:
+            sink_sites = [s for s in sink_sites if s.risk_level.value == risk_level]
+
+        # 计算统计信息
+        stats = {
+            "total": len(sink_sites),
+            "by_category": {},
+            "by_risk_level": {},
+            "by_file": {},
+        }
+
+        for site in sink_sites:
+            # 按类别统计
+            cat = site.sink_category.value
+            stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
+
+            # 按风险等级统计
+            rl = site.risk_level.value
+            stats["by_risk_level"][rl] = stats["by_risk_level"].get(rl, 0) + 1
+
+            # 按文件统计
+            fp = site.file_path
+            stats["by_file"][fp] = stats["by_file"].get(fp, 0) + 1
+
+        # 按风险等级排序（critical > high > medium > low）
+        risk_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+        sink_sites.sort(key=lambda s: (risk_order.get(s.risk_level.value, 5), s.file_path, s.line_start))
+
+        # 分页
+        total = len(sink_sites)
+        paginated_sites = sink_sites[offset:offset + limit]
+
+        # 转换为 schema
+        result_sites = []
+        for site in paginated_sites:
+            result_sites.append(SinkCallSiteSchema(
+                id=site.id,
+                unit_id=site.unit_id,
+                file_path=site.file_path,
+                line_start=site.line_start,
+                line_end=site.line_end,
+                symbol=site.symbol,
+                matched_rule_ids=site.matched_rule_ids,
+                call_snippet=site.call_snippet,
+                sink_category=SinkCategoryEnum(site.sink_category.value),
+                risk_level=site.risk_level.value,
+                matched_patterns=site.matched_patterns,
+                confidence=site.confidence,
+                metadata=site.metadata,
+            ).model_dump())
+
+        return APIResponse(
+            success=True,
+            message=f"找到 {total} 个触发点",
+            data={
+                "scan_id": scan_id,
+                "total": total,
+                "sink_sites": result_sites,
+                "stats": stats,
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+
+    except Exception as e:
+        import traceback
+        logger.error(f"获取触发点失败: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/scan/{scan_id}/sink-sites/{site_id}/chains", response_model=APIResponse)
+async def get_sink_site_chains(
+    scan_id: str,
+    site_id: str,
+    max_depth: int = 10,
+    max_chains: int = 20,
+):
+    """获取指定触发点的调用链
+
+    用于用户选择要分析的调用链（两步确认模式）。
+
+    Args:
+        scan_id: 扫描任务 ID
+        site_id: 触发点 ID
+        max_depth: 最大调用链深度
+        max_chains: 最大返回调用链数量
+
+    Returns:
+        调用链列表
+    """
+    if not app_state.indexer or not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
+
+    # 获取扫描任务的目标路径
+    target_path = None
+    if scan_id in app_state.scan_tasks:
+        target_path = app_state.scan_tasks[scan_id].target_path
+    elif app_state.scan_repo:
+        db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
+        if db_task:
+            target_path = db_task.target_path
+
+    if not target_path:
+        raise HTTPException(status_code=404, detail=f"扫描任务不存在: {scan_id}")
+
+    path = Path(target_path)
+    if not path.exists():
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {target_path}")
+
+    try:
+        # 解析代码单元
+        code_units = await asyncio.to_thread(
+            app_state.indexer.parse_directory_without_index,
+            str(path),
+            None
+        )
+
+        # 扫描触发点
+        scanner = SinkCallScanner(app_state.rule_manager)
+        sink_sites = await asyncio.to_thread(
+            scanner.scan,
+            code_units,
+            None,
+            None
+        )
+
+        # 查找目标触发点
+        target_sink = None
+        for site in sink_sites:
+            if site.id == site_id:
+                target_sink = site
+                break
+
+        if not target_sink:
+            raise HTTPException(status_code=404, detail=f"触发点不存在: {site_id}")
+
+        # 构建调用图
+        chain_analyzer = CallChainAnalyzer(app_state.rule_manager)
+        await asyncio.to_thread(
+            chain_analyzer.build_call_graph,
+            code_units
+        )
+
+        # 查找调用链
+        chains = await asyncio.to_thread(
+            chain_analyzer.find_paths_to_sink,
+            target_sink.symbol,
+            max_depth,
+            max_chains
+        )
+
+        # 转换为响应格式
+        chain_schemas = []
+        for idx, chain_path in enumerate(chains):
+            chain_id = f"chain-{site_id}-{idx}"
+            entry_point = chain_path[0] if chain_path else target_sink.symbol
+
+            # 计算风险分数
+            risk_score = 0.5
+            if len(chain_path) <= 2:
+                risk_score = 0.9  # 短链更危险
+            elif len(chain_path) <= 4:
+                risk_score = 0.7
+            elif len(chain_path) >= 8:
+                risk_score = 0.3
+
+            chain_schemas.append({
+                "id": chain_id,
+                "sink_id": site_id,
+                "entry_point": entry_point,
+                "path": chain_path,
+                "depth": len(chain_path),
+                "risk_score": risk_score,
+            })
+
+        return APIResponse(
+            success=True,
+            message=f"找到 {len(chain_schemas)} 条调用链",
+            data={
+                "scan_id": scan_id,
+                "site_id": site_id,
+                "sink_symbol": target_sink.symbol,
+                "total": len(chain_schemas),
+                "chains": chain_schemas[:max_chains]
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        logger.error(f"获取调用链失败: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan/sink-sites", response_model=APIResponse)
+async def scan_sink_sites(request: ScanRequest):
+    """独立触发点扫描（不启动完整扫描）
+
+    仅进行 SinkCallScanner 确定性扫描，返回所有危险函数触发点。
+    用于"两步确认"模式的第一步。
+
+    Args:
+        request: 扫描请求（仅使用 target_path 和 languages）
+
+    Returns:
+        触发点列表及统计信息
+    """
+    if not app_state.indexer or not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
+
+    target_path = Path(request.target_path)
+    if not target_path.exists():
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
+
+    try:
+        # 解析代码单元
+        code_units = await asyncio.to_thread(
+            app_state.indexer.parse_directory_without_index,
+            str(target_path),
+            request.languages
+        )
+
+        if not code_units:
+            return APIResponse(
+                success=True,
+                message="未找到代码单元",
+                data={
+                    "total": 0,
+                    "sink_sites": [],
+                    "stats": {"total": 0, "by_category": {}, "by_risk_level": {}, "by_file": {}},
+                    "code_units_count": 0,
+                },
+            )
+
+        # 使用 SinkCallScanner 扫描触发点
+        scanner = SinkCallScanner(app_state.rule_manager)
+        sink_sites = await asyncio.to_thread(
+            scanner.scan,
+            code_units,
+            request.languages[0] if request.languages else None,
+            None  # categories
+        )
+
+        # 计算统计信息
+        stats = {
+            "total": len(sink_sites),
+            "by_category": {},
+            "by_risk_level": {},
+            "by_file": {},
+        }
+
+        for site in sink_sites:
+            cat = site.sink_category.value
+            stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
+
+            rl = site.risk_level.value
+            stats["by_risk_level"][rl] = stats["by_risk_level"].get(rl, 0) + 1
+
+            fp = site.file_path
+            stats["by_file"][fp] = stats["by_file"].get(fp, 0) + 1
+
+        # 按风险等级排序
+        risk_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+        sink_sites.sort(key=lambda s: (risk_order.get(s.risk_level.value, 5), s.file_path, s.line_start))
+
+        # 转换为 schema（限制返回数量避免响应过大）
+        max_return = 500
+        result_sites = []
+        for site in sink_sites[:max_return]:
+            result_sites.append(SinkCallSiteSchema(
+                id=site.id,
+                unit_id=site.unit_id,
+                file_path=site.file_path,
+                line_start=site.line_start,
+                line_end=site.line_end,
+                symbol=site.symbol,
+                matched_rule_ids=site.matched_rule_ids,
+                call_snippet=site.call_snippet,
+                sink_category=SinkCategoryEnum(site.sink_category.value),
+                risk_level=site.risk_level.value,
+                matched_patterns=site.matched_patterns,
+                confidence=site.confidence,
+                metadata=site.metadata,
+            ).model_dump())
+
+        return APIResponse(
+            success=True,
+            message=f"扫描完成，发现 {len(sink_sites)} 个触发点",
+            data={
+                "total": len(sink_sites),
+                "sink_sites": result_sites,
+                "stats": stats,
+                "code_units_count": len(code_units),
+                "truncated": len(sink_sites) > max_return,
+            },
+        )
+
+    except Exception as e:
+        import traceback
+        logger.error(f"触发点扫描失败: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze/selected", response_model=APIResponse)
+async def analyze_selected_sinks(request: SelectedAnalysisRequest):
+    """对用户选择的触发点进行 LLM 深度分析
+
+    这是"两步确认"模式的第二步：
+    1. 用户先通过 POST /api/scan/sink-sites 获取所有触发点
+    2. 用户选择感兴趣的触发点后，调用此 API 进行 LLM 分析
+
+    支持 WebSocket 实时进度推送。
+
+    Args:
+        request: 包含目标路径和选中的触发点 ID 列表
+
+    Returns:
+        创建的扫描任务信息（scan_id）
+    """
+    if not app_state.indexer or not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
+
+    if not app_state.config.llm.api_key:
+        raise HTTPException(status_code=400, detail="LLM API Key 未配置")
+
+    target_path = Path(request.target_path)
+    if not target_path.exists():
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
+
+    if not request.sink_site_ids:
+        raise HTTPException(status_code=400, detail="未选择任何触发点")
+
+    # 创建扫描任务
+    scan_id = str(uuid.uuid4())[:8]
+    task = ScanResultSchema(
+        scan_id=scan_id,
+        status=ScanStatus.PENDING,
+        target_path=str(target_path),
+        started_at=datetime.now(),
+        current_step="准备中...",
+    )
+    app_state.scan_tasks[scan_id] = task
+
+    # 在数据库中创建扫描任务记录
+    if app_state.scan_repo:
+        try:
+            db_task = ScanTask(
+                scan_id=scan_id,
+                target_path=str(target_path),
+                status="pending",
+                progress=0.0,
+                current_step="准备中...",
+                started_at=datetime.now().isoformat(),
+                config={
+                    "mode": "selected_analysis",
+                    "sink_site_ids": request.sink_site_ids,
+                    "use_chain_analysis": request.use_chain_analysis,
+                    "max_chain_depth": request.max_chain_depth,
+                    "languages": request.languages,
+                }
+            )
+            await asyncio.to_thread(app_state.scan_repo.create, db_task)
+        except Exception as e:
+            logger.error(f"保存扫描任务到数据库失败: {e}")
+
+    # 启动后台任务
+    bg_task = asyncio.create_task(
+        run_selected_analysis_task(scan_id, request)
+    )
+    app_state.background_tasks[scan_id] = bg_task
+
+    # 任务完成后自动清理
+    def cleanup_task(t):
+        app_state.background_tasks.pop(scan_id, None)
+    bg_task.add_done_callback(cleanup_task)
+
+    return APIResponse(
+        success=True,
+        message=f"选择性分析任务已创建，共 {len(request.sink_site_ids)} 个触发点",
+        data={
+            "scan_id": scan_id,
+            "selected_count": len(request.sink_site_ids),
+        },
+    )
+
+
+async def run_selected_analysis_task(scan_id: str, request: SelectedAnalysisRequest):
+    """执行选择性分析任务（后台）
+
+    仅分析用户选中的触发点，不进行全量扫描。
+    """
+    task = app_state.scan_tasks[scan_id]
+
+    try:
+        target_path = Path(request.target_path)
+        logger.info(f"选择性分析任务 {scan_id}: 开始，目标 {target_path}，选中 {len(request.sink_site_ids)} 个触发点")
+
+        # 更新状态：解析中
+        task.status = ScanStatus.INDEXING
+        task.current_step = "正在解析代码..."
+        task.progress = 0.1
+        await broadcast_scan_progress(scan_id, task)
+
+        # 解析代码单元
+        code_units = await asyncio.to_thread(
+            app_state.indexer.parse_directory_without_index,
+            str(target_path),
+            request.languages
+        )
+        task.total_units = len(code_units)
+        task.progress = 0.2
+        await broadcast_scan_progress(scan_id, task)
+
+        # 使用 SinkCallScanner 扫描所有触发点
+        task.current_step = "正在扫描触发点..."
+        scanner = SinkCallScanner(app_state.rule_manager)
+        all_sink_sites = await asyncio.to_thread(
+            scanner.scan,
+            code_units,
+            request.languages[0] if request.languages else None,
+            None
+        )
+
+        # 过滤出用户选中的触发点
+        selected_ids = set(request.sink_site_ids)
+        selected_sites = [s for s in all_sink_sites if s.id in selected_ids]
+
+        if not selected_sites:
+            task.status = ScanStatus.COMPLETED
+            task.current_step = "未找到匹配的触发点"
+            task.progress = 1.0
+            task.completed_at = datetime.now()
+            await broadcast_scan_progress(scan_id, task)
+            return
+
+        logger.info(f"选择性分析任务 {scan_id}: 找到 {len(selected_sites)} 个选中的触发点")
+        task.progress = 0.3
+        await broadcast_scan_progress(scan_id, task)
+
+        # 更新状态：分析中
+        task.status = ScanStatus.ANALYZING
+        task.current_step = f"正在分析 {len(selected_sites)} 个触发点..."
+        await broadcast_scan_progress(scan_id, task)
+
+        # 创建 SecurityAnalyzer
+        analyzer = SecurityAnalyzer(
+            app_state.config,
+            app_state.llm_client,
+            app_state.indexer,
+            app_state.rule_manager,
+            interaction_repo=app_state.interaction_repo,
+            scan_id=scan_id,
+        )
+
+        # 设置 Function Calling 模式
+        if request.use_function_calling:
+            analyzer.use_function_calling = True
+            logger.info(f"选择性分析任务 {scan_id}: 使用 Function Calling 模式")
+            if app_state.interaction_repo:
+                app_state.interaction_repo.log_thinking(
+                    scan_id,
+                    f"启用 Function Calling 模式，LLM 将主动调用工具进行代码探索"
+                )
+
+        # 记录分析开始
+        if app_state.interaction_repo:
+            app_state.interaction_repo.log_thinking(
+                scan_id,
+                f"开始选择性分析，共 {len(selected_sites)} 个用户选中的触发点"
+            )
+
+        # 进度回调
+        progress_queue = queue.Queue()
+
+        def analysis_progress_callback(progress: float, step: str):
+            progress_queue.put((progress, step))
+
+        # FC 模式的工具调用回调
+        def fc_tool_call_callback(
+            sink_symbol: str,
+            tool_call: Dict[str, Any],
+            status: str = "running"
+        ):
+            """FC 模式工具调用回调 - 从同步代码中推送事件"""
+            queue_fc_event("tool_call", scan_id, {
+                "sink_symbol": sink_symbol,
+                "tool_call": tool_call,
+                "status": status,
+            })
+
+        # FC 模式的 LLM 思考状态回调
+        current_sink_symbol = {"value": ""}  # 用于跟踪当前分析的 sink
+
+        def fc_llm_thinking_callback(message: str):
+            """FC 模式 LLM 思考状态回调 - 推送 LLM 分析状态"""
+            queue_fc_event("llm_thinking", scan_id, {
+                "sink_symbol": current_sink_symbol["value"],
+                "message": message,
+            })
+
+        async def process_progress_updates():
+            while True:
+                try:
+                    try:
+                        progress, step = progress_queue.get_nowait()
+                        task.progress = 0.3 + progress * 0.6
+                        task.current_step = step
+                        await broadcast_scan_progress(scan_id, task)
+                    except queue.Empty:
+                        pass
+                    await asyncio.sleep(0.1)
+                except asyncio.CancelledError:
+                    while not progress_queue.empty():
+                        try:
+                            progress, step = progress_queue.get_nowait()
+                            task.progress = 0.3 + progress * 0.6
+                            task.current_step = step
+                            await broadcast_scan_progress(scan_id, task)
+                        except queue.Empty:
+                            break
+                    break
+
+        # 启动进度处理任务
+        progress_task = asyncio.create_task(process_progress_updates())
+
+        try:
+            # 调用分析器，传入选中的触发点
+            # FC 模式下，将工具调用回调和 LLM 思考回调传递给分析器
+            on_tool_call = fc_tool_call_callback if request.use_function_calling else None
+            on_llm_thinking = fc_llm_thinking_callback if request.use_function_calling else None
+
+            findings = await asyncio.to_thread(
+                analyzer.analyze_selected_sinks,
+                selected_sites,
+                code_units,
+                request.use_chain_analysis,
+                request.max_chain_depth,
+                request.max_chains_per_sink,
+                analysis_progress_callback,
+                on_tool_call,  # FC 工具调用回调
+                on_llm_thinking,  # FC LLM 思考状态回调
+            )
+        finally:
+            progress_task.cancel()
+            try:
+                await progress_task
+            except asyncio.CancelledError:
+                pass
+
+        logger.info(f"选择性分析任务 {scan_id}: 完成，发现 {len(findings)} 个问题")
+
+        # 转换 findings 为 schema
+        all_findings = []
+        for f in findings:
+            code_snippet = None
+            if f.evidence and len(f.evidence) > 0:
+                code_snippet = f.evidence[0].code_snippet if hasattr(f.evidence[0], 'code_snippet') else None
+
+            evidence_list = []
+            for e in f.evidence:
+                evidence_list.append({
+                    "file_path": e.file_path,
+                    "line_start": e.line_start,
+                    "line_end": e.line_end,
+                    "code_snippet": e.code_snippet,
+                    "description": e.description,
+                })
+
+            all_findings.append(FindingSchema(
+                id=f.id,
+                title=f.title,
+                file_path=f.file_path,
+                line_start=f.line_start,
+                line_end=f.line_end,
+                symbol=f.symbol,
+                severity=SeverityLevel(f.severity.value),
+                confidence=f.confidence,
+                category=f.category if isinstance(f.category, str) else str(f.category),
+                summary=f.summary,
+                details=f.details,
+                evidence=evidence_list,
+                attack_scenario=f.attack_scenario,
+                fix_suggestion=f.fix_suggestion,
+                code_snippet=code_snippet,
+                notes=f.notes,
+                rule_id=f.rule_ids[0] if f.rule_ids else None,
+                cwe_ids=f.cwe_ids,
+            ))
+
+        # 完成
+        task.status = ScanStatus.COMPLETED
+        task.completed_at = datetime.now()
+        task.findings = all_findings
+        task.progress = 1.0
+        task.current_step = "分析完成"
+        await broadcast_scan_progress(scan_id, task)
+
+        # 保存扫描结果到数据库
+        await save_scan_results_to_db(scan_id, task, all_findings, [])
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"选择性分析任务失败: {e}\n{error_trace}")
+        task.status = ScanStatus.FAILED
+        task.error_message = str(e)
+        task.current_step = f"错误: {e}"
+        await broadcast_scan_progress(scan_id, task)
+
+        if app_state.scan_repo:
+            try:
+                app_state.scan_repo.update_status(
+                    scan_id, "failed",
+                    error_message=str(e)
+                )
+            except Exception as db_err:
+                logger.error(f"更新数据库状态失败: {db_err}")
+
+
+# ============ 调用图接口 ============
+
+@app.post("/api/callgraph", response_model=APIResponse)
+async def get_call_graph(request: CallGraphRequest):
+    """获取项目的调用图数据
+
+    返回适合 Cytoscape.js 可视化的节点和边数据。
+
+    Args:
+        request: 包含目标路径和分析参数
+
+    Returns:
+        调用图节点和边数据
+    """
+    if not app_state.indexer or not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
+
+    target_path = Path(request.target_path)
+    if not target_path.exists():
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
+
+    try:
+        # 解析代码单元
+        code_units = await asyncio.to_thread(
+            app_state.indexer.parse_directory_without_index,
+            str(target_path),
+            None  # languages
+        )
+
+        if not code_units:
+            return APIResponse(
+                success=True,
+                message="未找到代码单元",
+                data={
+                    "nodes": [],
+                    "edges": [],
+                    "stats": {"total_nodes": 0, "total_edges": 0}
+                },
+            )
+
+        # 构建调用图
+        chain_analyzer = CallChainAnalyzer(app_state.rule_manager)
+        call_graph = await asyncio.to_thread(
+            chain_analyzer.build_call_graph,
+            code_units
+        )
+
+        # 扫描触发点以标记 sink 节点
+        scanner = SinkCallScanner(app_state.rule_manager)
+        sink_sites = await asyncio.to_thread(
+            scanner.scan,
+            code_units,
+            None,
+            None
+        )
+        sink_symbols = {s.symbol for s in sink_sites}
+
+        # 转换为前端格式
+        nodes = []
+        edges = []
+
+        for node_id, node in call_graph.nodes.items():
+            is_sink = node.symbol in sink_symbols
+            is_entry = getattr(node, 'is_entry_point', False)
+
+            node_type = "function"
+            if is_entry:
+                node_type = "entry_point"
+            elif is_sink:
+                node_type = "sink"
+
+            nodes.append(CallGraphNodeSchema(
+                id=node_id,
+                symbol=node.symbol,
+                file_path=node.file_path,
+                line_start=node.line_start,
+                line_end=node.line_end,
+                node_type=node_type,
+                is_entry_point=is_entry,
+                is_sink=is_sink,
+                metadata={}
+            ).model_dump())
+
+        for edge in call_graph.edges:
+            edges.append(CallGraphEdgeSchema(
+                source=edge.caller,
+                target=edge.callee,
+                call_type="call",
+                line=getattr(edge, 'line', None)
+            ).model_dump())
+
+        # 统计信息
+        stats = {
+            "total_nodes": len(nodes),
+            "total_edges": len(edges),
+            "entry_points": sum(1 for n in nodes if n.get("is_entry_point")),
+            "sinks": sum(1 for n in nodes if n.get("is_sink")),
+        }
+
+        return APIResponse(
+            success=True,
+            message=f"调用图构建完成: {len(nodes)} 节点, {len(edges)} 边",
+            data={
+                "nodes": nodes,
+                "edges": edges,
+                "stats": stats
+            },
+        )
+
+    except Exception as e:
+        import traceback
+        logger.error(f"构建调用图失败: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/callgraph/chains/{sink_id}", response_model=APIResponse)
+async def get_call_chains(
+    sink_id: str,
+    target_path: str,
+    max_depth: int = 10,
+    max_chains: int = 20,
+):
+    """获取到达指定触发点的所有调用链
+
+    用于用户选择要分析的调用链。
+
+    Args:
+        sink_id: 触发点 ID
+        target_path: 目标项目路径
+        max_depth: 最大调用链深度
+        max_chains: 最大返回调用链数量
+
+    Returns:
+        调用链列表
+    """
+    if not app_state.indexer or not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
+
+    path = Path(target_path)
+    if not path.exists():
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {target_path}")
+
+    try:
+        # 解析代码单元
+        code_units = await asyncio.to_thread(
+            app_state.indexer.parse_directory_without_index,
+            str(path),
+            None
+        )
+
+        # 扫描触发点
+        scanner = SinkCallScanner(app_state.rule_manager)
+        sink_sites = await asyncio.to_thread(
+            scanner.scan,
+            code_units,
+            None,
+            None
+        )
+
+        # 查找目标触发点
+        target_sink = None
+        for site in sink_sites:
+            if site.id == sink_id:
+                target_sink = site
+                break
+
+        if not target_sink:
+            raise HTTPException(status_code=404, detail=f"触发点不存在: {sink_id}")
+
+        # 构建调用图
+        chain_analyzer = CallChainAnalyzer(app_state.rule_manager)
+        await asyncio.to_thread(
+            chain_analyzer.build_call_graph,
+            code_units
+        )
+
+        # 查找调用链
+        chains = await asyncio.to_thread(
+            chain_analyzer.find_paths_to_sink,
+            target_sink.symbol,
+            max_depth,
+            max_chains
+        )
+
+        # 转换为响应格式
+        chain_schemas = []
+        for idx, chain_path in enumerate(chains):
+            chain_id = f"chain-{sink_id}-{idx}"
+            entry_point = chain_path[0] if chain_path else target_sink.symbol
+
+            # 计算风险分数（基于链长度和触发点风险等级）
+            risk_score = 0.5
+            risk_map = {"critical": 1.0, "high": 0.8, "medium": 0.5, "low": 0.3}
+            risk_score = risk_map.get(target_sink.risk_level.value, 0.5)
+            # 链越短越危险
+            risk_score *= (1 - len(chain_path) * 0.05)
+            risk_score = max(0.1, min(1.0, risk_score))
+
+            chain_schemas.append(CallChainSchema(
+                id=chain_id,
+                path=chain_path,
+                entry_point=entry_point,
+                sink=target_sink.symbol,
+                depth=len(chain_path),
+                risk_score=risk_score
+            ).model_dump())
+
+        # 按风险分数排序
+        chain_schemas.sort(key=lambda c: c["risk_score"], reverse=True)
+
+        return APIResponse(
+            success=True,
+            message=f"找到 {len(chain_schemas)} 条调用链",
+            data={
+                "sink_id": sink_id,
+                "sink_symbol": target_sink.symbol,
+                "total": len(chain_schemas),
+                "chains": chain_schemas[:max_chains]
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        logger.error(f"获取调用链失败: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============ 交互日志接口 ============

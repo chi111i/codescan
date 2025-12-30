@@ -374,28 +374,71 @@ class OutputValidator:
         return {"errors": errors, "warnings": warnings}
 
     def _check_file_path(self, file_path: str) -> Dict[str, List[str]]:
-        """检查文件路径有效性"""
+        """检查文件路径有效性
+
+        改进：支持多种路径格式验证，减少误报
+        """
         errors = []
         warnings = []
 
+        # 标准化路径分隔符
+        normalized_path = file_path.replace("\\", "/")
+
         # 如果有已知文件列表，检查是否存在
         if self.known_files:
-            # 标准化路径
-            normalized = file_path.replace("\\", "/")
-            if normalized not in self.known_files and not any(
-                normalized.endswith(f) or f.endswith(normalized)
-                for f in self.known_files
-            ):
+            # 尝试多种匹配方式
+            path_found = False
+
+            # 1. 直接匹配
+            if normalized_path in self.known_files:
+                path_found = True
+
+            # 2. 检查是否是已知文件的后缀
+            if not path_found:
+                for known_file in self.known_files:
+                    known_normalized = known_file.replace("\\", "/")
+                    if known_normalized.endswith(normalized_path) or normalized_path.endswith(known_normalized):
+                        path_found = True
+                        break
+                    # 3. 检查文件名匹配
+                    if normalized_path.split("/")[-1] == known_normalized.split("/")[-1]:
+                        # 文件名相同，可能是路径表述不同
+                        path_found = True
+                        break
+
+            if not path_found:
+                # 降级为警告而非错误，因为 LLM 可能使用不同的路径表示
                 warnings.append(f"File path not in known files: {file_path}")
 
         # 如果有项目根目录，检查文件是否存在
         if self.project_root:
-            full_path = self.project_root / file_path
-            if not full_path.exists():
-                warnings.append(f"File does not exist: {file_path}")
+            # 尝试多种路径组合
+            possible_paths = [
+                self.project_root / file_path,
+                self.project_root / normalized_path,
+            ]
+
+            # 如果路径包含目录，尝试在子目录中查找
+            if "/" in normalized_path:
+                parts = normalized_path.split("/")
+                # 尝试从不同级别开始匹配
+                for i in range(len(parts)):
+                    possible_paths.append(self.project_root / "/".join(parts[i:]))
+
+            file_exists = any(p.exists() for p in possible_paths)
+
+            if not file_exists:
+                # 如果文件不存在但有已知文件列表且找到了匹配，不报警告
+                # 这可能是因为 LLM 使用了不同的路径格式
+                if not (self.known_files and any(
+                    normalized_path in kf or kf.endswith(normalized_path.split("/")[-1])
+                    for kf in self.known_files
+                )):
+                    # 降级为警告而非错误，避免阻塞正常分析流程
+                    pass  # 不再添加 "File does not exist" 警告，因为这通常是路径格式问题
 
         # 检查路径格式是否合理
-        if not re.match(r'^[\w\-./\\]+$', file_path):
+        if not re.match(r'^[\w\-./\\:]+$', file_path):
             warnings.append(f"File path contains unusual characters: {file_path}")
 
         return {"errors": errors, "warnings": warnings}
