@@ -72,85 +72,187 @@
     </div>
 
     <!-- 无会话时：根据模式显示不同界面 -->
-    <div v-if="!currentSession" class="flex-1 flex items-center justify-center">
-      <!-- 快速扫描模式 -->
-      <div v-if="auditMode === 'quick-scan'" class="glass-card rounded-2xl p-8 max-w-2xl w-full">
-        <div class="text-center mb-6">
-          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          </div>
-          <h2 class="text-2xl font-bold text-gray-800 mb-2">快速安全扫描</h2>
-          <p class="text-gray-500">配置扫描参数，批量检测安全漏洞</p>
-        </div>
-
-        <!-- 快速扫描配置面板 -->
-        <ScanConfigPanel
-          :is-scanning="isQuickScanning"
-          @start-scan="handleQuickScan"
-        />
-
-        <!-- 扫描进度显示 -->
-        <div v-if="quickScanProgress" class="mt-6 p-4 rounded-xl bg-blue-50 border border-blue-100">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-blue-700">{{ quickScanProgress.current_step || '扫描中...' }}</span>
-            <span class="text-sm text-blue-600">{{ Math.round((quickScanProgress.progress || 0) * 100) }}%</span>
-          </div>
-          <div class="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-300"
-              :style="{ width: `${(quickScanProgress.progress || 0) * 100}%` }"
-            ></div>
-          </div>
-          <p v-if="quickScanProgress.details" class="mt-2 text-xs text-blue-600">{{ quickScanProgress.details }}</p>
-        </div>
-
-        <!-- 扫描完成后显示结果链接 -->
-        <div v-if="quickScanResult" class="mt-6 p-4 rounded-xl bg-green-50 border border-green-100">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    <div v-if="!currentSession" class="flex-1 flex flex-col min-h-0">
+      <!-- 快速扫描模式 - 两步扫描 -->
+      <div v-if="auditMode === 'quick-scan'" class="flex-1 flex flex-col min-h-0">
+        <!-- 阶段1：配置阶段 -->
+        <div v-if="scanPhase === 'config'" class="flex-1 flex items-center justify-center">
+          <div class="glass-card rounded-2xl p-8 max-w-2xl w-full">
+            <div class="text-center mb-6">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <div>
-                <div class="font-medium text-green-800">扫描完成</div>
-                <div class="text-sm text-green-600">
-                  发现 {{ quickScanResult.findings_count || 0 }} 个问题
-                </div>
+              <h2 class="text-2xl font-bold text-gray-800 mb-2">快速安全扫描</h2>
+              <p class="text-gray-500">发现触发点 → 选择分析目标 → LLM 深度分析</p>
+            </div>
+
+            <!-- 扫描配置面板 -->
+            <ScanConfigPanel
+              :is-scanning="isLoadingSinkSites"
+              @start-scan="discoverSinkSites"
+            />
+          </div>
+        </div>
+
+        <!-- 阶段2：发现中 -->
+        <div v-else-if="scanPhase === 'discovering'" class="flex-1 flex items-center justify-center">
+          <div class="glass-card rounded-2xl p-8 max-w-md w-full text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <svg class="w-8 h-8 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">正在扫描触发点...</h3>
+            <p class="text-gray-500 text-sm">正在分析代码，识别危险函数调用</p>
+          </div>
+        </div>
+
+        <!-- 阶段3：选择触发点 -->
+        <div v-else-if="scanPhase === 'selecting' || scanPhase === 'analyzing' || scanPhase === 'completed'" class="flex-1 grid grid-cols-12 gap-4 min-h-0">
+          <!-- 左栏：触发点选择 + 调用图 -->
+          <div class="col-span-8 flex flex-col gap-4 min-h-0 overflow-hidden">
+            <!-- 返回按钮 -->
+            <div class="shrink-0 flex items-center justify-between">
+              <button
+                @click="backToConfig"
+                class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                返回配置
+              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="showCallGraph = !showCallGraph"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all"
+                  :class="showCallGraph ? 'bg-purple-500 text-white' : 'bg-white/50 text-gray-600 hover:bg-white/70'"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                  </svg>
+                  {{ showCallGraph ? '隐藏调用图' : '显示调用图' }}
+                </button>
               </div>
             </div>
-            <div class="flex gap-2">
-              <router-link
-                :to="`/results/${quickScanResult.scan_id}`"
-                class="btn-primary text-sm"
-              >
-                查看结果
-              </router-link>
+
+            <!-- 调用图可视化 -->
+            <transition name="fade">
+              <div v-if="showCallGraph && callGraphData" class="glass-card rounded-2xl overflow-hidden shrink-0" style="height: 300px;">
+                <CallGraphViewer
+                  :nodes="callGraphData.nodes || []"
+                  :edges="callGraphData.edges || []"
+                  :stats="callGraphData.stats || {}"
+                  @node-click="(node) => console.log('Node clicked:', node)"
+                  @view-chains="viewCallChains"
+                />
+              </div>
+            </transition>
+
+            <!-- 触发点选择组件 -->
+            <div class="glass-card rounded-2xl flex-1 overflow-y-auto min-h-0">
+              <SinkSiteSelector
+                :sink-sites="sinkSites"
+                :stats="sinkSitesStats"
+                :analyzing="scanPhase === 'analyzing'"
+                interaction-mode="two-step"
+                @analyze="analyzeSelectedSinks"
+                @update:selected="handleSinkSiteSelect"
+                @view-chains="viewCallChains"
+              />
+            </div>
+          </div>
+
+          <!-- 右栏：LLM 交互面板 -->
+          <div class="col-span-4 flex flex-col gap-4 min-h-0 overflow-hidden">
+            <!-- FC 分析进度面板 -->
+            <FCProgressPanel
+              v-if="fcState.enabled"
+              :current-sink="fcState.currentSink"
+              :current-turn="fcState.currentTurn"
+              :total-tool-calls="fcState.totalToolCalls"
+              :tool-calls="fcState.toolCalls"
+              :findings-count="fcState.findingsCount"
+              :status="fcState.status"
+            />
+
+            <!-- LLM 交互面板 -->
+            <LLMInteractionPanel
+              v-if="interactions.length > 0 || streamingContent"
+              :interactions="interactions"
+              :streaming-content="streamingContent"
+              :full-height="true"
+              @clear="clearInteractions"
+            />
+
+            <!-- 分析状态卡片 -->
+            <div v-if="currentScan" class="glass-card rounded-2xl p-4 shrink-0">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-medium text-gray-700">分析状态</span>
+                <span
+                  class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="{
+                    'bg-blue-100 text-blue-700': scanPhase === 'analyzing',
+                    'bg-green-100 text-green-700': scanPhase === 'completed',
+                    'bg-yellow-100 text-yellow-700': scanPhase === 'selecting',
+                  }"
+                >
+                  {{ scanPhase === 'analyzing' ? '分析中' : scanPhase === 'completed' ? '已完成' : '待分析' }}
+                </span>
+              </div>
+              <div class="space-y-2 text-sm text-gray-600">
+                <div class="flex justify-between">
+                  <span>触发点</span>
+                  <span class="font-medium">{{ sinkSites.length }} 个</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>已选择</span>
+                  <span class="font-medium text-blue-600">{{ selectedSinkIds.length }} 个</span>
+                </div>
+                <div v-if="currentScan.findings" class="flex justify-between">
+                  <span>发现问题</span>
+                  <span class="font-medium text-orange-600">{{ currentScan.findings.length }} 个</span>
+                </div>
+              </div>
+              <!-- 查看结果按钮 -->
               <button
-                @click="continueInConversation"
-                class="btn-secondary text-sm"
+                v-if="scanPhase === 'completed' && currentScan.scan_id"
+                @click="openResultsModal(currentScan.scan_id)"
+                class="w-full mt-4 btn-primary text-sm"
               >
-                对话深入分析
+                查看完整报告
               </button>
+            </div>
+
+            <!-- 空状态提示 -->
+            <div v-if="!fcState.enabled && interactions.length === 0" class="glass-card rounded-2xl p-6 flex-1 flex items-center justify-center">
+              <div class="text-center text-gray-400">
+                <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <p class="text-sm">选择触发点后点击"开始分析"</p>
+                <p class="text-xs mt-1">LLM 分析过程将在此显示</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 对话审计模式（原有界面） -->
-      <div v-else class="glass-card rounded-2xl p-8 max-w-xl w-full">
-        <div class="text-center mb-8">
-          <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
+      <div v-else class="flex-1 flex items-center justify-center">
+        <div class="glass-card rounded-2xl p-8 max-w-xl w-full">
+          <div class="text-center mb-8">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">创建智能审计会话</h2>
+            <p class="text-gray-500">AI 智能体将自主调用工具进行深度代码分析</p>
           </div>
-          <h2 class="text-2xl font-bold text-gray-800 mb-2">创建智能审计会话</h2>
-          <p class="text-gray-500">AI 智能体将自主调用工具进行深度代码分析</p>
-        </div>
 
         <form @submit.prevent="createSession" class="space-y-6">
           <!-- 目标路径 -->
@@ -248,6 +350,7 @@
           </div>
         </div>
       </div>
+    </div>
     </div>
 
     <!-- 有会话时：显示聊天界面 -->
@@ -494,6 +597,78 @@
       </div>
     </div>
   </div>
+
+  <!-- 调用链选择器模态框 -->
+  <transition name="fade">
+    <div
+      v-if="showChainSelector"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      @click.self="closeChainSelector"
+    >
+      <div class="w-full max-w-4xl max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between p-6 border-b border-gray-200/50">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">调用链详情</h3>
+            <p v-if="currentSinkForChains" class="text-sm text-gray-500 mt-1">
+              触发点: {{ currentSinkForChains.symbol || currentSinkForChains.name }}
+            </p>
+          </div>
+          <button
+            class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            @click="closeChainSelector"
+          >
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+          <div v-if="isLoadingChains" class="flex items-center justify-center py-12">
+            <div class="flex items-center gap-3 text-gray-500">
+              <svg class="w-6 h-6 spinner" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>加载调用链中...</span>
+            </div>
+          </div>
+          <CallChainSelector
+            v-else
+            :chains="callChains"
+            :sink-id="currentSinkForChains?.id || ''"
+            :sink-symbol="currentSinkForChains?.symbol || currentSinkForChains?.name || ''"
+            @confirm="confirmChainSelection"
+            @cancel="closeChainSelector"
+            @update:selected="(ids) => selectedChainIds = ids"
+          />
+        </div>
+        <div class="flex justify-end gap-3 p-4 border-t border-gray-200/50 bg-gray-50/50">
+          <button
+            type="button"
+            class="btn-secondary"
+            @click="closeChainSelector"
+          >
+            关闭
+          </button>
+          <button
+            v-if="selectedChainIds.length > 0"
+            type="button"
+            class="btn-primary flex items-center gap-2"
+            @click="closeChainSelector"
+          >
+            <span>确认选择 ({{ selectedChainIds.length }})</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
+
+  <!-- 扫描结果弹窗 -->
+  <ScanResultsModal
+    v-model:visible="showResultsModal"
+    :scan-id="resultsScanId"
+    @close="showResultsModal = false"
+  />
 </template>
 
 <script setup>
@@ -501,10 +676,18 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuditStore } from '../stores/auditStore'
+import * as api from '../api'
 import ScanConfigPanel from '../components/ScanConfigPanel.vue'
 import LLMCallCard from '../components/LLMCallCard.vue'
 import FindingCard from '../components/FindingCard.vue'
 import AnalysisProgressBar from '../components/AnalysisProgressBar.vue'
+import ScanResultsModal from '../components/ScanResultsModal.vue'
+// 两步扫描模式组件
+import SinkSiteSelector from '../components/SinkSiteSelector.vue'
+import CallChainSelector from '../components/CallChainSelector.vue'
+import CallGraphViewer from '../components/CallGraphViewer.vue'
+import LLMInteractionPanel from '../components/LLMInteractionPanel.vue'
+import FCProgressPanel from '../components/FCProgressPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -541,6 +724,10 @@ const {
 // 审计模式
 const auditMode = ref('conversation') // 'conversation' | 'quick-scan'
 
+// 扫描结果弹窗状态
+const showResultsModal = ref(false)
+const resultsScanId = ref('')
+
 // 新会话配置
 const newSessionConfig = reactive({
   targetPath: '',
@@ -552,6 +739,45 @@ const newSessionConfig = reactive({
 // 对话输入
 const chatInput = ref('')
 const chatContainer = ref(null)
+
+// ============ 两步扫描模式状态 ============
+// 扫描阶段: 'config' | 'discovering' | 'selecting' | 'analyzing' | 'completed'
+const scanPhase = ref('config')
+const sinkSites = ref([])  // 发现的触发点列表
+const sinkSitesStats = ref(null)  // 触发点统计信息
+const selectedSinkIds = ref([])  // 用户选中的触发点 ID
+const callChains = ref([])  // 当前触发点的调用链列表
+const currentSinkForChains = ref(null)  // 正在查看调用链的触发点
+const selectedChainIds = ref([])  // 用户选中的调用链 ID
+const isLoadingSinkSites = ref(false)  // 加载触发点中
+const isLoadingChains = ref(false)  // 加载调用链中
+const showChainSelector = ref(false)  // 是否显示调用链选择器
+const callGraphData = ref(null)  // 调用图数据
+const showCallGraph = ref(false)  // 是否显示调用图
+const interactions = ref([])  // LLM 交互日志
+const streamingContent = ref('')  // LLM 流式输出
+const currentScan = ref(null)  // 当前扫描任务
+let scanWs = null  // 扫描 WebSocket
+
+// 扫描配置（用于两步扫描模式）
+const scanConfig = reactive({
+  targetPath: '',
+  languages: [],
+  vulnTypes: ['rce', 'command_injection', 'sql_injection'],
+  maxChainDepth: 5,
+  useChainAnalysis: true,
+})
+
+// FC (Function Calling) 状态
+const fcState = reactive({
+  enabled: false,
+  currentSink: '',
+  currentTurn: 0,
+  totalToolCalls: 0,
+  toolCalls: [],
+  findingsCount: 0,
+  status: 'idle', // idle, analyzing, completed, failed
+})
 
 // ============ 计算属性 ============
 
@@ -650,6 +876,311 @@ const continueInConversation = async () => {
   auditMode.value = 'conversation'
   newSessionConfig.targetPath = quickScanResult.value.target_path || ''
   auditStore.clearQuickScanResult()
+}
+
+// 打开扫描结果弹窗
+const openResultsModal = (scanId) => {
+  if (!scanId) return
+  resultsScanId.value = scanId
+  showResultsModal.value = true
+}
+
+// ============ 两步扫描模式功能 ============
+
+// 加载调用图数据
+const loadCallGraphData = async (targetPath) => {
+  if (!targetPath) return
+
+  try {
+    console.log('开始加载调用图数据...')
+    const result = await api.analyzeCallGraph({ target_path: targetPath })
+
+    if (result.success && result.data) {
+      callGraphData.value = {
+        nodes: result.data.nodes || [],
+        edges: result.data.edges || [],
+        stats: result.data.stats || {},
+      }
+      console.log(`调用图加载完成: ${callGraphData.value.nodes.length} 节点, ${callGraphData.value.edges.length} 边`)
+    } else {
+      console.warn('调用图数据为空')
+      callGraphData.value = null
+    }
+  } catch (error) {
+    console.error('加载调用图失败:', error)
+    callGraphData.value = null
+  }
+}
+
+// 第一步：发现触发点（不进行 LLM 分析）
+const discoverSinkSites = async (config) => {
+  // 从 ScanConfigPanel 接收配置
+  scanConfig.targetPath = config.target_path
+  scanConfig.languages = config.languages || []
+  scanConfig.vulnTypes = config.vuln_types || ['rce', 'command_injection', 'sql_injection']
+
+  if (!scanConfig.targetPath) {
+    alert('请输入目标路径')
+    return
+  }
+
+  scanPhase.value = 'discovering'
+  isLoadingSinkSites.value = true
+  sinkSites.value = []
+  sinkSitesStats.value = null
+  selectedSinkIds.value = []
+  interactions.value = []
+
+  try {
+    const result = await api.scanSinkSites({
+      target_path: scanConfig.targetPath,
+      languages: scanConfig.languages.length > 0 ? scanConfig.languages : null,
+      vuln_types: scanConfig.vulnTypes.length > 0 ? scanConfig.vulnTypes : null,
+    })
+
+    if (result.success && result.data) {
+      const total = result.data.total || 0
+      sinkSites.value = result.data.sink_sites || []
+      sinkSitesStats.value = result.data.stats || null
+
+      // 生成临时 scan_id 用于后续选择分析
+      const tempScanId = `temp-${Date.now()}`
+      currentScan.value = {
+        scan_id: tempScanId,
+        target_path: scanConfig.targetPath,
+        status: 'sink_discovered',
+        progress: 0.5,
+        current_step: '等待用户选择触发点',
+        findings: [],
+      }
+
+      scanPhase.value = 'selecting'
+      console.log(`发现 ${total} 个触发点`)
+
+      // 异步加载调用图数据（不阻塞主流程）
+      loadCallGraphData(scanConfig.targetPath)
+    } else {
+      throw new Error(result.error || '扫描失败')
+    }
+  } catch (error) {
+    console.error('发现触发点失败:', error)
+    alert('扫描触发点失败: ' + error.message)
+    scanPhase.value = 'config'
+  } finally {
+    isLoadingSinkSites.value = false
+  }
+}
+
+// 处理触发点选择变化
+const handleSinkSiteSelect = (ids) => {
+  selectedSinkIds.value = ids
+}
+
+// 查看触发点的调用链
+const viewCallChains = async (siteId) => {
+  if (!currentScan.value) return
+
+  const site = sinkSites.value.find(s => s.id === siteId)
+  if (!site) return
+
+  currentSinkForChains.value = site
+  showChainSelector.value = true
+  isLoadingChains.value = true
+  callChains.value = []
+  selectedChainIds.value = []
+
+  try {
+    const result = await api.getSinkCallChains(currentScan.value.scan_id, siteId, {
+      max_depth: scanConfig.maxChainDepth,
+      target_path: currentScan.value.target_path,  // 传入目标路径，支持临时 scan_id
+    })
+    if (result.success && result.data) {
+      callChains.value = result.data.chains || []
+    }
+  } catch (error) {
+    console.error('加载调用链失败:', error)
+  } finally {
+    isLoadingChains.value = false
+  }
+}
+
+// 关闭调用链选择器
+const closeChainSelector = () => {
+  showChainSelector.value = false
+  currentSinkForChains.value = null
+  callChains.value = []
+  selectedChainIds.value = []
+}
+
+// 确认选择的调用链
+const confirmChainSelection = (chainIds) => {
+  selectedChainIds.value = chainIds
+  closeChainSelector()
+}
+
+// 第二步：对选中的触发点进行 LLM 分析
+const analyzeSelectedSinks = async (sinkIds) => {
+  if (!currentScan.value || sinkIds.length === 0) {
+    alert('请先选择要分析的触发点')
+    return
+  }
+
+  scanPhase.value = 'analyzing'
+  resetFCState()
+  interactions.value = []
+
+  try {
+    // 更新扫描状态
+    currentScan.value.status = 'analyzing'
+    currentScan.value.current_step = '正在进行 LLM 深度分析...'
+
+    // 调用后端 API 创建分析任务
+    const result = await api.analyzeSelectedSinks({
+      target_path: currentScan.value.target_path || scanConfig.targetPath,
+      sink_site_ids: sinkIds,
+      use_chain_analysis: scanConfig.useChainAnalysis !== false,
+      max_chain_depth: scanConfig.maxChainDepth || 5,
+      use_function_calling: true,
+      languages: scanConfig.languages.length > 0 ? scanConfig.languages : null,
+    })
+
+    if (result.success && result.data && result.data.scan_id) {
+      const realScanId = result.data.scan_id
+      currentScan.value.scan_id = realScanId
+
+      // 连接 WebSocket 以接收实时进度
+      try {
+        scanWs = api.createScanWebSocket(realScanId)
+        scanWs.onmessage = handleWebSocketMessage
+        scanWs.onerror = () => {
+          console.warn('WebSocket 连接失败')
+        }
+      } catch (e) {
+        console.error('WebSocket 连接失败:', e)
+      }
+    }
+  } catch (error) {
+    console.error('分析失败:', error)
+    alert('启动分析失败: ' + error.message)
+    scanPhase.value = 'selecting'
+  }
+}
+
+// WebSocket 消息处理
+const handleWebSocketMessage = (event) => {
+  const data = JSON.parse(event.data)
+  if (data.type === 'progress') {
+    currentScan.value = { ...currentScan.value, ...data }
+    if (data.status === 'completed') {
+      currentScan.value.progress = 1.0
+      scanPhase.value = 'completed'
+      fcState.status = 'completed'
+    } else if (data.status === 'failed') {
+      fcState.status = 'failed'
+    }
+  } else if (data.type === 'interaction') {
+    handleInteraction(data.data)
+  } else if (data.type === 'llm_stream') {
+    if (data.content) {
+      if (data.is_final) {
+        streamingContent.value = ''
+      } else {
+        streamingContent.value += data.content
+      }
+    }
+  } else if (data.type === 'fc_tool_call') {
+    handleFCToolCall(data)
+  } else if (data.type === 'fc_progress') {
+    handleFCProgress(data)
+  } else if (data.type === 'fc_finding') {
+    handleFCFinding(data)
+  } else if (data.type === 'fc_llm_thinking') {
+    handleFCLLMThinking(data)
+  } else if (data.type === 'new_finding') {
+    if (currentScan.value && data.finding) {
+      if (!currentScan.value.findings) {
+        currentScan.value.findings = []
+      }
+      currentScan.value.findings.push(data.finding)
+    }
+  }
+}
+
+// LLM 交互处理
+const handleInteraction = (interaction) => {
+  interactions.value.push(interaction)
+  if (interactions.value.length > 50) {
+    interactions.value.shift()
+  }
+}
+
+// FC 事件处理
+const handleFCToolCall = (data) => {
+  auditStore.processFCToolCallMessage(data, fcState)
+}
+
+const handleFCProgress = (data) => {
+  fcState.enabled = true
+  fcState.currentSink = data.sink_symbol || fcState.currentSink
+  fcState.currentTurn = data.current_turn || fcState.currentTurn
+  fcState.totalToolCalls = data.total_tool_calls || fcState.totalToolCalls
+  fcState.status = data.status || 'analyzing'
+
+  if (data.tool_calls && Array.isArray(data.tool_calls)) {
+    fcState.toolCalls = data.tool_calls.map(tc => ({
+      id: tc.id || auditStore.generateToolCallId(),
+      tool_name: tc.tool_name || tc.name || 'unknown',
+      arguments: tc.arguments || {},
+      result: tc.result,
+      error: tc.error,
+      duration_ms: tc.duration_ms,
+      status: tc.status || 'success',
+      timestamp: data.timestamp,
+    }))
+  }
+}
+
+const handleFCFinding = (data) => {
+  fcState.findingsCount += 1
+}
+
+const handleFCLLMThinking = (data) => {
+  fcState.enabled = true
+  fcState.status = 'analyzing'
+  if (data.sink_symbol) {
+    fcState.currentSink = data.sink_symbol
+  }
+}
+
+const resetFCState = () => {
+  fcState.enabled = false
+  fcState.currentSink = ''
+  fcState.currentTurn = 0
+  fcState.totalToolCalls = 0
+  fcState.toolCalls = []
+  fcState.findingsCount = 0
+  fcState.status = 'idle'
+}
+
+// 清空交互记录
+const clearInteractions = () => {
+  interactions.value = []
+  streamingContent.value = ''
+}
+
+// 返回配置阶段
+const backToConfig = () => {
+  if (scanWs) {
+    scanWs.close()
+    scanWs = null
+  }
+  scanPhase.value = 'config'
+  sinkSites.value = []
+  sinkSitesStats.value = null
+  selectedSinkIds.value = []
+  currentScan.value = null
+  resetFCState()
+  clearInteractions()
 }
 
 // 对话交互
@@ -789,6 +1320,21 @@ onMounted(async () => {
 // 统一资源清理：切页时关闭 WebSocket/取消请求，避免后台持续重连/解析消息导致卡顿
 const cleanupResources = () => {
   try {
+    // 清理本地扫描 WebSocket（使用与 auditStore 一致的标记模式）
+    if (scanWs) {
+      try {
+        scanWs.__manualClose = true
+        scanWs.onopen = null
+        scanWs.onmessage = null
+        scanWs.onerror = null
+        scanWs.onclose = null
+        scanWs.close(1000, 'Component cleanup')
+      } catch (e) {
+        // ignore
+      }
+      scanWs = null
+    }
+    // 清理 store 资源
     auditStore.cleanup()
   } catch (e) {
     // ignore
@@ -885,5 +1431,16 @@ watch(chatMessages, () => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

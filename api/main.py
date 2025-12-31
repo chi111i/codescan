@@ -1357,7 +1357,7 @@ async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
         try:
-            await ws.send_json({
+            message = {
                 "type": "progress",
                 "scan_id": scan_id,
                 "status": task.status.value,
@@ -1366,8 +1366,15 @@ async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
                 "findings_count": len(task.findings),
                 "vuln_count": len(task.vuln_findings),
                 "total_units": task.total_units,
+                "target_path": task.target_path,
                 "timestamp": datetime.now().isoformat(),
-            })
+            }
+            await ws.send_json(message)
+
+            # 如果是完成或失败状态，给前端一点时间处理消息
+            if task.status.value in ("completed", "failed"):
+                import asyncio
+                await asyncio.sleep(0.1)  # 100ms 延迟确保消息被处理
         except Exception as e:
             logger.warning(f"WebSocket 发送失败: {e}")
 
@@ -2167,6 +2174,7 @@ async def get_sink_site_chains(
     site_id: str,
     max_depth: int = 10,
     max_chains: int = 20,
+    target_path: str = None,  # 新增：支持直接传入目标路径
 ):
     """获取指定触发点的调用链
 
@@ -2177,6 +2185,7 @@ async def get_sink_site_chains(
         site_id: 触发点 ID
         max_depth: 最大调用链深度
         max_chains: 最大返回调用链数量
+        target_path: 目标路径（可选，用于临时 scan_id 场景）
 
     Returns:
         调用链列表
@@ -2185,28 +2194,37 @@ async def get_sink_site_chains(
         raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
 
     # 获取扫描任务的目标路径
-    target_path = None
-    if scan_id in app_state.scan_tasks:
-        target_path = app_state.scan_tasks[scan_id].target_path
-    elif app_state.scan_repo:
-        db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
-        if db_task:
-            target_path = db_task.target_path
+    resolved_target_path = target_path  # 优先使用传入的 target_path
+    if not resolved_target_path:
+        if scan_id in app_state.scan_tasks:
+            resolved_target_path = app_state.scan_tasks[scan_id].target_path
+        elif app_state.scan_repo:
+            db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
+            if db_task:
+                resolved_target_path = db_task.target_path
 
-    if not target_path:
-        raise HTTPException(status_code=404, detail=f"扫描任务不存在: {scan_id}")
+    if not resolved_target_path:
+        raise HTTPException(status_code=404, detail=f"扫描任务不存在: {scan_id}，请提供 target_path 参数")
 
-    path = Path(target_path)
+    path = Path(resolved_target_path)
     if not path.exists():
-        raise HTTPException(status_code=400, detail=f"目标路径不存在: {target_path}")
+        raise HTTPException(status_code=400, detail=f"目标路径不存在: {resolved_target_path}")
 
     try:
-        # 解析代码单元
-        code_units = await asyncio.to_thread(
-            app_state.indexer.parse_directory_without_index,
-            str(path),
-            None
-        )
+        # 优先使用已索引的代码单元，避免每次重新解析
+        stats = await asyncio.to_thread(app_state.indexer.get_stats)
+        if stats["total_units"] > 0:
+            # 使用已索引的数据
+            code_units = await asyncio.to_thread(app_state.indexer.get_all_units)
+            logger.debug(f"[chains] 使用已索引数据: {len(code_units)} 个代码单元")
+        else:
+            # 回退到直接解析
+            code_units = await asyncio.to_thread(
+                app_state.indexer.parse_directory_without_index,
+                str(path),
+                None
+            )
+            logger.debug(f"[chains] 回退到直接解析: {len(code_units)} 个代码单元")
 
         # 扫描触发点
         scanner = SinkCallScanner(app_state.rule_manager)
@@ -2293,8 +2311,11 @@ async def scan_sink_sites(request: ScanRequest):
     仅进行 SinkCallScanner 确定性扫描，返回所有危险函数触发点。
     用于"两步确认"模式的第一步。
 
+    如果 skip_index=False（默认），会同时进行代码向量化索引，
+    以支持后续对话审计中的函数调用（如 search_code）。
+
     Args:
-        request: 扫描请求（仅使用 target_path 和 languages）
+        request: 扫描请求（使用 target_path、languages 和 skip_index）
 
     Returns:
         触发点列表及统计信息
@@ -2307,12 +2328,35 @@ async def scan_sink_sites(request: ScanRequest):
         raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
 
     try:
-        # 解析代码单元
-        code_units = await asyncio.to_thread(
-            app_state.indexer.parse_directory_without_index,
-            str(target_path),
-            request.languages
-        )
+        # 根据 skip_index 决定是否进行向量化索引
+        if request.skip_index:
+            # 跳过向量索引，仅解析代码
+            logger.info(f"[sink-sites] 使用直接解析模式（跳过向量索引）: {target_path}")
+            code_units = await asyncio.to_thread(
+                app_state.indexer.parse_directory_without_index,
+                str(target_path),
+                request.languages
+            )
+        else:
+            # 进行向量化索引（支持后续对话审计的函数调用）
+            logger.info(f"[sink-sites] 使用向量索引模式: {target_path}")
+
+            # 检查是否需要索引
+            stats = await asyncio.to_thread(app_state.indexer.get_stats)
+            if stats["total_units"] == 0 or request.reindex:
+                logger.info(f"[sink-sites] 开始索引目录: {target_path}")
+                await asyncio.to_thread(
+                    app_state.indexer.index_directory,
+                    str(target_path)
+                )
+                logger.info(f"[sink-sites] 索引完成")
+
+            # 获取所有代码单元
+            code_units = await asyncio.to_thread(app_state.indexer.get_all_units)
+
+            # 按语言过滤
+            if request.languages:
+                code_units = [u for u in code_units if u.language in request.languages]
 
         if not code_units:
             return APIResponse(
@@ -2728,6 +2772,8 @@ async def get_call_graph(request: CallGraphRequest):
     if not app_state.indexer or not app_state.rule_manager:
         raise HTTPException(status_code=500, detail="索引器或规则管理器未初始化")
 
+    from analyzer.call_chain import NodeType
+
     target_path = Path(request.target_path)
     if not target_path.exists():
         raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
@@ -2773,8 +2819,11 @@ async def get_call_graph(request: CallGraphRequest):
         edges = []
 
         for node_id, node in call_graph.nodes.items():
-            is_sink = node.symbol in sink_symbols
-            is_entry = getattr(node, 'is_entry_point', False)
+            # CallNode 使用 name/qualified_name 属性，不是 symbol
+            node_symbol = node.qualified_name or node.name
+            is_sink = node_symbol in sink_symbols or node.name in sink_symbols
+            # CallNode 使用 node_type 枚举，检查是否是入口点
+            is_entry = node.node_type == NodeType.ENTRY_POINT
 
             node_type = "function"
             if is_entry:
@@ -2784,7 +2833,7 @@ async def get_call_graph(request: CallGraphRequest):
 
             nodes.append(CallGraphNodeSchema(
                 id=node_id,
-                symbol=node.symbol,
+                symbol=node_symbol,
                 file_path=node.file_path,
                 line_start=node.line_start,
                 line_end=node.line_end,
@@ -2795,11 +2844,12 @@ async def get_call_graph(request: CallGraphRequest):
             ).model_dump())
 
         for edge in call_graph.edges:
+            # CallEdge 使用 caller_id/callee_id 属性，不是 caller/callee
             edges.append(CallGraphEdgeSchema(
-                source=edge.caller,
-                target=edge.callee,
-                call_type="call",
-                line=getattr(edge, 'line', None)
+                source=edge.caller_id,
+                target=edge.callee_id,
+                call_type=edge.call_type,
+                line=None
             ).model_dump())
 
         # 统计信息
@@ -2854,12 +2904,20 @@ async def get_call_chains(
         raise HTTPException(status_code=400, detail=f"目标路径不存在: {target_path}")
 
     try:
-        # 解析代码单元
-        code_units = await asyncio.to_thread(
-            app_state.indexer.parse_directory_without_index,
-            str(path),
-            None
-        )
+        # 优先使用已索引的代码单元，避免每次重新解析
+        stats = await asyncio.to_thread(app_state.indexer.get_stats)
+        if stats["total_units"] > 0:
+            # 使用已索引的数据
+            code_units = await asyncio.to_thread(app_state.indexer.get_all_units)
+            logger.debug(f"[callgraph/chains] 使用已索引数据: {len(code_units)} 个代码单元")
+        else:
+            # 回退到直接解析
+            code_units = await asyncio.to_thread(
+                app_state.indexer.parse_directory_without_index,
+                str(path),
+                None
+            )
+            logger.debug(f"[callgraph/chains] 回退到直接解析: {len(code_units)} 个代码单元")
 
         # 扫描触发点
         scanner = SinkCallScanner(app_state.rule_manager)

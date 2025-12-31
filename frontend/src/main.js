@@ -32,11 +32,6 @@ const routes = [
     component: () => import('./views/ChatHistory.vue'),
   },
   {
-    // 兼容性重定向：/results 重定向到 /chat-history
-    path: '/results/:scanId?',
-    redirect: '/chat-history',
-  },
-  {
     path: '/callgraph',
     name: 'CallGraph',
     component: () => import('./views/CallGraph.vue'),

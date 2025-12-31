@@ -11,10 +11,13 @@ from .prompts import (
     build_analysis_prompt,
     build_chain_analysis_prompt,
     get_chain_output_schema,
-    SYSTEM_PROMPT,
-    CHAIN_SYSTEM_PROMPT,
-    SINK_CATEGORY_PROMPTS,
 )
+
+# 废弃常量 - 保留向后兼容但不再导入
+# 使用 prompts.get_prompt_manager() 替代
+SYSTEM_PROMPT = ""
+CHAIN_SYSTEM_PROMPT = ""
+SINK_CATEGORY_PROMPTS = {}
 from .engine import SecurityAnalyzer
 from .call_chain import (
     CallChainAnalyzer,

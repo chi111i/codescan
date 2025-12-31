@@ -18,7 +18,8 @@ from rules import RuleManager, RuleType
 from .models import Finding, Candidate, AnalysisContext, Severity, Evidence
 from .prompts import build_analysis_prompt, build_chain_analysis_prompt
 from .sink_scanner import SinkCallScanner, SinkCallSite, SinkCategory
-from .chain_context import ChainContextCollector, ChainContext
+from .chain_context import ChainContextCollector, ChainContext, ChainNode
+from .call_chain import CallChainAnalyzer
 from .fc_adapter import (
     FunctionCallingAdapter,
     FCAdapterConfig,
@@ -1503,9 +1504,13 @@ class SecurityAnalyzer:
 
             logger.info(f"[LLM] 发现问题: {result.get('issue_type', 'unknown')}, 严重性: {result.get('severity', 'unknown')}")
 
+            # 生成唯一的 Finding ID
+            finding_context = f"{candidate.file_path}:{candidate.line_start}:{candidate.symbol}"
+            unique_finding_id = Finding.generate_id(self.scan_id, finding_context)
+
             # 构建 Finding
             finding = Finding(
-                id=f"finding-{candidate.code_unit_id}",
+                id=unique_finding_id,
                 title=result.get("issue_type", "Security Issue"),
                 file_path=candidate.file_path,
                 line_start=candidate.line_start,
@@ -1930,27 +1935,36 @@ class SecurityAnalyzer:
 
                     # 收集调用链上下文
                     try:
-                        chain_context = context_collector.collect_chain_context(
-                            chain,
-                            max_context_units=self.config.analysis.max_chain_context_units
+                        # 正确调用 collect_context 方法
+                        chain_context = context_collector.collect_context(
+                            sink_site,
+                            max_depth=len(chain)
                         )
                     except Exception as e:
                         logger.warning(f"收集调用链上下文失败: {e}")
                         # 回退：仅使用触发点所在函数的代码
                         unit = symbol_to_unit.get(sink_site.symbol)
                         if unit:
+                            # 创建 ChainNode 需要 qualified_name
+                            qualified_name = unit.symbol
+                            if unit.parent_class:
+                                qualified_name = f"{unit.parent_class}.{unit.symbol}"
+
+                            fallback_node = ChainNode(
+                                symbol=unit.symbol,
+                                qualified_name=qualified_name,
+                                file_path=unit.file_path,
+                                line_start=unit.span.start_line,
+                                line_end=unit.span.end_line,
+                                node_type="sink",
+                                code=unit.code,
+                                is_sink=True
+                            )
                             chain_context = ChainContext(
-                                chain_path=chain,
-                                nodes=[ChainNode(
-                                    symbol=unit.symbol,
-                                    file_path=unit.file_path,
-                                    line_start=unit.span.start_line,
-                                    line_end=unit.span.end_line,
-                                    code=unit.code,
-                                    node_type="sink"
-                                )],
-                                total_lines=unit.span.end_line - unit.span.start_line + 1,
-                                truncated=False
+                                sink_site=sink_site,
+                                chain_nodes=[fallback_node],
+                                chain_length=1,
+                                risk_level=sink_site.risk_level or "medium"
                             )
                         else:
                             continue
@@ -1972,11 +1986,34 @@ class SecurityAnalyzer:
                     try:
                         # 根据是否启用 Function Calling 模式选择分析方法
                         if self.use_function_calling:
+                            # 为当前 sink 创建回调适配器
+                            # on_tool_call 期望签名: (sink_symbol, tool_call_dict, status)
+                            # fc_adapter 调用签名: (FCToolCall)
+                            adapted_on_tool_call = None
+                            if on_tool_call:
+                                current_sink_symbol = sink_site.symbol
+                                def make_tool_call_adapter(sink_sym):
+                                    def adapter(fc_call):
+                                        # 将 FCToolCall 对象转换为 API 期望的格式
+                                        tool_call_dict = fc_call.to_dict() if hasattr(fc_call, 'to_dict') else {
+                                            "id": getattr(fc_call, 'id', ''),
+                                            "tool_name": getattr(fc_call, 'tool_name', ''),
+                                            "arguments": getattr(fc_call, 'arguments', {}),
+                                            "status": getattr(fc_call, 'status', 'running').value if hasattr(getattr(fc_call, 'status', None), 'value') else str(getattr(fc_call, 'status', 'running')),
+                                            "result": getattr(fc_call, 'result', None),
+                                            "error": getattr(fc_call, 'error', None),
+                                            "duration_ms": getattr(fc_call, 'duration_ms', 0),
+                                        }
+                                        status = tool_call_dict.get("status", "running")
+                                        on_tool_call(sink_sym, tool_call_dict, status)
+                                    return adapter
+                                adapted_on_tool_call = make_tool_call_adapter(current_sink_symbol)
+
                             finding = self.analyze_with_function_calling(
                                 sink_site,
                                 chain_context,
                                 code_units,
-                                on_tool_call=on_tool_call,
+                                on_tool_call=adapted_on_tool_call,
                                 on_llm_thinking=on_llm_thinking,
                             )
                         else:
@@ -2033,22 +2070,41 @@ class SecurityAnalyzer:
         chain_id: str
     ) -> str:
         """为触发点构建调用链分析 Prompt"""
-        from .prompts import build_chain_analysis_prompt, SINK_CATEGORY_PROMPTS
+        from .prompts import build_chain_analysis_prompt
 
-        # 获取 Sink 类别特定的提示
-        category_hint = SINK_CATEGORY_PROMPTS.get(
+        # Sink 类别特定的提示（硬编码，避免使用废弃的 SINK_CATEGORY_PROMPTS）
+        category_prompts = {
+            "command_execution": "重点关注：命令注入漏洞。检查用户输入是否经过充分的过滤和转义后才传入系统命令执行函数。",
+            "file_read": "重点关注：任意文件读取漏洞。检查文件路径是否可控，是否有目录遍历风险。",
+            "file_write": "重点关注：任意文件写入漏洞。检查文件路径和内容是否可控，是否可能写入恶意文件。",
+            "file_include": "重点关注：文件包含漏洞。检查包含路径是否可控，是否可能包含恶意文件。",
+            "sql_query": "重点关注：SQL注入漏洞。检查SQL语句拼接是否安全，是否使用参数化查询。",
+            "deserialization": "重点关注：反序列化漏洞。检查反序列化的数据来源是否可信，是否可能构造恶意对象。",
+            "ssrf": "重点关注：SSRF漏洞。检查URL是否可控，是否可能访问内部服务。",
+            "code_execution": "重点关注：代码执行漏洞。检查eval/exec等函数的参数是否可控。",
+            "ldap_query": "重点关注：LDAP注入漏洞。检查LDAP查询参数是否经过转义。",
+            "xpath_query": "重点关注：XPath注入漏洞。检查XPath查询参数是否经过转义。",
+            "xml_parse": "重点关注：XXE漏洞。检查XML解析器是否禁用了外部实体。",
+        }
+        category_hint = category_prompts.get(
             sink_site.sink_category.value,
             "请分析此代码是否存在安全漏洞。"
         )
 
         # 构建调用链代码上下文
         code_context_parts = []
-        for node in chain_context.nodes:
+        # 使用 chain_nodes 属性（ChainContext 的正确属性名）
+        nodes = getattr(chain_context, 'chain_nodes', []) or getattr(chain_context, 'nodes', [])
+        for node in nodes:
             code_context_parts.append(
                 f"### {node.symbol} ({node.file_path}:{node.line_start}-{node.line_end})\n"
                 f"```\n{node.code}\n```"
             )
         code_context = "\n\n".join(code_context_parts)
+
+        # 构建调用链路径（从 chain_nodes 提取符号名称）
+        chain_path = [node.symbol for node in nodes] if nodes else [sink_site.symbol]
+        chain_path_str = ' -> '.join(chain_path)
 
         # 构建 Prompt
         prompt = f"""## 安全审计任务
@@ -2068,7 +2124,7 @@ class SecurityAnalyzer:
 {category_hint}
 
 ## 调用链路径
-{' -> '.join(chain_context.chain_path)}
+{chain_path_str}
 
 ## 调用链代码上下文
 {code_context}
@@ -2091,21 +2147,26 @@ class SecurityAnalyzer:
         prompt: str
     ) -> Optional[Finding]:
         """使用 LLM 分析调用链"""
-        from .prompts import get_chain_output_schema, CHAIN_SYSTEM_PROMPT
+        from .prompts import get_chain_output_schema
+        from prompts import get_prompt_manager
+
+        # 获取系统提示词
+        pm = get_prompt_manager()
+        chain_system_prompt = pm.get_prompt("chain_analysis", "system") or "你是一个专业的代码安全审计专家。请分析给定的调用链是否存在安全漏洞。"
 
         try:
             # 记录 LLM 调用
             if self.interaction_repo:
                 self.interaction_repo.log_llm_call(
                     self.scan_id,
-                    CHAIN_SYSTEM_PROMPT[:500] + "...",
+                    chain_system_prompt[:500] + "...",
                     prompt[:1000] + "..." if len(prompt) > 1000 else prompt
                 )
 
             # 调用 LLM
             response = self.llm_client.chat_completion(
                 messages=[
-                    ChatMessage(role="system", content=CHAIN_SYSTEM_PROMPT),
+                    ChatMessage(role="system", content=chain_system_prompt),
                     ChatMessage(role="user", content=prompt),
                 ],
                 temperature=self.config.llm.temperature,
@@ -2203,11 +2264,15 @@ class SecurityAnalyzer:
 请以 JSON 格式输出分析结果。"""
 
         try:
-            from .prompts import CHAIN_SYSTEM_PROMPT
+            from prompts import get_prompt_manager
+
+            # 获取系统提示词（避免使用废弃的 CHAIN_SYSTEM_PROMPT）
+            pm = get_prompt_manager()
+            chain_system_prompt = pm.get_prompt("chain_analysis", "system") or "你是一个专业的代码安全审计专家。请分析给定的代码是否存在安全漏洞。"
 
             response = self.llm_client.chat_completion(
                 messages=[
-                    ChatMessage(role="system", content=CHAIN_SYSTEM_PROMPT),
+                    ChatMessage(role="system", content=chain_system_prompt),
                     ChatMessage(role="user", content=prompt),
                 ],
                 temperature=self.config.llm.temperature,
@@ -2291,9 +2356,13 @@ class SecurityAnalyzer:
         Returns:
             Finding 或 None
         """
-        from .prompts import CHAIN_SYSTEM_PROMPT
+        from prompts import get_prompt_manager
 
         try:
+            # 获取系统提示词（避免使用废弃的 CHAIN_SYSTEM_PROMPT）
+            pm = get_prompt_manager()
+            chain_system_prompt_base = pm.get_prompt("chain_analysis", "system") or "你是一个专业的代码安全审计专家。请分析给定的调用链是否存在安全漏洞。"
+
             # 创建安全分析工具集
             tools = FCSecurityTools(
                 indexer=self.indexer,
@@ -2324,7 +2393,7 @@ class SecurityAnalyzer:
             sink_category = sink_site.sink_category.value
             chain_id = f"chain-{sink_site.id}"
 
-            system_prompt = f"""{CHAIN_SYSTEM_PROMPT}
+            system_prompt = f"""{chain_system_prompt_base}
 
 ## 可用工具
 

@@ -6,10 +6,9 @@
 import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import fields
+from typing import List, Optional, Tuple
 
-from pydantic import BaseModel, Field, HttpUrl, validator, ValidationError
+from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
 
 from .settings import (
     AuditConfig,
@@ -47,29 +46,32 @@ class LLMConfigValidator(BaseModel):
     enable_multi_round: bool = Field(default=True, description="启用多轮分析")
     max_rounds: int = Field(ge=1, le=5, description="最大分析轮数")
 
-    @validator("base_url", "embedding_base_url")
-    def validate_url(cls, v):
+    @field_validator("base_url", "embedding_base_url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
         """验证 URL 格式"""
         if v and not v.startswith(("http://", "https://")):
             raise ValueError(f"URL 必须以 http:// 或 https:// 开头: {v}")
         return v
 
-    @validator("provider")
-    def validate_provider(cls, v):
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
         """验证 LLM 提供商"""
         allowed_providers = ["openai", "openai-compatible", "anthropic", "deepseek", "ollama"]
         if v not in allowed_providers:
             raise ValueError(f"不支持的 LLM 提供商: {v}，允许的值: {allowed_providers}")
         return v
 
-    @validator("max_code_tokens_per_call")
-    def validate_token_budget(cls, v, values):
+    @model_validator(mode="after")
+    def validate_token_budget(self) -> "LLMConfigValidator":
         """验证 Token 预算合理性"""
-        if "max_context_tokens" in values and v > values["max_context_tokens"]:
+        if self.max_code_tokens_per_call > self.max_context_tokens:
             raise ValueError(
-                f"max_code_tokens_per_call ({v}) 不能大于 max_context_tokens ({values['max_context_tokens']})"
+                f"max_code_tokens_per_call ({self.max_code_tokens_per_call}) "
+                f"不能大于 max_context_tokens ({self.max_context_tokens})"
             )
-        return v
+        return self
 
 
 class VectorStoreConfigValidator(BaseModel):
@@ -86,16 +88,18 @@ class VectorStoreConfigValidator(BaseModel):
     cache_dir: str = Field(..., min_length=1, description="缓存目录")
     cache_ttl_days: int = Field(ge=1, le=365, description="缓存过期天数")
 
-    @validator("provider")
-    def validate_provider(cls, v):
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
         """验证向量存储提供商"""
         allowed_providers = ["qdrant", "memory", "chroma", "pinecone"]
         if v not in allowed_providers:
             raise ValueError(f"不支持的向量存储提供商: {v}，允许的值: {allowed_providers}")
         return v
 
-    @validator("cache_dir")
-    def validate_cache_dir(cls, v):
+    @field_validator("cache_dir")
+    @classmethod
+    def validate_cache_dir(cls, v: str) -> str:
         """验证缓存目录"""
         # 如果是相对路径，转换为绝对路径
         cache_path = Path(v)
@@ -115,7 +119,7 @@ class ScanConfigValidator(BaseModel):
     """扫描配置验证器"""
 
     target_path: str = Field(..., min_length=1, description="目标路径")
-    languages: List[str] = Field(..., min_items=1, description="语言列表")
+    languages: List[str] = Field(..., min_length=1, description="语言列表")
     include_patterns: List[str] = Field(default_factory=list, description="包含模式")
     exclude_patterns: List[str] = Field(default_factory=list, description="排除模式")
     max_file_size_kb: int = Field(gt=0, le=10240, description="最大文件大小（KB）")
@@ -136,16 +140,18 @@ class ScanConfigValidator(BaseModel):
     rerank_security_boost: float = Field(ge=1.0, le=5.0, description="安全提升因子")
     rerank_prefer_entry_points: bool = Field(default=True, description="优先入口点")
 
-    @validator("target_path")
-    def validate_target_path(cls, v):
+    @field_validator("target_path")
+    @classmethod
+    def validate_target_path(cls, v: str) -> str:
         """验证目标路径存在"""
         path = Path(v)
         if not path.exists():
             raise ValueError(f"目标路径不存在: {v}")
         return str(path.resolve())
 
-    @validator("languages")
-    def validate_languages(cls, v):
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, v: List[str]) -> List[str]:
         """验证语言列表"""
         allowed_languages = ["python", "javascript", "typescript", "php", "java", "go", "ruby"]
         for lang in v:
@@ -153,8 +159,9 @@ class ScanConfigValidator(BaseModel):
                 logger.warning(f"语言 {lang} 可能不被完全支持，允许的值: {allowed_languages}")
         return v
 
-    @validator("mode")
-    def validate_mode(cls, v):
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
         """验证扫描模式"""
         try:
             ScanMode(v)
@@ -169,7 +176,7 @@ class RulesConfigValidator(BaseModel):
 
     rules_dir: str = Field(..., min_length=1, description="规则目录")
     custom_rules_dir: Optional[str] = Field(default=None, description="自定义规则目录")
-    enabled_categories: List[str] = Field(..., min_items=1, description="启用的类别")
+    enabled_categories: List[str] = Field(..., min_length=1, description="启用的类别")
     risk_threshold: str = Field(..., description="风险阈值")
     min_confidence: float = Field(ge=0.0, le=1.0, description="最小置信度")
 
@@ -181,16 +188,18 @@ class RulesConfigValidator(BaseModel):
 
     semgrep_rules_dir: Optional[str] = Field(default=None, description="Semgrep 规则目录")
 
-    @validator("rules_dir")
-    def validate_rules_dir(cls, v):
+    @field_validator("rules_dir")
+    @classmethod
+    def validate_rules_dir(cls, v: str) -> str:
         """验证规则目录"""
         path = Path(v)
         if not path.exists():
             logger.warning(f"规则目录不存在: {v}，将使用内置规则")
         return v
 
-    @validator("risk_threshold")
-    def validate_risk_threshold(cls, v):
+    @field_validator("risk_threshold")
+    @classmethod
+    def validate_risk_threshold(cls, v: str) -> str:
         """验证风险阈值"""
         try:
             RiskLevel(v)

@@ -603,10 +603,15 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import * as api from '../api'
+import { useAuditStore } from '../stores/auditStore'
 import FCProgressPanel from '../components/FCProgressPanel.vue'
 
 // ============ 状态 ============
+
+// 获取 auditStore 实例
+const auditStore = useAuditStore()
 
 // Function Calling 状态
 const fcState = reactive({
@@ -1128,20 +1133,31 @@ const connectWebSocket = (sessionId) => {
   }
 
   try {
-    // 先关闭旧连接
+    // 先关闭旧连接（标记为主动关闭，避免 onclose 触发自动重连）
     if (ws) {
-      ws.close()
+      try {
+        ws.__manualClose = true
+        ws.onopen = null
+        ws.onmessage = null
+        ws.onerror = null
+        ws.onclose = null
+        ws.close(1000, 'Reconnecting')
+      } catch (e) {
+        // ignore
+      }
       ws = null
     }
 
-    ws = api.createInteractiveWebSocket(sessionId)
+    const wsInstance = api.createInteractiveWebSocket(sessionId)
+    wsInstance.__manualClose = false
+    ws = wsInstance
 
-    ws.onopen = () => {
+    wsInstance.onopen = () => {
       console.log('WebSocket connected')
       wsReconnectAttempts = 0  // 重置重连计数
     }
 
-    ws.onmessage = (event) => {
+    wsInstance.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
         handleWebSocketMessage(data)
@@ -1150,14 +1166,22 @@ const connectWebSocket = (sessionId) => {
       }
     }
 
-    ws.onerror = (error) => {
+    wsInstance.onerror = (error) => {
       console.error('WebSocket error:', error)
     }
 
-    ws.onclose = (event) => {
+    wsInstance.onclose = (event) => {
       console.log('WebSocket disconnected, code:', event.code)
+      // 主动关闭时，清理 ws 引用并返回，不进行重连
+      if (wsInstance.__manualClose) {
+        if (ws === wsInstance) {
+          ws = null
+        }
+        return
+      }
       // 非正常关闭且会话仍存在时尝试重连
-      if (currentSession.value && event.code !== 1000 && wsReconnectAttempts < WS_MAX_RECONNECT_ATTEMPTS) {
+      const isCurrentSession = currentSession.value && currentSession.value.session_id === sessionId
+      if (isCurrentSession && event.code !== 1000 && wsReconnectAttempts < WS_MAX_RECONNECT_ATTEMPTS) {
         wsReconnectAttempts++
         console.log(`WebSocket reconnecting... attempt ${wsReconnectAttempts}/${WS_MAX_RECONNECT_ATTEMPTS}`)
         wsReconnectTimer = setTimeout(() => {
@@ -1179,7 +1203,16 @@ const disconnectWebSocket = () => {
   wsReconnectAttempts = 0
 
   if (ws) {
-    ws.close(1000, 'User disconnect')  // 正常关闭，不触发重连
+    try {
+      ws.__manualClose = true
+      ws.onopen = null
+      ws.onmessage = null
+      ws.onerror = null
+      ws.onclose = null
+      ws.close(1000, 'User disconnect')
+    } catch (e) {
+      // ignore
+    }
     ws = null
   }
 }
@@ -1219,36 +1252,8 @@ const handleWebSocketMessage = (data) => {
 
 // FC 工具调用处理
 const handleFCToolCall = (data) => {
-  fcState.enabled = true
-  fcState.status = 'analyzing'
-
-  if (data.sink_symbol) {
-    fcState.currentSink = data.sink_symbol
-  }
-
-  const toolCall = {
-    id: `tc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-    toolName: data.tool_name || 'unknown',
-    status: data.status || 'running', // running, completed, error
-    input: data.tool_input || {},
-    output: data.tool_output || null,
-    timestamp: data.timestamp || new Date().toISOString(),
-  }
-
-  if (data.status === 'start') {
-    toolCall.status = 'running'
-    fcState.toolCalls.push(toolCall)
-    fcState.totalToolCalls++
-  } else if (data.status === 'end') {
-    // 更新已有的工具调用状态
-    const existing = fcState.toolCalls.find(
-      tc => tc.toolName === data.tool_name && tc.status === 'running'
-    )
-    if (existing) {
-      existing.status = 'completed'
-      existing.output = data.tool_output
-    }
-  }
+  // 使用 auditStore 的统一处理函数，传入本地 fcState
+  auditStore.processFCToolCallMessage(data, fcState)
 }
 
 // FC LLM 思考处理
@@ -1373,6 +1378,11 @@ const getFindingCardClass = (finding) => {
 
 onMounted(() => {
   fetchExistingSessions()
+})
+
+// 路由离开前清理资源，避免后台持续重连导致卡顿
+onBeforeRouteLeave(() => {
+  disconnectWebSocket()
 })
 
 onUnmounted(() => {

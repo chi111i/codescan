@@ -654,8 +654,9 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAppStore } from '../stores/app'
+import { useAuditStore } from '../stores/auditStore'
 import * as api from '../api'
 import FCProgressPanel from '../components/FCProgressPanel.vue'
 import SinkSiteSelector from '../components/SinkSiteSelector.vue'
@@ -665,6 +666,7 @@ import LLMInteractionPanel from '../components/LLMInteractionPanel.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
+const auditStore = useAuditStore()
 
 const showAdvanced = ref(true)
 const logs = ref([])
@@ -882,38 +884,13 @@ const clearInteractions = () => {
 
 // FC (Function Calling) 事件处理
 const handleFCToolCall = (data) => {
-  fcState.enabled = true
-  fcState.status = 'analyzing'
-  if (data.sink_symbol) {
-    fcState.currentSink = data.sink_symbol
-  }
-
-  const toolCall = data.tool_call || {}
-  // 更新或添加工具调用记录
-  const existingIdx = fcState.toolCalls.findIndex(tc => tc.id === toolCall.id)
-  if (existingIdx >= 0) {
-    fcState.toolCalls[existingIdx] = {
-      ...fcState.toolCalls[existingIdx],
-      ...toolCall,
-      status: data.status || toolCall.status,
-      timestamp: data.timestamp,
-    }
-  } else {
-    fcState.toolCalls.push({
-      id: toolCall.id || `tc-${Date.now()}`,
-      tool_name: toolCall.tool_name || toolCall.name || 'unknown',
-      arguments: toolCall.arguments || {},
-      result: toolCall.result,
-      error: toolCall.error,
-      duration_ms: toolCall.duration_ms,
-      status: data.status || 'running',
-      timestamp: data.timestamp,
-    })
-    fcState.totalToolCalls = fcState.toolCalls.length
-  }
+  // 使用 auditStore 的统一处理函数，传入本地 fcState
+  auditStore.processFCToolCallMessage(data, fcState)
 
   // 添加到日志
-  addLog(`[FC] 工具调用: ${toolCall.tool_name || toolCall.name || 'unknown'}`, 'info')
+  const toolCall = data.tool_call || {}
+  const toolStatus = toolCall.status || data.status || 'running'
+  addLog(`[FC] 工具调用: ${toolCall.tool_name || toolCall.name || 'unknown'} (${toolStatus})`, 'info')
 }
 
 const handleFCProgress = (data) => {
@@ -926,7 +903,7 @@ const handleFCProgress = (data) => {
   // 更新工具调用列表
   if (data.tool_calls && Array.isArray(data.tool_calls)) {
     fcState.toolCalls = data.tool_calls.map(tc => ({
-      id: tc.id || `tc-${Date.now()}-${Math.random()}`,
+      id: tc.id || auditStore.generateToolCallId(),
       tool_name: tc.tool_name || tc.name || 'unknown',
       arguments: tc.arguments || {},
       result: tc.result,
@@ -1042,6 +1019,19 @@ const startScan = async () => {
             if (data.log) {
               addLog(data.log, data.log_level || 'info')
             }
+            // 后端通过 progress 消息广播状态变更，检测完成/失败状态
+            if (data.status === 'completed') {
+              addLog('扫描完成！', 'success')
+              appStore.fetchScanHistory()
+              if (fcState.enabled) {
+                fcState.status = 'completed'
+              }
+            } else if (data.status === 'failed') {
+              addLog(`扫描失败: ${data.current_step || '未知错误'}`, 'error')
+              if (fcState.enabled) {
+                fcState.status = 'failed'
+              }
+            }
           } else if (data.type === 'interaction') {
             // 处理 LLM 交互日志
             handleInteraction(data.data)
@@ -1126,7 +1116,10 @@ const startPolling = (scanId) => {
 
 const cancelScan = () => {
   if (confirm('确定要取消当前扫描吗？')) {
-    if (ws) ws.close()
+    if (ws) {
+      ws.__manualClose = true  // 标记为主动关闭，避免 onclose 触发自动重连
+      ws.close()
+    }
     if (pollInterval) clearInterval(pollInterval)
     currentScan.value = null
     interactions.value = []  // 清空交互日志
@@ -1234,12 +1227,19 @@ const discoverSinkSites = async () => {
     })
 
     if (result.success && result.data) {
-      const scanId = result.data.scan_id
-      addLog(`触发点扫描完成，发现 ${result.data.total_sites || 0} 个触发点`, 'success')
+      // POST /api/scan/sink-sites 直接返回触发点列表，不需要 scan_id
+      const total = result.data.total || 0
+      addLog(`触发点扫描完成，发现 ${total} 个触发点`, 'success')
 
-      // 保存扫描信息
+      // 直接从响应中加载触发点（无需二次请求）
+      sinkSites.value = result.data.sink_sites || []
+      sinkSitesStats.value = result.data.stats || null
+
+      // 生成临时 scan_id 用于后续选择分析
+      const tempScanId = `temp-${Date.now()}`
       currentScan.value = {
-        scan_id: scanId,
+        scan_id: tempScanId,
+        target_path: config.targetPath,
         status: 'sink_discovered',
         progress: 0.5,
         current_step: '等待用户选择触发点',
@@ -1247,8 +1247,7 @@ const discoverSinkSites = async () => {
         vuln_findings: [],
       }
 
-      // 加载触发点列表
-      await loadSinkSites(scanId)
+      addLog(`已加载 ${sinkSites.value.length} 个触发点`, 'info')
       scanPhase.value = 'selecting'
     } else {
       throw new Error(result.error || '扫描失败')
@@ -1262,13 +1261,14 @@ const discoverSinkSites = async () => {
   }
 }
 
-// 加载触发点列表
+// 加载触发点列表（用于从已有扫描任务加载）
 const loadSinkSites = async (scanId) => {
   isLoadingSinkSites.value = true
   try {
     const result = await api.getScanSinkSites(scanId, { limit: 500 })
     if (result.success && result.data) {
-      sinkSites.value = result.data.sites || []
+      // API 返回 sink_sites 而非 sites
+      sinkSites.value = result.data.sink_sites || []
       sinkSitesStats.value = result.data.stats || null
       addLog(`已加载 ${sinkSites.value.length} 个触发点`, 'info')
     }
@@ -1346,65 +1346,96 @@ const analyzeSelectedSinks = async (sinkIds) => {
     currentScan.value.status = 'analyzing'
     currentScan.value.current_step = '正在进行 LLM 深度分析...'
 
-    // 连接 WebSocket 以接收实时进度
-    const scanId = currentScan.value.scan_id
-    try {
-      ws = api.createScanWebSocket(scanId)
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        if (data.type === 'progress') {
-          currentScan.value = { ...currentScan.value, ...data }
-          if (data.log) {
-            addLog(data.log, data.log_level || 'info')
-          }
-        } else if (data.type === 'interaction') {
-          handleInteraction(data.data)
-        } else if (data.type === 'llm_stream') {
-          if (data.content) {
-            // 更新流式内容
-            if (data.is_final) {
-              streamingContent.value = ''
-            } else {
-              streamingContent.value += data.content
-            }
-            addLog(data.content, 'info', true)
-          }
-        } else if (data.type === 'fc_tool_call') {
-          handleFCToolCall(data)
-        } else if (data.type === 'fc_progress') {
-          handleFCProgress(data)
-        } else if (data.type === 'fc_finding') {
-          handleFCFinding(data)
-        } else if (data.type === 'fc_llm_thinking') {
-          handleFCLLMThinking(data)
-        }
-      }
-      ws.onerror = () => {
-        addLog('WebSocket 连接失败', 'warning')
-      }
-    } catch {
-      addLog('无法建立 WebSocket 连接', 'warning')
-    }
-
-    // 调用后端 API 进行分析
+    // 先调用后端 API 创建分析任务，获取真正的 scan_id
+    // API 期望 target_path 和 sink_site_ids
     const result = await api.analyzeSelectedSinks({
-      scan_id: scanId,
-      site_ids: sinkIds,
-      use_chain_analysis: config.useChainAnalysis,
-      max_chain_depth: config.maxChainDepth,
+      target_path: currentScan.value.target_path || config.targetPath,
+      sink_site_ids: sinkIds,
+      use_chain_analysis: config.useChainAnalysis !== false,
+      max_chain_depth: config.maxChainDepth || 5,
       use_function_calling: true,
+      languages: config.languages.length > 0 ? config.languages : null,
     })
 
-    if (result.success) {
-      addLog(`分析完成，发现 ${result.data.findings_count || 0} 个问题`, 'success')
-      currentScan.value.status = 'completed'
-      currentScan.value.progress = 1.0
-      currentScan.value.findings = result.data.findings || []
-      scanPhase.value = 'completed'
-      fcState.status = 'completed'
-      appStore.fetchScanHistory()
+    if (result.success && result.data && result.data.scan_id) {
+      // 更新 currentScan 使用真正的 scan_id
+      const realScanId = result.data.scan_id
+      currentScan.value.scan_id = realScanId
+      addLog(`分析任务已创建: ${realScanId}`, 'info')
+
+      // 连接 WebSocket 以接收实时进度
+      try {
+        ws = api.createScanWebSocket(realScanId)
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data)
+          if (data.type === 'progress') {
+            currentScan.value = { ...currentScan.value, ...data }
+            if (data.log) {
+              addLog(data.log, data.log_level || 'info')
+            }
+            // 后端通过 progress 消息广播状态变更，检测完成/失败状态
+            if (data.status === 'completed') {
+              addLog(`分析完成，发现 ${data.findings_count || currentScan.value.findings?.length || 0} 个问题`, 'success')
+              currentScan.value.progress = 1.0
+              scanPhase.value = 'completed'
+              fcState.status = 'completed'
+              appStore.fetchScanHistory()
+            } else if (data.status === 'failed') {
+              addLog(`分析失败: ${data.current_step || '未知错误'}`, 'error')
+              fcState.status = 'failed'
+            }
+          } else if (data.type === 'interaction') {
+            handleInteraction(data.data)
+          } else if (data.type === 'llm_stream') {
+            if (data.content) {
+              // 更新流式内容
+              if (data.is_final) {
+                streamingContent.value = ''
+              } else {
+                streamingContent.value += data.content
+              }
+              addLog(data.content, 'info', true)
+            }
+          } else if (data.type === 'fc_tool_call') {
+            handleFCToolCall(data)
+          } else if (data.type === 'fc_progress') {
+            handleFCProgress(data)
+          } else if (data.type === 'fc_finding') {
+            handleFCFinding(data)
+          } else if (data.type === 'fc_llm_thinking') {
+            handleFCLLMThinking(data)
+          } else if (data.type === 'new_finding') {
+            // 处理新发现
+            if (data.finding) {
+              fcState.findingsCount++
+              currentScan.value.findings = currentScan.value.findings || []
+              currentScan.value.findings.push(data.finding)
+              addLog(`发现问题: ${data.finding.title || '未知'}`, 'success')
+            }
+          } else if (data.type === 'scan_complete') {
+            // 兼容：如果后端发送 scan_complete 类型
+            addLog(`分析完成，发现 ${data.findings_count || 0} 个问题`, 'success')
+            currentScan.value.status = 'completed'
+            currentScan.value.progress = 1.0
+            scanPhase.value = 'completed'
+            fcState.status = 'completed'
+            appStore.fetchScanHistory()
+          }
+        }
+        ws.onerror = () => {
+          addLog('WebSocket 连接失败', 'warning')
+        }
+        ws.onclose = () => {
+          addLog('WebSocket 连接已关闭', 'info')
+        }
+      } catch {
+        addLog('无法建立 WebSocket 连接', 'warning')
+      }
+
+      // 分析任务在后台执行，通过 WebSocket 接收结果
+      addLog('分析任务已提交，等待结果...', 'info')
     } else {
-      throw new Error(result.error || '分析失败')
+      throw new Error(result.error || '创建分析任务失败')
     }
   } catch (error) {
     addLog(`分析失败: ${error.message}`, 'error')
@@ -1505,8 +1536,33 @@ onMounted(() => {
   restoreRunningScan()
 })
 
+// 路由离开前清理资源，避免后台持续轮询/WebSocket导致卡顿
+onBeforeRouteLeave(() => {
+  if (ws) {
+    ws.__manualClose = true  // 标记为主动关闭，避免 onclose 触发自动重连
+    ws.close()
+    ws = null
+  }
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+})
+
 onUnmounted(() => {
-  if (ws) ws.close()
+  if (ws) {
+    try {
+      ws.__manualClose = true  // 标记为主动关闭，避免 onclose 触发自动重连
+      ws.onopen = null
+      ws.onmessage = null
+      ws.onerror = null
+      ws.onclose = null
+      ws.close(1000, 'Component unmounted')
+    } catch (e) {
+      // ignore
+    }
+    ws = null
+  }
   if (pollInterval) clearInterval(pollInterval)
 })
 </script>

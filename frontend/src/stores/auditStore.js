@@ -39,6 +39,9 @@ export const useAuditStore = defineStore('audit', () => {
 
   // ============ 请求取消控制 ============
   let currentAbortController = null
+  let sessionsAbortController = null  // 会话列表请求的取消控制器
+  let sessionsLastFetchTime = 0  // 会话列表上次获取时间
+  const SESSIONS_CACHE_TTL = 10000  // 会话列表缓存有效期 10 秒
 
   // ============ 快速扫描状态 ============
   const isQuickScanning = ref(false)
@@ -91,16 +94,90 @@ export const useAuditStore = defineStore('audit', () => {
   }
 
   // 更新 FC 工具调用状态
-  const updateFCToolCallStatus = (toolName, status, output = null) => {
+  const updateFCToolCallStatus = (toolName, status, result = null, error = null) => {
     const existing = fcState.value.toolCalls.find(
-      tc => tc.toolName === toolName && tc.status === 'running'
+      tc => tc.tool_name === toolName && tc.status === 'running'
     )
     if (existing) {
       existing.status = status
-      if (output !== null) {
-        existing.output = output
+      if (result !== null) {
+        existing.result = result
+      }
+      if (error !== null) {
+        existing.error = error
       }
     }
+  }
+
+  // 生成唯一的工具调用 ID
+  const generateToolCallId = () => {
+    return `tc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+  }
+
+  /**
+   * 处理 FC 工具调用 WebSocket 消息
+   * 此函数可被外部组件复用，避免代码重复
+   *
+   * @param {Object} data - WebSocket 消息数据
+   * @param {string} data.type - 消息类型 (应为 'fc_tool_call')
+   * @param {string} [data.sink_symbol] - 当前分析的 sink 符号
+   * @param {Object} [data.tool_call] - 工具调用信息
+   * @param {string} [data.status] - 外层状态
+   * @param {string} [data.timestamp] - 时间戳
+   * @param {Object} [targetState] - 可选的目标状态对象，默认使用 store 的 fcState
+   * @returns {Object} 处理后的工具调用对象
+   */
+  const processFCToolCallMessage = (data, targetState = null) => {
+    const state = targetState || fcState.value
+
+    // 更新基础状态
+    state.enabled = true
+    state.status = 'analyzing'
+    if (data.sink_symbol) {
+      state.currentSink = data.sink_symbol
+    }
+
+    // 解析工具调用数据
+    const toolCall = data.tool_call || {}
+    const toolStatus = toolCall.status || data.status || 'running'
+    const isStarting = (toolStatus === 'running' || toolStatus === 'pending')
+    const isEnded = (toolStatus === 'success' || toolStatus === 'failed')
+
+    // 构建工具调用记录
+    const toolCallRecord = {
+      id: toolCall.id || generateToolCallId(),
+      tool_name: toolCall.tool_name || toolCall.name || 'unknown',
+      status: toolStatus,
+      arguments: toolCall.arguments || {},
+      result: toolCall.result || null,
+      error: toolCall.error || null,
+      duration_ms: toolCall.duration_ms || 0,
+      timestamp: data.timestamp || new Date().toISOString(),
+    }
+
+    if (isStarting) {
+      // 工具调用开始: 添加新记录
+      toolCallRecord.status = 'running'
+      state.toolCalls.push(toolCallRecord)
+      state.totalToolCalls = state.toolCalls.length
+    } else if (isEnded) {
+      // 工具调用结束: 更新已有记录或添加新记录
+      const existingCall = state.toolCalls.find(
+        tc => tc.id === toolCall.id || (tc.tool_name === toolCallRecord.tool_name && tc.status === 'running')
+      )
+      if (existingCall) {
+        existingCall.status = toolStatus
+        existingCall.result = toolCall.result
+        existingCall.error = toolCall.error
+        existingCall.duration_ms = toolCall.duration_ms || 0
+      } else {
+        // 没找到 running 状态的记录，直接添加完整记录
+        state.toolCalls.push(toolCallRecord)
+        state.totalToolCalls = state.toolCalls.length
+      }
+    }
+
+    return toolCallRecord
   }
 
   // ============ 计算属性 ============
@@ -145,14 +222,33 @@ export const useAuditStore = defineStore('audit', () => {
 
   // ============ 会话管理方法 ============
 
-  const fetchExistingSessions = async () => {
+  const fetchExistingSessions = async (forceRefresh = false) => {
+    const now = Date.now()
+
+    // 如果缓存有效且不强制刷新，跳过请求
+    if (!forceRefresh && existingSessions.value.length > 0 && (now - sessionsLastFetchTime < SESSIONS_CACHE_TTL)) {
+      return
+    }
+
+    // 取消之前的请求
+    if (sessionsAbortController) {
+      sessionsAbortController.abort()
+    }
+    sessionsAbortController = new AbortController()
+
     try {
-      const result = await api.listUnifiedSessions()
+      const result = await api.listUnifiedSessions({ signal: sessionsAbortController.signal })
       if (result.success) {
         existingSessions.value = result.data.sessions || []
+        sessionsLastFetchTime = now
       }
     } catch (error) {
-      console.error('获取会话列表失败:', error)
+      // 忽略取消错误
+      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+        console.error('获取会话列表失败:', error)
+      }
+    } finally {
+      sessionsAbortController = null
     }
   }
 
@@ -702,23 +798,8 @@ export const useAuditStore = defineStore('audit', () => {
 
       // === Function Calling 事件 ===
       case 'fc_tool_call':
-        fcState.value.enabled = true
-        fcState.value.status = 'analyzing'
-        if (data.sink_symbol) {
-          fcState.value.currentSink = data.sink_symbol
-        }
-        if (data.status === 'start') {
-          addFCToolCall({
-            id: `tc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-            toolName: data.tool_name || 'unknown',
-            status: 'running',
-            input: data.tool_input || {},
-            output: null,
-            timestamp: data.timestamp || new Date().toISOString(),
-          })
-        } else if (data.status === 'end') {
-          updateFCToolCallStatus(data.tool_name, 'completed', data.tool_output)
-        }
+        // 使用统一的 processFCToolCallMessage 处理函数
+        processFCToolCallMessage(data)
         break
 
       case 'fc_llm_thinking':
@@ -774,6 +855,9 @@ export const useAuditStore = defineStore('audit', () => {
   }
 
   const connectQuickScanWebSocket = (scanId) => {
+    // 保存 scanId 以便在 onclose 中使用
+    const currentScanId = scanId
+
     try {
       if (quickScanWs) {
         quickScanWs.close()
@@ -799,8 +883,34 @@ export const useAuditStore = defineStore('audit', () => {
         console.error('Quick scan WebSocket error:', error)
       }
 
-      quickScanWs.onclose = () => {
+      quickScanWs.onclose = async () => {
         console.log('Quick scan WebSocket closed')
+        // 如果扫描仍在进行但 WebSocket 关闭，尝试通过 API 获取最终结果
+        if (isQuickScanning.value && !quickScanResult.value) {
+          console.log('WebSocket closed while scanning, fetching result via API...')
+          try {
+            const result = await api.getScanResult(currentScanId)
+            if (result.success && result.data) {
+              const status = result.data.status
+              if (status === 'completed') {
+                quickScanResult.value = {
+                  scan_id: currentScanId,
+                  findings_count: (result.data.findings?.length || 0) + (result.data.vuln_findings?.length || 0),
+                  target_path: result.data.target_path,
+                }
+                isQuickScanning.value = false
+                quickScanProgress.value = null
+              } else if (status === 'failed') {
+                console.error('Scan failed:', result.data.error_message)
+                isQuickScanning.value = false
+                quickScanProgress.value = null
+              }
+              // 如果状态是其他值（如 pending/indexing/analyzing），保持扫描状态
+            }
+          } catch (e) {
+            console.error('Failed to fetch scan result:', e)
+          }
+        }
       }
     } catch (error) {
       console.error('Quick scan WebSocket connection failed:', error)
@@ -879,6 +989,11 @@ export const useAuditStore = defineStore('audit', () => {
     cancelPendingRequest()
     disconnectWebSocket()
     disconnectQuickScanWebSocket()
+    // 取消会话列表请求
+    if (sessionsAbortController) {
+      sessionsAbortController.abort()
+      sessionsAbortController = null
+    }
   }
 
   return {
@@ -923,6 +1038,8 @@ export const useAuditStore = defineStore('audit', () => {
     updateFCState,
     addFCToolCall,
     updateFCToolCallStatus,
+    processFCToolCallMessage,
+    generateToolCallId,
 
     // 会话方法
     fetchExistingSessions,

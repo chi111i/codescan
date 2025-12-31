@@ -139,7 +139,11 @@ export const createInteractiveWebSocket = (sessionId) => {
 export const createUnifiedSession = (data) => api.post('/agent/session/create', data)
 export const getUnifiedSession = (sessionId) => api.get(`/agent/session/${sessionId}`)
 export const deleteUnifiedSession = (sessionId) => api.delete(`/agent/session/${sessionId}`)
-export const listUnifiedSessions = (params = {}) => api.get('/agent/sessions', { params })
+// NOTE: 支持 config.signal 用于取消请求
+export const listUnifiedSessions = (config = {}) => {
+  const { signal, ...params } = config
+  return api.get('/agent/sessions', { params, signal })
+}
 export const listActiveUnifiedSessions = () => api.get('/agent/sessions/active')
 export const restoreUnifiedSession = (sessionId) => api.post(`/agent/session/${sessionId}/restore`)
 

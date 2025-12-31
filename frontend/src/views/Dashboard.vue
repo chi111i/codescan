@@ -136,7 +136,7 @@
               <p class="text-sm text-gray-500">按风险等级分类</p>
             </div>
           </div>
-          <router-link to="/results" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+          <router-link to="/chat-history" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
             查看详情 →
           </router-link>
         </div>
@@ -232,7 +232,7 @@
               <p class="text-sm text-gray-500">最近的扫描记录</p>
             </div>
           </div>
-          <router-link to="/results" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+          <router-link to="/chat-history" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
             查看全部 →
           </router-link>
         </div>
@@ -643,11 +643,11 @@ const formatDate = (dateStr) => {
 }
 
 const viewScan = (scanId) => {
-  router.push(`/results/${scanId}`)
+  router.push(`/chat-history`)
 }
 
 const filterBySeverity = (level) => {
-  router.push(`/results?severity=${level}`)
+  router.push(`/chat-history`)
 }
 
 const refreshData = async () => {

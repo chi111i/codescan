@@ -10,10 +10,15 @@ SinkCallScanner - 确定性危险函数触发点扫描器
 1. 遍历所有 CodeUnit
 2. 对每个 CodeUnit 的 calls 列表和代码内容进行规则匹配
 3. 输出 SinkCallSite 列表
+
+ID 生成策略：
+使用基于内容的确定性哈希 ID，而非递增计数器。
+这确保了相同的触发点在多次扫描中具有稳定的 ID。
 """
 
 import re
 import logging
+import hashlib
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Set
 from enum import Enum
@@ -127,7 +132,6 @@ class SinkCallScanner:
             return []
 
         sites: List[SinkCallSite] = []
-        site_id_counter = 0
 
         for unit in code_units:
             # 语言过滤
@@ -138,12 +142,18 @@ class SinkCallScanner:
             unit_matches = self._match_unit(unit, sink_rules)
 
             for rule, patterns, snippet_info in unit_matches:
-                site_id_counter += 1
+                # 生成确定性 ID：基于文件路径 + 行号 + 符号 + 规则ID 的哈希
+                # 这确保了相同触发点在多次扫描中有稳定的 ID
+                line_start = snippet_info.get("line_start", unit.span.start_line)
+                id_content = f"{unit.file_path}:{line_start}:{unit.symbol}:{rule.id}"
+                stable_hash = hashlib.md5(id_content.encode()).hexdigest()[:8]
+                site_id = f"sink-{stable_hash}"
+
                 site = SinkCallSite(
-                    id=f"sink-{site_id_counter:04d}",
+                    id=site_id,
                     unit_id=unit.id,
                     file_path=unit.file_path,
-                    line_start=snippet_info.get("line_start", unit.span.start_line),
+                    line_start=line_start,
                     line_end=snippet_info.get("line_end", unit.span.end_line),
                     symbol=unit.symbol,
                     matched_rule_ids=[rule.id],
@@ -424,12 +434,19 @@ class SinkCallScanner:
                 # 使用更高的置信度
                 existing.confidence = max(existing.confidence, site.confidence)
 
-        # 去重规则和模式
+        # 去重规则和模式，并为合并后的站点生成确定性 ID
+        result = []
         for site in grouped.values():
             site.matched_rule_ids = list(set(site.matched_rule_ids))
             site.matched_patterns = list(set(site.matched_patterns))
 
-        return list(grouped.values())
+            # 重新生成确定性 ID：基于文件路径 + 行号 + 符号（不包含规则ID，因为已合并）
+            id_content = f"{site.file_path}:{site.line_start}:{site.symbol}"
+            stable_hash = hashlib.md5(id_content.encode()).hexdigest()[:8]
+            site.id = f"sink-{stable_hash}"
+            result.append(site)
+
+        return result
 
     def get_statistics(self, sites: List[SinkCallSite]) -> Dict[str, Any]:
         """获取扫描统计信息"""

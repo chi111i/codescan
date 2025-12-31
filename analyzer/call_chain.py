@@ -764,3 +764,67 @@ class CallChainAnalyzer:
                     to_visit.append((callee.id, current_depth + 1))
 
         return result
+
+    def find_paths_to_sink(
+        self,
+        sink_symbol: str,
+        max_depth: int = 15,
+        max_chains: int = 50,
+        max_paths: int = None,
+    ) -> List[List[str]]:
+        """查找到达指定 sink 的所有调用链路径
+
+        从调用图中找到所有可以到达指定 sink 符号的路径。
+        向上回溯，从入口点到 sink。
+
+        Args:
+            sink_symbol: 目标 sink 的符号名称
+            max_depth: 最大搜索深度
+            max_chains: 最大返回链数
+            max_paths: 最大返回链数（兼容旧参数名，优先使用）
+
+        Returns:
+            路径列表，每个路径是节点符号名称列表（从入口到 sink）
+        """
+        # 兼容 max_paths 参数
+        effective_max_chains = max_paths if max_paths is not None else max_chains
+
+        # 找到目标 sink 节点
+        sink_nodes = self.call_graph.get_nodes_by_name(sink_symbol)
+        if not sink_nodes:
+            # 尝试匹配 qualified_name
+            for node in self.call_graph.nodes.values():
+                if node.qualified_name == sink_symbol or node.name == sink_symbol:
+                    sink_nodes = [node]
+                    break
+
+        if not sink_nodes:
+            logger.warning(f"找不到 sink 节点: {sink_symbol}")
+            return []
+
+        all_paths = []
+        for sink_node in sink_nodes:
+            # 使用 _trace_back_to_entry 向上回溯
+            raw_paths = self._trace_back_to_entry(sink_node.id, max_depth)
+
+            for path in raw_paths:
+                if len(all_paths) >= effective_max_chains:
+                    break
+
+                # 将节点 ID 转换为符号名称
+                symbol_path = []
+                for node_id in path:
+                    node = self.call_graph.get_node(node_id)
+                    if node:
+                        symbol_path.append(node.qualified_name)
+                    else:
+                        symbol_path.append(node_id)
+
+                if symbol_path and symbol_path not in all_paths:
+                    all_paths.append(symbol_path)
+
+            if len(all_paths) >= effective_max_chains:
+                break
+
+        logger.info(f"找到 {len(all_paths)} 条到达 {sink_symbol} 的调用链")
+        return all_paths

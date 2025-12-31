@@ -7,6 +7,8 @@ from enum import Enum
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
+import time
+import hashlib
 
 
 class Severity(Enum):
@@ -75,8 +77,25 @@ class Finding:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
-    def generate_id() -> str:
-        return str(uuid.uuid4())[:8]
+    def generate_id(scan_id: str = None, context: str = None) -> str:
+        """生成全局唯一的 Finding ID
+
+        Args:
+            scan_id: 扫描任务 ID，可选
+            context: 额外上下文信息（如文件路径、行号等），可选
+
+        Returns:
+            格式: f-{timestamp_hex}-{random_hex} 或 f-{content_hash}
+        """
+        if scan_id and context:
+            # 基于内容的哈希 ID（同一扫描中相同位置的发现会有相同 ID）
+            content = f"{scan_id}:{context}:{time.time_ns()}"
+            return f"f-{hashlib.sha256(content.encode()).hexdigest()[:16]}"
+        else:
+            # 完全随机的唯一 ID
+            timestamp_hex = format(int(time.time() * 1000) % 0xFFFFFFFF, '08x')
+            random_hex = uuid.uuid4().hex[:8]
+            return f"f-{timestamp_hex}-{random_hex}"
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
