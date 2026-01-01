@@ -85,6 +85,7 @@ class CallGraphRequest(BaseModel):
     target_path: str = Field(..., description="目标路径")
     max_depth: int = Field(10, description="最大调用链深度")
     find_taint: bool = Field(True, description="是否查找污点路径")
+    languages: Optional[List[str]] = Field(None, description="限定语言列表，用于过滤规则和代码单元")
 
 
 class SelectedAnalysisRequest(BaseModel):

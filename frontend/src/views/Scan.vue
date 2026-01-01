@@ -1487,8 +1487,9 @@ const loadCallGraph = async (scanId) => {
   addLog('正在加载调用图数据...', 'info')
   try {
     const result = await api.analyzeCallGraph({
-      scan_id: scanId,
+      target_path: config.targetPath,
       max_depth: config.maxChainDepth,
+      languages: config.languages.length > 0 ? config.languages : null,
     })
     if (result.success && result.data) {
       callGraphData.value = result.data

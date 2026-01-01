@@ -1889,6 +1889,10 @@ class SecurityAnalyzer:
             chain_analyzer = CallChainAnalyzer(self.rule_manager)
             call_graph = chain_analyzer.build_call_graph(code_units)
 
+            # 将 chain_analyzer 赋值给实例属性，以便 Function Calling 模式使用
+            self.call_chain_analyzer = chain_analyzer
+            self._call_graph = call_graph
+
             logger.info(f"[SelectedAnalysis] 调用图: {len(call_graph.nodes)} 节点, {len(call_graph.edges)} 边")
 
             # 创建符号到 CodeUnit 的映射
@@ -1900,7 +1904,10 @@ class SecurityAnalyzer:
                     symbol_to_unit[full_name] = unit
 
             # 创建上下文收集器
-            context_collector = ChainContextCollector(code_units)
+            context_collector = ChainContextCollector(
+                call_chain_analyzer=chain_analyzer,
+                code_units=code_units,
+            )
 
             # 逐个分析选中的触发点
             for idx, sink_site in enumerate(selected_sites):
@@ -1964,7 +1971,7 @@ class SecurityAnalyzer:
                                 sink_site=sink_site,
                                 chain_nodes=[fallback_node],
                                 chain_length=1,
-                                risk_level=sink_site.risk_level or "medium"
+                                risk_level=sink_site.risk_level.value if sink_site.risk_level else "medium"
                             )
                         else:
                             continue
@@ -2029,9 +2036,9 @@ class SecurityAnalyzer:
                             logger.info(f"[SelectedAnalysis] 发现问题: {finding.title} ({finding.severity.value})")
 
                             if self.interaction_repo:
+                                # log_finding 只接受 scan_id 和 finding_data 两个参数
                                 self.interaction_repo.log_finding(
                                     self.scan_id,
-                                    finding.id,
                                     finding.to_dict()
                                 )
 
@@ -2148,19 +2155,23 @@ class SecurityAnalyzer:
     ) -> Optional[Finding]:
         """使用 LLM 分析调用链"""
         from .prompts import get_chain_output_schema
-        from prompts import get_prompt_manager
 
-        # 获取系统提示词
-        pm = get_prompt_manager()
-        chain_system_prompt = pm.get_prompt("chain_analysis", "system") or "你是一个专业的代码安全审计专家。请分析给定的调用链是否存在安全漏洞。"
+        # 使用内置的系统提示词
+        chain_system_prompt = """你是一个专业的代码安全审计专家，擅长发现代码中的安全漏洞。
+
+你需要分析给定的调用链代码，判断是否存在安全漏洞。重点关注：
+1. 用户可控输入是否能到达危险函数（如命令执行、SQL查询、文件操作等）
+2. 输入是否经过充分的验证和过滤
+3. 是否存在可被利用的攻击路径
+
+请基于代码事实进行分析，输出结构化的 JSON 结果。"""
 
         try:
-            # 记录 LLM 调用
+            # 记录 LLM 调用（使用 log_thinking 替代不存在的 log_llm_call）
             if self.interaction_repo:
-                self.interaction_repo.log_llm_call(
+                self.interaction_repo.log_thinking(
                     self.scan_id,
-                    chain_system_prompt[:500] + "...",
-                    prompt[:1000] + "..." if len(prompt) > 1000 else prompt
+                    f"正在分析调用链: {chain_id}"
                 )
 
             # 调用 LLM
@@ -2174,11 +2185,12 @@ class SecurityAnalyzer:
                 response_format={"type": "json_object"}
             )
 
-            # 记录响应
+            # 记录响应（使用 log_analysis 替代不存在的 log_llm_response）
             if self.interaction_repo:
-                self.interaction_repo.log_llm_response(
+                self.interaction_repo.log_analysis(
                     self.scan_id,
-                    response.content[:2000] if response.content else ""
+                    response.content[:2000] if response.content else "",
+                    tokens_used=response.usage.get("total_tokens", 0) if response.usage else 0
                 )
 
             # 解析响应
@@ -2220,7 +2232,8 @@ class SecurityAnalyzer:
                 notes=result.get("notes", ""),
                 metadata={
                     "chain_id": chain_id,
-                    "chain_path": chain_context.chain_path,
+                    # chain_context 没有 chain_path 属性，改用 chain_nodes 构建路径
+                    "chain_path": " -> ".join([n.symbol for n in chain_context.chain_nodes]) if chain_context.chain_nodes else "",
                     "sink_category": sink_site.sink_category.value,
                     "analysis_mode": "selected_analysis"
                 }
@@ -2264,11 +2277,15 @@ class SecurityAnalyzer:
 请以 JSON 格式输出分析结果。"""
 
         try:
-            from prompts import get_prompt_manager
+            # 使用内置的系统提示词
+            chain_system_prompt = """你是一个专业的代码安全审计专家，擅长发现代码中的安全漏洞。
 
-            # 获取系统提示词（避免使用废弃的 CHAIN_SYSTEM_PROMPT）
-            pm = get_prompt_manager()
-            chain_system_prompt = pm.get_prompt("chain_analysis", "system") or "你是一个专业的代码安全审计专家。请分析给定的代码是否存在安全漏洞。"
+你需要分析给定的代码，判断是否存在安全漏洞。重点关注：
+1. 用户可控输入是否能到达危险函数
+2. 输入是否经过充分的验证和过滤
+3. 是否存在可被利用的攻击路径
+
+请基于代码事实进行分析，输出结构化的 JSON 结果。"""
 
             response = self.llm_client.chat_completion(
                 messages=[
@@ -2356,12 +2373,18 @@ class SecurityAnalyzer:
         Returns:
             Finding 或 None
         """
-        from prompts import get_prompt_manager
-
         try:
-            # 获取系统提示词（避免使用废弃的 CHAIN_SYSTEM_PROMPT）
-            pm = get_prompt_manager()
-            chain_system_prompt_base = pm.get_prompt("chain_analysis", "system") or "你是一个专业的代码安全审计专家。请分析给定的调用链是否存在安全漏洞。"
+            # 获取系统提示词基础部分
+            # 注意：PromptManager 没有 get_prompt 方法，使用 build_chain_analysis_prompt 会返回完整的 prompt
+            # 这里我们使用简化的基础 prompt，因为 FC 模式下工具说明会动态添加
+            chain_system_prompt_base = """你是一个专业的代码安全审计专家，擅长发现代码中的安全漏洞。
+
+你需要分析给定的调用链代码，判断是否存在安全漏洞。重点关注：
+1. 用户可控输入是否能到达危险函数（如命令执行、SQL查询、文件操作等）
+2. 输入是否经过充分的验证和过滤
+3. 是否存在可被利用的攻击路径
+
+请基于代码事实进行分析，避免猜测。如果需要更多上下文，使用提供的工具获取。"""
 
             # 创建安全分析工具集
             tools = FCSecurityTools(

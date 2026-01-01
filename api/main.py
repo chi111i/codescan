@@ -2779,12 +2779,16 @@ async def get_call_graph(request: CallGraphRequest):
         raise HTTPException(status_code=400, detail=f"目标路径不存在: {request.target_path}")
 
     try:
-        # 解析代码单元
+        # 解析代码单元（支持语言过滤）
         code_units = await asyncio.to_thread(
             app_state.indexer.parse_directory_without_index,
             str(target_path),
-            None  # languages
+            request.languages  # 传递语言过滤参数
         )
+
+        # 按语言过滤代码单元
+        if request.languages:
+            code_units = [u for u in code_units if u.language in request.languages]
 
         if not code_units:
             return APIResponse(
@@ -2804,12 +2808,13 @@ async def get_call_graph(request: CallGraphRequest):
             code_units
         )
 
-        # 扫描触发点以标记 sink 节点
+        # 扫描触发点以标记 sink 节点（使用相同的语言过滤）
         scanner = SinkCallScanner(app_state.rule_manager)
+        language_filter = request.languages[0] if request.languages else None
         sink_sites = await asyncio.to_thread(
             scanner.scan,
             code_units,
-            None,
+            language_filter,
             None
         )
         sink_symbols = {s.symbol for s in sink_sites}

@@ -688,9 +688,10 @@ class FunctionCallingAdapter:
 
                 # 检查是否调用了 report_finding
                 for tc in response.tool_calls:
-                    if tc.function_name == "report_finding":
+                    if tc.name == "report_finding":
                         try:
-                            parsed_result = json.loads(tc.function_arguments)
+                            # arguments 已经是 dict，不需要 json.loads
+                            parsed_result = tc.arguments if isinstance(tc.arguments, dict) else json.loads(tc.arguments)
                         except:
                             pass
 
@@ -733,10 +734,13 @@ class FunctionCallingAdapter:
 
         for tc in tool_calls[:self.config.max_tool_calls_per_turn]:
             # 创建记录
+            # ToolCall 使用 name 和 arguments 属性（不是 function_name/function_arguments）
+            tool_name = tc.name
+            tool_args = tc.arguments if isinstance(tc.arguments, dict) else self._safe_parse_json(tc.arguments if isinstance(tc.arguments, str) else "")
             fc_call = FCToolCall(
                 id=tc.id,
-                tool_name=tc.function_name,
-                arguments=self._safe_parse_json(tc.function_arguments),
+                tool_name=tool_name,
+                arguments=tool_args,
                 status=FCToolStatus.RUNNING,
                 started_at=datetime.now(),
             )
@@ -748,7 +752,7 @@ class FunctionCallingAdapter:
 
             # 执行
             try:
-                result = self.tools.execute(tc.function_name, fc_call.arguments)
+                result = self.tools.execute(tool_name, fc_call.arguments)
                 fc_call.result = result
                 fc_call.status = FCToolStatus.SUCCESS if result.get("success", True) else FCToolStatus.FAILED
             except Exception as e:
@@ -766,7 +770,7 @@ class FunctionCallingAdapter:
             results.append(result)
 
             logger.debug(
-                f"[FCAdapter] Tool {tc.function_name}: "
+                f"[FCAdapter] Tool {tool_name}: "
                 f"{'SUCCESS' if fc_call.status == FCToolStatus.SUCCESS else 'FAILED'} "
                 f"({fc_call.duration_ms}ms)"
             )
