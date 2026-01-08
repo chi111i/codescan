@@ -1,23 +1,38 @@
 # CodeScan - LLM 驱动的代码安全审计工具
 
-一款基于大语言模型（LLM）的智能代码安全审计工具，专注于检测传统静态分析工具难以发现的业务逻辑漏洞、权限控制问题和安全缺陷。
+一款基于大语言模型（LLM）的智能代码安全审计工具，专注于检测传统静态分析工具难以发现的**业务逻辑漏洞、权限控制问题和高危安全缺陷**（RCE、任意文件读写、反序列化、SSRF、鉴权绕过、IDOR、状态机绕过等）。
+
+## 核心理念
+
+### 北极星目标
+
+**核心使命**：挖掘深层次高危逻辑漏洞，通过：
+
+1. **扫描所有危险函数（sinks）触发点**
+2. **找到每个 sink 的所有调用链**（入口点 → ... → 触发 sink 的函数）
+3. **自动收集调用链涉及的代码上下文**
+4. **交给 LLM 做链级逐步推理与结构化结论输出**
+
+**衡量标准**：能否在中大型仓库里高召回地输出 sink 触发点、调用链路径、链上代码证据 + LLM 结构化审计结论。
 
 ## 功能特性
 
 ### 核心功能
 
-- **智能代码索引**：使用向量数据库（Qdrant）存储代码嵌入，支持语义搜索
-- **多语言支持**：Python、JavaScript、TypeScript、PHP 代码解析
+- **智能代码索引**：使用向量数据库（Qdrant）存储代码嵌入，支持语义搜索和增量索引
+- **多语言支持**：Python（AST 解析）、JavaScript、TypeScript、PHP（正则解析）代码解析
 - **高危漏洞检测**：RCE、命令注入、SQL 注入、文件操作、SSRF、反序列化等
 - **业务逻辑分析**：认证绕过、权限控制、IDOR、竞态条件等逻辑漏洞
 - **污点分析**：Source → Sink 数据流追踪
 - **调用链分析**：函数调用图构建与危险路径识别
-- **LLM 深度分析**：使用 AI 进行复杂漏洞验证和分析
+- **LLM Agent**：支持 Function Calling 的自主代码探索
+- **LLM 深度分析**：以调用链为单位进行复杂漏洞验证和分析
 
 ### 界面特性
 
 - **Apple 风格 UI**：磨砂玻璃效果的现代化界面
 - **实时扫描进度**：WebSocket 实时更新扫描状态
+- **LLM 交互面板**：显示 LLM 每一步分析过程和工具调用
 - **可视化仪表盘**：安全评分、严重性分布、语言统计
 - **详细报告**：支持 JSON、Console、SARIF 多种输出格式
 
@@ -275,24 +290,65 @@ POST /api/search    # 搜索代码
 WS /ws/scan/{scan_id}    # 实时扫描进度
 ```
 
+## 核心架构
+
+### 技术栈
+
+```
+后端: Python 3.x + FastAPI + Qdrant
+前端: Vue 3 + Vite + Pinia
+```
+
+### 核心数据流
+
+```
+目标代码 → indexer/parser.py (AST解析)
+        → indexer/indexer.py (生成 CodeUnit)
+        → llm_client/client.py (嵌入向量)
+        → indexer/vector_store.py (Qdrant/内存存储)
+        → analyzer/call_chain.py (构建调用图)
+        → analyzer/engine.py (候选点发现 + LLM 分析)
+        → api/main.py (WebSocket 进度推送)
+        → 前端展示
+```
+
+### 核心抽象
+
+| 概念 | 文件 | 职责 |
+|------|------|------|
+| **CodeUnit** | `indexer/models.py` | 代码分析单元（函数/方法/类），包含 id、symbol、calls、span、code |
+| **SecurityRule** | `rules/models.py` | 安全规则（sink/source/sanitizer），支持 patterns、risk_level、CWE |
+| **Finding** | `analyzer/models.py` | 分析发现结果，包含 severity、confidence、evidence、attack_scenario |
+| **CallGraph** | `analyzer/call_chain.py` | 函数调用图，用于求入口点到 sink 的路径 |
+| **TaintPath** | `analyzer/taint_analysis.py` | 污点传播路径 source → sink |
+
 ## 项目结构
 
 ```
 codescan/
-├── api/                    # FastAPI 后端
-│   ├── main.py            # 主应用
-│   └── schemas.py         # Pydantic 模型
-├── analyzer/              # 分析引擎
+├── agent/                 # LLM Agent 系统
+│   ├── tools/            # Function Calling 工具
+│   │   ├── registry.py   # 工具定义管理
+│   │   └── executor.py   # 工具调用执行
+│   ├── logged_agent.py   # 带日志的安全审计 Agent
+│   └── unified_agent.py  # 统一 Agent 入口
+├── analyzer/              # 核心分析引擎
 │   ├── engine.py          # 安全分析器
 │   ├── call_chain.py      # 调用链分析
 │   ├── taint_analysis.py  # 污点分析
+│   ├── sink_scanner.py    # Sink 确定性扫描
 │   ├── vuln_detector.py   # 漏洞检测器
 │   ├── models.py          # 数据模型
 │   └── prompts.py         # LLM 提示词
+├── api/                    # FastAPI 后端
+│   ├── main.py            # 主应用
+│   ├── schemas.py         # Pydantic 模型
+│   └── agent_router.py    # Agent API 路由
 ├── cli/                   # 命令行接口
 │   └── main.py
 ├── config/                # 配置管理
-│   └── settings.py
+│   ├── settings.py        # 配置加载
+│   └── validator.py       # 配置验证
 ├── frontend/              # Vue 3 前端
 │   ├── src/
 │   │   ├── views/        # 页面组件
@@ -302,22 +358,30 @@ codescan/
 │   │   └── style.css     # 全局样式
 │   └── package.json
 ├── indexer/               # 代码索引
-│   ├── indexer.py        # 索引器
-│   ├── parser.py         # 语言解析器
-│   ├── vector_store.py   # 向量存储
-│   └── models.py         # 代码单元模型
-├── llm_client/           # LLM 客户端
-│   ├── client.py         # API 封装
+│   ├── indexer.py         # 索引器（支持增量索引）
+│   ├── parser.py          # 语言解析器
+│   ├── vector_store/      # 向量存储（Qdrant/内存）
+│   ├── embedding_cache.py # 嵌入缓存（LRU + 压缩）
+│   └── models.py          # 代码单元模型
+├── llm_client/            # LLM 客户端
+│   ├── client.py          # OpenAI 兼容 API 封装
 │   └── output_validator.py
-├── reporting/            # 报告生成
+├── prompts/               # 提示词模板
+├── reporting/             # 报告生成
 │   └── reporter.py
-├── rules/                # 安全规则
-│   ├── manager.py        # 规则管理器
-│   └── models.py         # 规则模型
-├── utils/                # 工具函数
-├── requirements.txt      # Python 依赖
-├── start.py              # 启动脚本
-└── __main__.py           # CLI 入口
+├── rules/                 # 安全规则
+│   ├── manager.py         # 规则管理器
+│   ├── models.py          # 规则模型
+│   └── data/              # 内置规则（YAML）
+├── storage/               # 数据持久化
+│   ├── database.py        # SQLite 连接管理
+│   ├── scan_repository.py # 扫描任务 CRUD
+│   ├── finding_repository.py  # 发现结果 CRUD
+│   └── interaction_repository.py # LLM 交互日志
+├── utils/                 # 工具函数
+├── requirements.txt       # Python 依赖
+├── start.py               # 启动脚本
+└── __main__.py            # CLI 入口
 ```
 
 ## 配置说明
@@ -449,6 +513,167 @@ report:
 }
 ```
 
+## LLM Agent 工具系统
+
+### 核心理念
+
+让 LLM 像人类安全专家使用 IDE 一样进行代码审计：可以主动搜索文件、查找函数定义、查看指定行号范围的代码、追踪调用链和数据流。
+
+### 已实现的 Function Calling 工具
+
+#### 代码导航工具
+
+| 工具名称 | 功能描述 |
+|---------|---------|
+| `search_code` | 语义搜索查找相关代码片段 |
+| `read_file` | 读取文件内容（支持行号范围） |
+| `get_function` | 获取函数/方法完整代码 |
+| `list_functions` | 列出文件中的所有函数和类 |
+| `get_callers` | 查找调用指定函数的位置 |
+| `get_callees` | 查找函数调用的其他函数 |
+
+#### 安全分析工具
+
+| 工具名称 | 功能描述 |
+|---------|---------|
+| `analyze_taint_path` | 分析 Source → Sink 的污点传播路径 |
+| `check_auth` | 检查函数是否有认证授权检查 |
+| `find_entry_points` | 查找项目入口点（HTTP 路由、API 端点） |
+
+### Agent 执行流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. 初始化：提供项目概览 + 安全规则 + 可用工具列表                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. LLM 决策：分析当前信息，决定下一步                           │
+│    - 需要更多上下文？→ 调用工具                                 │
+│    - 发现问题？→ 调用 report_finding                           │
+│    - 分析完成？→ 结束循环                                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           ▼                  ▼                  ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│ 调用工具      │   │ 报告发现      │   │ 结束分析      │
+│ - 执行工具    │   │ - 保存到 DB   │   │ - 汇总结果    │
+│ - 记录日志    │   │ - WebSocket   │   │ - 更新状态    │
+│ - 返回结果    │   │   推送        │   │               │
+└───────────────┘   └───────────────┘   └───────────────┘
+```
+
+## 数据持久化
+
+### 存储架构
+
+扫描结果使用 SQLite 持久化存储，服务重启不丢失。
+
+| 模块 | 职责 |
+|------|------|
+| `database.py` | SQLite 连接管理，自动创建 schema |
+| `scan_repository.py` | 扫描任务 CRUD |
+| `finding_repository.py` | 发现结果 CRUD（支持分页、过滤） |
+| `interaction_repository.py` | LLM 交互日志 CRUD |
+
+### 数据库位置
+
+```
+.audit_data/audit.db    # 扫描结果、发现、交互日志
+.audit_cache/           # 嵌入缓存、文件追踪
+```
+
+## 实时展示系统
+
+### WebSocket 消息类型
+
+```typescript
+// 扫描进度
+{ type: 'progress', scan_id, status, progress, current_step }
+
+// LLM 交互（工具调用、思考过程）
+{ type: 'interaction', data: { type, tool_name, tool_input, tool_output, content } }
+
+// 新发现推送
+{ type: 'new_finding', finding: {...} }
+```
+
+### 前端组件
+
+- **LLM 交互面板**：显示 LLM 每一步分析过程
+- **工具调用日志**：显示每次工具调用的输入输出
+- **发现列表实时更新**：新发现自动添加到列表顶部
+
+## 向量搜索优化
+
+### 嵌入缓存
+
+- **LRU 淘汰策略**: 基于 `accessed_at` 追踪访问时间
+- **压缩存储**: `struct.pack` + `zlib` 压缩嵌入向量
+- **持久化统计**: 命中率、淘汰次数等统计信息
+
+### 增量索引
+
+- **FileTracker**: 基于 mtime + 内容哈希追踪文件变更
+- 只处理新增/修改的文件，大幅提升重复扫描效率
+
+### 高级重排序
+
+**CodeReranker** 评分因素：
+1. 高危模式检测（exec/eval/SQL/文件操作等正则匹配）
+2. 敏感符号名（auth/login/password/admin/delete/payment）
+3. 入口点识别（handler/controller/route 等）
+4. 代码长度偏好（更短更聚焦的函数优先）
+
+## 关键设计原则
+
+### 候选点发现必须确定性
+
+- 使用 **SinkCallScanner** 做确定性扫描（AST/regex 匹配 sink patterns）
+- 向量检索仅用于**上下文补充**（相似代码、配置定义、变体分析）
+- 不依赖向量检索作为主召回手段
+
+### 调用链驱动的分析
+
+LLM 分析单位是**调用链**而非单个函数：
+- 链上下文包含：入口点 → 中间节点 → sink 触发点的所有函数代码
+- 链级 Finding 输出：chain_id、evidence（按节点列出）、exploitability_conditions
+- 爆炸控制：max_depth、max_chains_per_sink、路径去重
+
+### LLM 分析输出格式
+
+LLM 必须输出结构化 JSON：
+
+```json
+{
+  "has_issue": true,
+  "issue_type": "command_injection",
+  "severity": "critical",
+  "confidence": 0.85,
+  "summary": "用户输入直接传入 os.system",
+  "details": "...",
+  "evidence": [
+    {"file_path": "app.py", "line_start": 45, "code_snippet": "...", "reason": "..."}
+  ],
+  "attack_scenario": "高层次攻击思路（不含 payload）",
+  "fix_suggestion": "使用 subprocess + shlex.quote",
+  "notes": "需要确认的点"
+}
+```
+
+## 高危 Sink 类别
+
+| 类别 | Python 示例 | PHP 示例 |
+|------|-------------|----------|
+| RCE | `os.system`, `eval`, `exec`, `subprocess.*` | `exec`, `eval`, `system`, `shell_exec` |
+| 文件读 | `open`, `Path.read_text`, `send_file` | `file_get_contents`, `fopen`, `readfile` |
+| 文件写 | `open(..., 'w')`, `Path.write_text` | `file_put_contents`, `fwrite` |
+| 反序列化 | `pickle.loads`, `yaml.load` | `unserialize` |
+| SSRF | `requests.get`, `urllib.request.urlopen` | `curl_exec`, `file_get_contents` |
+| SQLi | `cursor.execute`, `raw()` | `mysql_query`, `mysqli_query` |
+
 ## 常见问题
 
 ### Q: 如何使用自建 LLM 服务？
@@ -461,6 +686,8 @@ llm:
   api_key: your-key
   model: your-model
 ```
+
+> **注意**：如果你的服务 URL 已包含 `/v1`，不要在配置中重复添加。
 
 ### Q: 扫描速度很慢？
 
