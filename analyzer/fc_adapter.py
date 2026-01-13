@@ -90,7 +90,7 @@ class FCAdapterConfig:
     # LLM 配置
     max_tool_calls_per_turn: int = 5  # 每轮最大工具调用次数
     max_turns: int = 10  # 最大轮数
-    temperature: float = 0.1
+    temperature: Optional[float] = None  # None 表示使用 LLM 客户端配置的默认值
     max_tokens: int = 3000
 
     # 回调配置

@@ -148,7 +148,7 @@ class CodeAnalysisAgent:
                     messages=messages,
                     tools=self.tools,
                     tool_choice="auto",
-                    temperature=0.0,
+                    # temperature 使用 LLM 客户端配置的默认值
                 )
 
                 total_tokens += response.usage.get("total_tokens", 0)
@@ -244,7 +244,7 @@ class CodeAnalysisAgent:
             response = self.llm_client.chat_completion(
                 messages=messages,
                 tools=None,  # 不再允许工具调用
-                temperature=0.0,
+                # temperature 使用 LLM 客户端配置的默认值
             )
             total_tokens += response.usage.get("total_tokens", 0)
 

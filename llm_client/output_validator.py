@@ -524,7 +524,7 @@ Please return the corrected JSON without any explanation or markdown formatting.
                             ChatMessage(role="user", content=correction_prompt)
                         ],
                         response_format={"type": "json_object"},
-                        temperature=0
+                        # temperature 使用 LLM 客户端配置的默认值
                     )
 
                     corrected = json.loads(response.content)

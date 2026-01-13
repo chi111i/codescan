@@ -794,7 +794,7 @@ class SecurityAnalyzer:
                     ChatMessage(role="user", content=user_prompt),
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,
+                temperature=self.config.llm.temperature,
                 max_tokens=2500,
             )
             duration_ms = int((time.time() - start_time) * 1000)
@@ -1116,7 +1116,7 @@ class SecurityAnalyzer:
                     ChatMessage(role="user", content=user_prompt),
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.0,
+                temperature=self.config.llm.temperature,
             )
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -1475,7 +1475,7 @@ class SecurityAnalyzer:
                     ChatMessage(role="user", content=user_prompt),
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,
+                temperature=self.config.llm.temperature,
                 max_tokens=2000,
             )
             duration_ms = int((time.time() - start_time) * 1000)
@@ -2398,7 +2398,7 @@ class SecurityAnalyzer:
             fc_config = FCAdapterConfig(
                 max_tool_calls_per_turn=5,
                 max_turns=8,
-                temperature=0.1,
+                # temperature 使用 LLM 客户端配置的默认值（None）
                 max_tokens=3000,
                 on_tool_call_start=on_tool_call,
                 on_tool_call_end=on_tool_call,

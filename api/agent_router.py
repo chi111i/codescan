@@ -105,7 +105,7 @@ async def _generate_session_title(llm_client, first_message: str) -> str:
         response = await asyncio.to_thread(
             llm_client.chat_completion,
             messages=[ChatMessage(role="user", content=prompt)],
-            temperature=0.3,
+            # temperature 使用 LLM 客户端配置的默认值
             max_tokens=50,
         )
 

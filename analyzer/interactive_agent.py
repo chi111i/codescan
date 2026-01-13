@@ -725,7 +725,7 @@ class InteractiveAuditAgent:
         response = await asyncio.to_thread(
             self.llm_client.chat_completion,
             messages=messages,
-            temperature=0.1,
+            # temperature 使用 LLM 客户端配置的默认值
             max_tokens=4000,
         )
 

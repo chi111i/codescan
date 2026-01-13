@@ -435,8 +435,8 @@ class VariantAnalyzer:
 
                 response = self.llm_client.chat_completion(
                     messages=messages,
-                    temperature=0.1,
                     response_format={"type": "json_object"}
+                    # temperature 使用 LLM 客户端配置的默认值
                 )
 
                 result = json.loads(response.content)
@@ -543,8 +543,8 @@ class VariantAnalyzer:
 
             response = self.llm_client.chat_completion(
                 messages=messages,
-                temperature=0.2,
                 response_format={"type": "json_object"}
+                # temperature 使用 LLM 客户端配置的默认值
             )
 
             return json.loads(response.content)
