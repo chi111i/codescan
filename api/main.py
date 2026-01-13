@@ -214,6 +214,46 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
 
         return response
 
+
+# ============ SPA 回退中间件 ============
+
+class SPAFallbackMiddleware(BaseHTTPMiddleware):
+    """SPA 回退中间件 - 处理前端路由的直接访问或刷新
+
+    对于非 API/WebSocket/静态资源的 GET 请求，返回 index.html，
+    让前端路由器（Vue Router）处理实际路由。
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        method = request.method
+
+        # 只处理 GET 请求
+        if method != "GET":
+            return await call_next(request)
+
+        # 排除：API 路由、WebSocket、静态资源、根路径
+        excluded_prefixes = ("/api/", "/ws/", "/assets/", "/docs", "/openapi", "/redoc")
+        if path == "/" or any(path.startswith(prefix) for prefix in excluded_prefixes):
+            return await call_next(request)
+
+        # 排除：文件扩展名请求（如 .js, .css, .svg, .ico）
+        if "." in path.split("/")[-1]:
+            return await call_next(request)
+
+        # 尝试正常路由
+        response = await call_next(request)
+
+        # 如果返回 404，尝试返回 index.html
+        if response.status_code == 404:
+            frontend_dir = Path(__file__).parent.parent / "frontend" / "dist"
+            index_file = frontend_dir / "index.html"
+            if index_file.exists():
+                return FileResponse(index_file)
+
+        return response
+
+
 # ============ 全局状态 ============
 
 class AppState:
@@ -431,6 +471,9 @@ def create_app() -> FastAPI:
 
     # HTTP 请求日志中间件
     application.add_middleware(HTTPLoggingMiddleware)
+
+    # SPA 回退中间件（处理前端路由直接访问）
+    application.add_middleware(SPAFallbackMiddleware)
 
     return application
 

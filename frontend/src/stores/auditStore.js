@@ -478,12 +478,10 @@ export const useAuditStore = defineStore('audit', () => {
   }
 
   // 检查并恢复 WebSocket 连接（用于页面返回时）
-  // 修复：只在 WebSocket 完全关闭（CLOSED）时才重连，避免在 CLOSING 状态时创建新连接
+  // 修复：只在 WebSocket 不存在时重连（disconnectWebSocket 已确保 ws = null）
   const ensureWebSocketConnected = () => {
-    // 只有当没有 WebSocket 或者 WebSocket 已完全关闭时才重连
-    // 不要在 CONNECTING 或 CLOSING 状态时干扰
-    const shouldReconnect = currentSession.value && (!ws || ws.readyState === WebSocket.CLOSED)
-    if (shouldReconnect) {
+    // ws 已被 disconnectWebSocket 立即设为 null，所以这里只需检查 ws 是否为 null
+    if (currentSession.value && !ws) {
       console.log('[AuditStore] 恢复 WebSocket 连接:', currentSession.value.session_id)
       wsReconnectAttempts = 0  // 恢复连接时重置重试计数
       connectWebSocket(currentSession.value.session_id)
@@ -607,23 +605,23 @@ export const useAuditStore = defineStore('audit', () => {
     messageBuffer = ''
 
     // 关闭 WebSocket
-    // 修复：不要立即将 ws 设为 null，保持 onclose 处理器以尊重 __manualClose 标记
-    // 这可以防止竞态条件：在旧连接完全关闭前创建新连接
+    // 修复：立即清除所有事件处理器并将 ws 设为 null
+    // 这确保页面切换时不会阻塞等待 WebSocket 关闭完成
+    // 关键优化：不等待 close 握手完成，直接释放引用
     if (ws) {
+      const wsToClose = ws
+      ws = null  // 立即释放引用，避免阻塞
       try {
-        ws.__manualClose = true
-        // 只清除 onopen/onmessage/onerror，保留 onclose 让其自然触发
-        // 这样 onclose 中的 __manualClose 检查才能正常工作
-        ws.onopen = null
-        ws.onmessage = null
-        ws.onerror = null
-        // 注意：不再设置 ws.onclose = null
-        ws.close(1000, 'User disconnect')
-        // 注意：不再设置 ws = null
-        // WebSocket 会进入 CLOSING 状态，然后变成 CLOSED
-        // ensureWebSocketConnected 已修复为只在 CLOSED 状态时重连
+        wsToClose.__manualClose = true
+        // 清除所有事件处理器，避免关闭后仍触发回调
+        wsToClose.onopen = null
+        wsToClose.onmessage = null
+        wsToClose.onerror = null
+        wsToClose.onclose = null
+        // 调用 close，但不等待完成
+        wsToClose.close(1000, 'User disconnect')
       } catch (e) {
-        // ignore
+        // ignore - WebSocket 可能已经关闭
       }
     }
 

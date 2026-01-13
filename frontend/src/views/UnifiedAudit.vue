@@ -1,5 +1,7 @@
 <template>
-  <div class="h-[calc(100vh-3rem)] flex flex-col">
+  <!-- 单一根元素包裹器，确保 Transition 动画正常工作 -->
+  <div class="unified-audit-container">
+    <div class="h-[calc(100vh-3rem)] flex flex-col">
     <!-- 页面标题 + 模式切换 -->
     <div class="flex items-center justify-between mb-4 shrink-0">
       <div>
@@ -669,10 +671,14 @@
     :scan-id="resultsScanId"
     @close="showResultsModal = false"
   />
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+// 组件名称 - 用于 keep-alive 缓存匹配
+defineOptions({ name: 'UnifiedAudit' })
+
+import { ref, reactive, computed, onMounted, onActivated, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuditStore } from '../stores/auditStore'
@@ -1318,6 +1324,14 @@ onMounted(async () => {
   fetchExistingSessions()
   // 如果已有会话，确保 WebSocket 连接正常
   auditStore.ensureWebSocketConnected()
+})
+
+// keep-alive 激活时恢复会话状态
+onActivated(async () => {
+  // 如果已有会话，确保 WebSocket 连接恢复
+  auditStore.ensureWebSocketConnected()
+  // 检查 URL 参数是否需要切换会话
+  await restoreFromUrl()
 })
 
 // 统一资源清理：切页时关闭 WebSocket/取消请求，避免后台持续重连/解析消息导致卡顿

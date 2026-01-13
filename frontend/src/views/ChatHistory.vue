@@ -253,7 +253,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+// 组件名称 - 用于 keep-alive 缓存匹配
+defineOptions({ name: 'ChatHistory' })
+
+import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import * as api from '../api'
 
@@ -433,6 +436,11 @@ watch([statusFilter, currentPage], () => {
 
 // 生命周期
 onMounted(() => {
+  fetchSessions()
+})
+
+// keep-alive 激活时重新获取数据
+onActivated(() => {
   fetchSessions()
 })
 </script>

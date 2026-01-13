@@ -10,11 +10,13 @@ const routes = [
     path: '/',
     name: 'Dashboard',
     component: () => import('./views/Dashboard.vue'),
+    meta: { keepAlive: true },
   },
   {
     path: '/audit',
     name: 'UnifiedAudit',
     component: () => import('./views/UnifiedAudit.vue'),
+    meta: { keepAlive: true },
   },
   {
     // 兼容性重定向：/scan 重定向到 /audit
@@ -30,6 +32,13 @@ const routes = [
     path: '/chat-history',
     name: 'ChatHistory',
     component: () => import('./views/ChatHistory.vue'),
+    meta: { keepAlive: true },
+  },
+  {
+    path: '/scan-history',
+    name: 'ScanHistory',
+    component: () => import('./views/ScanHistory.vue'),
+    meta: { keepAlive: true },
   },
   {
     path: '/callgraph',

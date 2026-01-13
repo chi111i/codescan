@@ -223,12 +223,19 @@ const VariantIcon = {
   ])
 }
 
+const ScanHistoryIcon = {
+  render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' })
+  ])
+}
+
 // 主菜单项（精简后的核心功能）
 // 移除批量扫描入口，智能审计成为统一入口
 const mainMenuItems = [
   { name: '仪表盘', path: '/', icon: DashboardIcon, iconBg: 'bg-gradient-to-br from-blue-500 to-blue-600' },
   { name: '智能审计', path: '/audit', icon: SmartAuditIcon, iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600', highlight: true, isPrimary: true },
   { name: '聊天记录', path: '/chat-history', icon: ResultsIcon, iconBg: 'bg-gradient-to-br from-cyan-500 to-blue-500' },
+  { name: '扫描记录', path: '/scan-history', icon: ScanHistoryIcon, iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
 ]
 
 // 高级工具子菜单

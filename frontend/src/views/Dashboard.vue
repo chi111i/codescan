@@ -424,7 +424,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+// 组件名称 - 用于 keep-alive 缓存匹配
+defineOptions({ name: 'Dashboard' })
+
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import StatCard from '../components/StatCard.vue'
@@ -665,6 +668,11 @@ const refreshData = async () => {
 }
 
 onMounted(async () => {
+  await refreshData()
+})
+
+// keep-alive 激活时刷新数据
+onActivated(async () => {
   await refreshData()
 })
 </script>

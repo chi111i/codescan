@@ -24,28 +24,91 @@
 :root {
   /* Apple 系统颜色 */
   --apple-blue: #007AFF;
+  --apple-blue-hover: #0056CC;
+  --apple-blue-light: rgba(0, 122, 255, 0.12);
   --apple-green: #34C759;
+  --apple-green-light: rgba(52, 199, 89, 0.12);
   --apple-red: #FF3B30;
+  --apple-red-hover: #D62828;
+  --apple-red-light: rgba(255, 59, 48, 0.12);
   --apple-orange: #FF9500;
+  --apple-orange-light: rgba(255, 149, 0, 0.12);
   --apple-yellow: #FFCC00;
   --apple-purple: #AF52DE;
+  --apple-purple-light: rgba(175, 82, 222, 0.12);
   --apple-pink: #FF2D55;
   --apple-teal: #5AC8FA;
   --apple-indigo: #5856D6;
+  --apple-cyan: #32ADE6;
+
+  /* 灰度系统 */
+  --gray-50: #F9FAFB;
+  --gray-100: #F2F2F7;
+  --gray-200: #E5E5EA;
+  --gray-300: #D1D1D6;
+  --gray-400: #C7C7CC;
+  --gray-500: #8E8E93;
+  --gray-600: #636366;
+  --gray-700: #48484A;
+  --gray-800: #3A3A3C;
+  --gray-900: #1C1C1E;
 
   /* 磨砂玻璃变量 */
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-bg-light: rgba(255, 255, 255, 0.85);
-  --glass-bg-dark: rgba(28, 28, 30, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-bg-solid: rgba(255, 255, 255, 0.95);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.5);
+  --glass-bg-dark: rgba(28, 28, 30, 0.88);
+  --glass-bg-dark-light: rgba(28, 28, 30, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border-subtle: rgba(255, 255, 255, 0.4);
   --glass-border-dark: rgba(255, 255, 255, 0.12);
+
+  /* 阴影分级 */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --shadow-2xl: 0 24px 80px rgba(0, 0, 0, 0.15);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   --glass-shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.12);
+
+  /* 彩色阴影 */
+  --shadow-blue: 0 4px 16px rgba(0, 122, 255, 0.35);
+  --shadow-blue-lg: 0 8px 24px rgba(0, 122, 255, 0.45);
+  --shadow-red: 0 4px 16px rgba(255, 59, 48, 0.35);
+  --shadow-green: 0 4px 16px rgba(52, 199, 89, 0.35);
+  --shadow-purple: 0 4px 16px rgba(175, 82, 222, 0.35);
+
+  /* 内阴影 */
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --shadow-inset-top-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+
+  /* 模糊参数 */
+  --blur-sm: 10px;
+  --blur-md: 20px;
+  --blur-lg: 40px;
+  --blur-xl: 60px;
+
+  /* 圆角系统 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
+  --radius-full: 9999px;
 
   /* 动画时间 */
   --transition-fast: 0.15s;
   --transition-normal: 0.25s;
   --transition-slow: 0.4s;
+
+  /* 缓动函数 */
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 * {
@@ -1052,4 +1115,512 @@ body::before {
 .disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* ========================================
+   复选框和单选框 - Apple 风格
+   ======================================== */
+
+/* 自定义复选框 */
+.checkbox-apple {
+  @apply relative inline-flex items-center cursor-pointer;
+}
+
+.checkbox-apple input[type="checkbox"] {
+  @apply sr-only;
+}
+
+.checkbox-apple .checkbox-box {
+  @apply w-5 h-5 rounded-md border-2 flex items-center justify-center;
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.15);
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.checkbox-apple:hover .checkbox-box {
+  border-color: var(--apple-blue);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.checkbox-apple input:checked + .checkbox-box {
+  background: var(--apple-blue);
+  border-color: var(--apple-blue);
+}
+
+.checkbox-apple input:checked + .checkbox-box::after {
+  content: '';
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-bottom: 2px;
+}
+
+.checkbox-apple input:focus + .checkbox-box {
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
+}
+
+/* 自定义单选框 */
+.radio-apple {
+  @apply relative inline-flex items-center cursor-pointer;
+}
+
+.radio-apple input[type="radio"] {
+  @apply sr-only;
+}
+
+.radio-apple .radio-dot {
+  @apply w-5 h-5 rounded-full border-2 flex items-center justify-center;
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.15);
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.radio-apple:hover .radio-dot {
+  border-color: var(--apple-blue);
+}
+
+.radio-apple input:checked + .radio-dot {
+  border-color: var(--apple-blue);
+  background: white;
+}
+
+.radio-apple input:checked + .radio-dot::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--apple-blue);
+}
+
+.radio-apple input:focus + .radio-dot {
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
+}
+
+/* ========================================
+   导航菜单项 - 侧边栏用
+   ======================================== */
+
+.nav-item {
+  @apply flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all var(--transition-normal) var(--ease-out);
+  position: relative;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.nav-item.active {
+  background: rgba(0, 122, 255, 0.2);
+  color: white;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--apple-blue);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-item-icon {
+  @apply w-5 h-5 flex-shrink-0;
+  opacity: 0.8;
+}
+
+.nav-item:hover .nav-item-icon,
+.nav-item.active .nav-item-icon {
+  opacity: 1;
+}
+
+.nav-item-text {
+  @apply text-sm font-medium;
+}
+
+/* 导航分组 */
+.nav-group {
+  @apply mb-6;
+}
+
+.nav-group-title {
+  @apply px-4 mb-2 text-xs font-semibold uppercase tracking-wider;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ========================================
+   分割线
+   ======================================== */
+
+.divider {
+  @apply my-4;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.divider-light {
+  @apply my-4;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ========================================
+   空状态提示
+   ======================================== */
+
+.empty-state {
+  @apply flex flex-col items-center justify-center py-16 text-center;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mb-4 rounded-2xl flex items-center justify-center;
+  background: rgba(142, 142, 147, 0.1);
+  color: var(--gray-400);
+}
+
+.empty-state-title {
+  @apply text-lg font-semibold mb-2;
+  color: var(--gray-700);
+}
+
+.empty-state-description {
+  @apply text-sm max-w-sm;
+  color: var(--gray-500);
+}
+
+/* ========================================
+   加载骨架屏
+   ======================================== */
+
+.skeleton {
+  @apply rounded-lg;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-text {
+  @apply h-4 skeleton rounded;
+}
+
+.skeleton-title {
+  @apply h-6 skeleton rounded w-3/4;
+}
+
+.skeleton-avatar {
+  @apply w-10 h-10 skeleton rounded-full;
+}
+
+.skeleton-card {
+  @apply p-6 skeleton rounded-2xl;
+}
+
+/* ========================================
+   徽章和计数器
+   ======================================== */
+
+.badge {
+  @apply inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full;
+  min-width: 20px;
+}
+
+.badge-primary {
+  background: var(--apple-blue);
+  color: white;
+}
+
+.badge-secondary {
+  background: rgba(142, 142, 147, 0.2);
+  color: var(--gray-600);
+}
+
+.badge-success {
+  background: rgba(52, 199, 89, 0.15);
+  color: var(--apple-green);
+}
+
+.badge-warning {
+  background: rgba(255, 149, 0, 0.15);
+  color: var(--apple-orange);
+}
+
+.badge-danger {
+  background: rgba(255, 59, 48, 0.15);
+  color: var(--apple-red);
+}
+
+/* 数字计数徽章 */
+.count-badge {
+  @apply inline-flex items-center justify-center text-xs font-bold rounded-full;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  background: var(--apple-red);
+  color: white;
+}
+
+/* ========================================
+   下拉菜单
+   ======================================== */
+
+.dropdown-menu {
+  @apply absolute z-50 py-2 rounded-xl overflow-hidden;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+}
+
+.dropdown-item {
+  @apply flex items-center gap-3 px-4 py-2.5 cursor-pointer;
+  color: var(--gray-700);
+  transition: all var(--transition-fast);
+}
+
+.dropdown-item:hover {
+  background: rgba(0, 122, 255, 0.08);
+  color: var(--apple-blue);
+}
+
+.dropdown-item-icon {
+  @apply w-4 h-4 flex-shrink-0;
+  opacity: 0.6;
+}
+
+.dropdown-item:hover .dropdown-item-icon {
+  opacity: 1;
+}
+
+.dropdown-divider {
+  @apply my-2;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ========================================
+   通知和提示
+   ======================================== */
+
+.alert {
+  @apply p-4 rounded-xl flex items-start gap-3;
+  backdrop-filter: blur(20px);
+}
+
+.alert-info {
+  background: rgba(0, 122, 255, 0.1);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.alert-success {
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid rgba(52, 199, 89, 0.2);
+}
+
+.alert-warning {
+  background: rgba(255, 149, 0, 0.1);
+  border: 1px solid rgba(255, 149, 0, 0.2);
+}
+
+.alert-error {
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.alert-icon {
+  @apply w-5 h-5 flex-shrink-0 mt-0.5;
+}
+
+.alert-info .alert-icon {
+  color: var(--apple-blue);
+}
+
+.alert-success .alert-icon {
+  color: var(--apple-green);
+}
+
+.alert-warning .alert-icon {
+  color: var(--apple-orange);
+}
+
+.alert-error .alert-icon {
+  color: var(--apple-red);
+}
+
+/* Toast 通知 */
+.toast {
+  @apply fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl flex items-center gap-3;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  color: white;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: toast-in 0.3s var(--ease-spring);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ========================================
+   文件树结构
+   ======================================== */
+
+.file-tree {
+  @apply text-sm;
+}
+
+.file-tree-item {
+  @apply flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer;
+  color: var(--gray-700);
+  transition: all var(--transition-fast);
+}
+
+.file-tree-item:hover {
+  background: rgba(0, 122, 255, 0.08);
+}
+
+.file-tree-item.selected {
+  background: rgba(0, 122, 255, 0.12);
+  color: var(--apple-blue);
+}
+
+.file-tree-icon {
+  @apply w-4 h-4 flex-shrink-0;
+}
+
+.file-tree-folder {
+  color: var(--apple-blue);
+}
+
+.file-tree-file {
+  color: var(--gray-500);
+}
+
+.file-tree-indent {
+  @apply pl-4 border-l border-gray-200;
+}
+
+/* ========================================
+   表格样式
+   ======================================== */
+
+.table-glass {
+  @apply w-full;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-glass thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.table-glass th {
+  @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  color: var(--gray-600);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.table-glass td {
+  @apply px-4 py-4;
+  background: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background var(--transition-fast);
+}
+
+.table-glass tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.table-glass tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ========================================
+   分页组件
+   ======================================== */
+
+.pagination {
+  @apply flex items-center gap-2;
+}
+
+.pagination-btn {
+  @apply w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: var(--gray-700);
+  transition: all var(--transition-fast);
+}
+
+.pagination-btn:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--apple-blue);
+  color: var(--apple-blue);
+}
+
+.pagination-btn.active {
+  background: var(--apple-blue);
+  border-color: var(--apple-blue);
+  color: white;
+}
+
+.pagination-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ========================================
+   搜索高亮
+   ======================================== */
+
+.highlight-match {
+  background: rgba(255, 204, 0, 0.3);
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+/* ========================================
+   响应式工具类
+   ======================================== */
+
+@media (max-width: 768px) {
+  .glass-card {
+    border-radius: 12px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    @apply px-4 py-2.5;
+  }
+
+  .modal-content {
+    border-radius: 16px;
+    margin: 16px;
+  }
 }
