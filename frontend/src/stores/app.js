@@ -100,7 +100,9 @@ export const useAppStore = defineStore('app', () => {
       try {
         const result = await api.listScans()
         if (result.success) {
-          // 后端返回 { tasks: [...], total, limit, offset }，需要提取 tasks 数组
+          // 后端返回 { tasks: [...], total, limit, offset }
+          // 每个 task 包含: scan_id, status, target_path, started_at, completed_at,
+          //   findings_count, vuln_count, critical_count, high_count, medium_count, low_count, progress
           scanHistory.value = result.data?.tasks || result.data || []
         }
         return result

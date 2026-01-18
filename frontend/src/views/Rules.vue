@@ -3,8 +3,8 @@
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white">安全规则</h1>
-        <p class="text-white/60 mt-1">查看和管理安全检测规则</p>
+        <h1 class="text-2xl font-semibold text-gray-900">安全规则</h1>
+        <p class="text-gray-500 text-sm mt-1">查看和管理安全检测规则</p>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -330,8 +330,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAppStore } from '../stores/app'
-
-const API_BASE = 'http://localhost:8000/api'
+import * as api from '../api'
 
 const appStore = useAppStore()
 
@@ -416,19 +415,16 @@ const showGeneratedRuleDetail = (rule) => {
 
 const loadGeneratedRules = async () => {
   try {
-    const [rulesRes, statsRes] = await Promise.all([
-      fetch(`${API_BASE}/variant/rules`),
-      fetch(`${API_BASE}/variant/stats`),
+    const [rulesResult, statsResult] = await Promise.all([
+      api.listVariantRules(),
+      api.getVariantStats(),
     ])
 
-    const rulesData = await rulesRes.json()
-    const statsData = await statsRes.json()
-
-    if (rulesData.success) {
-      generatedRules.value = rulesData.rules
+    if (rulesResult.success) {
+      generatedRules.value = rulesResult.rules || rulesResult.data?.rules || []
     }
-    if (statsData.success) {
-      generatedRulesStats.value = statsData.stats
+    if (statsResult.success) {
+      generatedRulesStats.value = statsResult.stats || statsResult.data?.stats || {}
     }
   } catch (e) {
     console.error('Failed to load generated rules:', e)
@@ -437,11 +433,8 @@ const loadGeneratedRules = async () => {
 
 const approveGeneratedRule = async (ruleId) => {
   try {
-    const res = await fetch(`${API_BASE}/variant/rules/${ruleId}/approve`, {
-      method: 'POST',
-    })
-    const data = await res.json()
-    if (data.success) {
+    const result = await api.approveVariantRule(ruleId)
+    if (result.success) {
       const rule = generatedRules.value.find(r => r.id === ruleId)
       if (rule) rule.approved = true
     }
@@ -454,11 +447,8 @@ const deleteGeneratedRule = async (ruleId) => {
   if (!confirm('确定要删除这条规则吗？')) return
 
   try {
-    const res = await fetch(`${API_BASE}/variant/rules/${ruleId}`, {
-      method: 'DELETE',
-    })
-    const data = await res.json()
-    if (data.success) {
+    const result = await api.deleteVariantRule(ruleId)
+    if (result.success) {
       generatedRules.value = generatedRules.value.filter(r => r.id !== ruleId)
     }
   } catch (e) {

@@ -1,13 +1,5 @@
 <template>
   <div class="stat-card-enhanced group" :class="sizeClass">
-    <!-- 背景装饰 -->
-    <div class="absolute inset-0 overflow-hidden rounded-2xl">
-      <div
-        class="absolute -top-12 -right-12 w-32 h-32 rounded-full opacity-20 blur-2xl transition-all duration-500 group-hover:scale-150"
-        :class="glowColorClass"
-      ></div>
-    </div>
-
     <div class="relative flex items-center gap-5">
       <!-- 图标容器 -->
       <div
@@ -158,13 +150,13 @@ const iconInnerSizeClass = computed(() => {
 
 const gradientClass = computed(() => {
   const gradients = {
-    blue: 'bg-gradient-to-br from-blue-500 to-blue-600',
-    purple: 'bg-gradient-to-br from-purple-500 to-pink-600',
-    green: 'bg-gradient-to-br from-green-500 to-emerald-600',
-    orange: 'bg-gradient-to-br from-orange-500 to-red-500',
-    red: 'bg-gradient-to-br from-red-500 to-rose-600',
-    cyan: 'bg-gradient-to-br from-cyan-500 to-blue-500',
-    indigo: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+    blue: 'bg-blue-600',
+    purple: 'bg-purple-600',
+    green: 'bg-green-600',
+    orange: 'bg-orange-600',
+    red: 'bg-red-600',
+    cyan: 'bg-cyan-600',
+    indigo: 'bg-indigo-600',
   }
   return gradients[props.color] || gradients.blue
 })
@@ -195,11 +187,11 @@ const pulseColorClass = computed(() => {
 
 const progressColorClass = computed(() => {
   const colors = {
-    blue: 'bg-gradient-to-r from-blue-500 to-blue-400',
-    purple: 'bg-gradient-to-r from-purple-500 to-pink-400',
-    green: 'bg-gradient-to-r from-green-500 to-emerald-400',
-    orange: 'bg-gradient-to-r from-orange-500 to-yellow-400',
-    red: 'bg-gradient-to-r from-red-500 to-rose-400',
+    blue: 'bg-blue-500',
+    purple: 'bg-purple-500',
+    green: 'bg-green-500',
+    orange: 'bg-orange-500',
+    red: 'bg-red-500',
   }
   return colors[props.color] || colors.blue
 })
@@ -265,28 +257,18 @@ const iconComponent = computed(() => {
 
 <style scoped>
 .stat-card-enhanced {
-  @apply relative rounded-2xl overflow-hidden;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  @apply relative rounded-xl overflow-hidden p-6;
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .stat-card-enhanced:hover {
-  background: rgba(255, 255, 255, 0.92);
-  transform: translateY(-4px);
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .icon-container {
-  @apply rounded-xl flex items-center justify-center relative;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  @apply rounded-lg flex items-center justify-center relative;
 }
 
 .icon-inner {
@@ -294,7 +276,7 @@ const iconComponent = computed(() => {
 }
 
 .pulse-ring {
-  @apply absolute inset-0 rounded-xl opacity-30;
+  @apply absolute inset-0 rounded-lg opacity-30;
   animation: pulse-expand 2s ease-out infinite;
 }
 

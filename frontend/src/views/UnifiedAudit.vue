@@ -5,21 +5,20 @@
     <!-- 页面标题 + 模式切换 -->
     <div class="flex items-center justify-between mb-4 shrink-0">
       <div>
-        <h1 class="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-          <span class="px-2 py-1 text-xs rounded bg-gradient-to-r from-violet-500 to-purple-500 text-white">NEW</span>
+        <h1 class="text-2xl font-semibold text-gray-900 mb-1">
           智能审计
         </h1>
-        <p class="text-white/60">AI 驱动的智能代码安全审计，支持自主工具调用</p>
+        <p class="text-gray-500 text-sm">AI 驱动的智能代码安全审计，支持自主工具调用</p>
       </div>
 
       <!-- 模式切换 Tab（仅在无会话时显示） -->
-      <div v-if="!currentSession" class="flex items-center gap-2 bg-white/10 p-1 rounded-xl">
+      <div v-if="!currentSession" class="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
         <button
           @click="auditMode = 'conversation'"
           class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
           :class="auditMode === 'conversation'
-            ? 'bg-white/90 text-violet-700 shadow-sm'
-            : 'text-white/70 hover:text-white hover:bg-white/10'"
+            ? 'bg-white text-violet-700 shadow-sm'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'"
         >
           <span class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,8 +31,8 @@
           @click="auditMode = 'quick-scan'"
           class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
           :class="auditMode === 'quick-scan'
-            ? 'bg-white/90 text-violet-700 shadow-sm'
-            : 'text-white/70 hover:text-white hover:bg-white/10'"
+            ? 'bg-white text-violet-700 shadow-sm'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'"
         >
           <span class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

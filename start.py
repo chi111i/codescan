@@ -122,12 +122,15 @@ def run_frontend():
     frontend_dir = PROJECT_ROOT / "frontend"
     os.chdir(frontend_dir)
 
+    # Windows 上需要 shell=True 来运行 npm（因为 npm 是 npm.cmd）
+    use_shell = sys.platform == 'win32'
+
     # 检查是否已安装依赖
     if not (frontend_dir / "node_modules").exists():
         print("安装前端依赖...")
-        subprocess.run(["npm", "install"], check=True)
+        subprocess.run(["npm", "install"], check=True, shell=use_shell)
 
-    subprocess.run(["npm", "run", "dev"])
+    subprocess.run(["npm", "run", "dev"], shell=use_shell)
 
 
 def main():

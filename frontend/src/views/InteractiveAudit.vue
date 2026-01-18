@@ -3,8 +3,8 @@
     <!-- 页面标题 -->
     <div class="flex items-center justify-between mb-4 shrink-0">
       <div>
-        <h1 class="text-3xl font-bold text-white mb-2">交互式审计</h1>
-        <p class="text-white/60">选择代码内容，与 LLM 对话分析，确认安全发现</p>
+        <h1 class="text-2xl font-semibold text-gray-900">交互式审计</h1>
+        <p class="text-gray-500 text-sm mt-1">选择代码内容，与 LLM 对话分析，确认安全发现</p>
       </div>
       <div class="flex items-center gap-3">
         <!-- 会话状态 -->

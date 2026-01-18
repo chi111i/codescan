@@ -68,7 +68,8 @@ export const getSinkCallChains = (scanId, siteId, params = {}) => api.get(`/scan
 export const analyzeSelectedSinks = (data) => api.post('/analyze/selected', data)
 
 // 调用图相关
-export const analyzeCallGraph = (data) => api.post('/callgraph', data)
+export const getCallGraph = (data) => api.post('/callgraph', data)  // 获取可视化数据
+export const analyzeCallGraph = (data) => api.post('/callgraph/analyze', data)  // 污点分析
 
 // 规则相关
 export const listRules = (params) => api.get('/rules', { params })
@@ -199,6 +200,8 @@ export const searchVariants = (data) => api.post('/variant/search', data)
 export const confirmVariant = (data) => api.post('/variant/confirm-variant', data)
 
 // 规则管理
+export const listVariantRules = () => api.get('/variant/rules')
+export const getVariantRule = (ruleId) => api.get(`/variant/rules/${ruleId}`)
 export const generateVariantRule = (data) => api.post('/variant/generate-rule', data)
 export const approveVariantRule = (ruleId) => api.post(`/variant/rules/${ruleId}/approve`)
 export const deleteVariantRule = (ruleId) => api.delete(`/variant/rules/${ruleId}`)

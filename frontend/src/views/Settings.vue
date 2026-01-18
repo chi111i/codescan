@@ -3,8 +3,8 @@
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white mb-2">系统设置</h1>
-        <p class="text-white/60">配置 LLM 模型、嵌入模型和系统参数</p>
+        <h1 class="text-2xl font-semibold text-gray-900 mb-1">系统设置</h1>
+        <p class="text-gray-500 text-sm">配置 LLM 模型、嵌入模型和系统参数</p>
       </div>
       <button
         @click="saveSettings"
@@ -20,6 +20,88 @@
         </svg>
         {{ saving ? '保存中...' : '保存设置' }}
       </button>
+    </div>
+
+    <!-- 高级工具入口 -->
+    <div class="glass-card p-6">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-xl font-semibold text-gray-800">高级工具</h2>
+          <p class="text-sm text-gray-500">代码分析、调用链追踪、变体分析等专业工具</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 调用链分析 -->
+        <router-link
+          to="/callgraph"
+          class="tool-card group"
+        >
+          <div class="tool-icon bg-gradient-to-br from-purple-500 to-pink-500">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+          </div>
+          <div class="mt-3">
+            <h3 class="font-medium text-gray-800 group-hover:text-purple-600 transition-colors">调用链分析</h3>
+            <p class="text-xs text-gray-500 mt-1">追踪函数调用关系和污点传播路径</p>
+          </div>
+        </router-link>
+
+        <!-- 代码结构图 -->
+        <router-link
+          to="/code-graph"
+          class="tool-card group"
+        >
+          <div class="tool-icon bg-gradient-to-br from-indigo-500 to-purple-600">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+            </svg>
+          </div>
+          <div class="mt-3">
+            <h3 class="font-medium text-gray-800 group-hover:text-indigo-600 transition-colors">代码结构图</h3>
+            <p class="text-xs text-gray-500 mt-1">可视化项目代码属性图和依赖关系</p>
+          </div>
+        </router-link>
+
+        <!-- 变体分析 -->
+        <router-link
+          to="/variant-analysis"
+          class="tool-card group"
+        >
+          <div class="tool-icon bg-gradient-to-br from-rose-500 to-red-600">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div class="mt-3">
+            <h3 class="font-medium text-gray-800 group-hover:text-rose-600 transition-colors">变体分析</h3>
+            <p class="text-xs text-gray-500 mt-1">基于已知漏洞模式搜索相似变体</p>
+          </div>
+        </router-link>
+
+        <!-- 代码搜索 -->
+        <router-link
+          to="/search"
+          class="tool-card group"
+        >
+          <div class="tool-icon bg-gradient-to-br from-cyan-500 to-blue-500">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+          </div>
+          <div class="mt-3">
+            <h3 class="font-medium text-gray-800 group-hover:text-cyan-600 transition-colors">代码搜索</h3>
+            <p class="text-xs text-gray-500 mt-1">语义搜索和正则搜索代码片段</p>
+          </div>
+        </router-link>
+      </div>
     </div>
 
     <!-- 设置面板容器 -->
@@ -1174,3 +1256,61 @@ onMounted(async () => {
   await loadCacheStats()
 })
 </script>
+
+<style scoped>
+/* 工具卡片样式 */
+.tool-card {
+  @apply p-4 rounded-xl cursor-pointer transition-all duration-200;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.tool-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.tool-icon {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 扫描模式卡片 */
+.scan-mode-card {
+  @apply p-4 rounded-xl cursor-pointer transition-all duration-200;
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid transparent;
+}
+
+.scan-mode-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 122, 255, 0.3);
+}
+
+.scan-mode-card.active {
+  background: rgba(0, 122, 255, 0.08);
+  border-color: #007AFF;
+}
+
+/* 测试按钮 */
+.test-button {
+  @apply p-4 rounded-xl cursor-pointer transition-all duration-200 text-left w-full;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.test-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.test-button.test-success {
+  border-color: rgba(52, 199, 89, 0.5);
+  background: rgba(52, 199, 89, 0.08);
+}
+
+.test-button.test-failed {
+  border-color: rgba(255, 59, 48, 0.5);
+  background: rgba(255, 59, 48, 0.08);
+}
+</style>

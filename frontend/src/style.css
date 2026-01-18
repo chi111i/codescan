@@ -124,13 +124,7 @@ html {
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
                'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
-  background:
-    radial-gradient(ellipse at top left, rgba(102, 126, 234, 0.4) 0%, transparent 50%),
-    radial-gradient(ellipse at top right, rgba(240, 147, 251, 0.3) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom left, rgba(118, 75, 162, 0.3) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, rgba(91, 134, 229, 0.2) 0%, transparent 50%),
-    linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  background-attachment: fixed;
+  background: #F5F5F7;
   min-height: 100vh;
   color: #1C1C1E;
   -webkit-font-smoothing: antialiased;
@@ -138,36 +132,18 @@ body {
   overflow-x: hidden;
 }
 
-/* 动态背景动画 */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-                    rgba(120, 119, 198, 0.15), transparent 40%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* 动态背景动画已移除 - 使用简洁浅灰背景 */
 
 /* ========================================
-   磨砂玻璃效果系统
+   样式系统 - 简洁风格
    ======================================== */
 
-/* 基础磨砂玻璃 - Apple 风格 */
+/* 基础样式 - 简洁白色卡片 */
 .glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 /* 深色磨砂玻璃 - 侧边栏用 */
@@ -187,128 +163,78 @@ body::before {
     inset -1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
-/* 卡片磨砂玻璃 - 带悬浮效果 */
+/* 卡片磨砂玻璃 - 简洁样式 */
 .glass-card {
-  background: var(--glass-bg-light);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 16px;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow:
-    var(--glass-shadow-elevated),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transform: translateY(-4px) scale(1.005);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* 轻量磨砂 - 输入框背景用 */
+/* 轻量样式 - 输入框背景用 */
 .glass-subtle {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
   border-radius: 12px;
 }
 
-/* 强调磨砂 - 弹窗、浮层用 */
+/* 强调样式 - 弹窗、浮层用 */
 .glass-elevated {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(60px) saturate(200%);
-  -webkit-backdrop-filter: blur(60px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 24px;
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.15),
-    0 8px 24px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
-/* 彩色磨砂变体 */
+/* 彩色变体 - 简洁浅色背景 */
 .glass-blue {
-  background: linear-gradient(135deg,
-    rgba(0, 122, 255, 0.15) 0%,
-    rgba(88, 86, 214, 0.1) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: rgba(0, 122, 255, 0.08);
   border: 1px solid rgba(0, 122, 255, 0.2);
+  border-radius: 12px;
 }
 
 .glass-green {
-  background: linear-gradient(135deg,
-    rgba(52, 199, 89, 0.15) 0%,
-    rgba(48, 209, 88, 0.1) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: rgba(52, 199, 89, 0.08);
   border: 1px solid rgba(52, 199, 89, 0.2);
+  border-radius: 12px;
 }
 
 .glass-orange {
-  background: linear-gradient(135deg,
-    rgba(255, 149, 0, 0.15) 0%,
-    rgba(255, 159, 10, 0.1) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: rgba(255, 149, 0, 0.08);
   border: 1px solid rgba(255, 149, 0, 0.2);
+  border-radius: 12px;
 }
 
 .glass-red {
-  background: linear-gradient(135deg,
-    rgba(255, 59, 48, 0.15) 0%,
-    rgba(255, 69, 58, 0.1) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: rgba(255, 59, 48, 0.08);
   border: 1px solid rgba(255, 59, 48, 0.2);
+  border-radius: 12px;
 }
 
 /* ========================================
-   按钮系统 - Apple 风格
+   按钮系统 - 简洁风格
    ======================================== */
 
-/* 主要按钮 - 渐变蓝色 */
+/* 主要按钮 - 纯色蓝色 */
 .btn-primary {
-  @apply px-6 py-3 rounded-2xl font-semibold text-white;
-  background: linear-gradient(180deg, #007AFF 0%, #0056CC 100%);
-  box-shadow:
-    0 4px 16px rgba(0, 122, 255, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%);
-  pointer-events: none;
+  @apply px-6 py-3 rounded-xl font-semibold text-white;
+  background: #007AFF;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(180deg, #339DFF 0%, #007AFF 100%);
-  box-shadow:
-    0 8px 24px rgba(0, 122, 255, 0.45),
-    0 2px 6px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transform: translateY(-2px) scale(1.02);
+  background: #0066DD;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.35);
 }
 
 .btn-primary:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow:
-    0 2px 8px rgba(0, 122, 255, 0.3),
-    inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: scale(0.98);
 }
 
 .btn-primary:disabled {
@@ -317,116 +243,93 @@ body::before {
   transform: none;
 }
 
-/* 次要按钮 - 磨砂玻璃 */
+/* 次要按钮 - 简洁边框样式 */
 .btn-secondary {
-  @apply px-6 py-3 rounded-2xl font-medium;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  @apply px-6 py-3 rounded-xl font-medium;
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
   color: #1C1C1E;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transform: translateY(-2px);
+  background: #F5F5F7;
+  border-color: #D1D1D6;
 }
 
 .btn-secondary:active {
-  transform: translateY(0);
-  background: rgba(255, 255, 255, 0.5);
+  background: #E5E5EA;
 }
 
 /* 危险按钮 */
 .btn-danger {
-  @apply px-6 py-3 rounded-2xl font-semibold text-white;
-  background: linear-gradient(180deg, #FF3B30 0%, #D62828 100%);
-  box-shadow:
-    0 4px 16px rgba(255, 59, 48, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  @apply px-6 py-3 rounded-xl font-semibold text-white;
+  background: #FF3B30;
+  box-shadow: 0 2px 8px rgba(255, 59, 48, 0.25);
+  transition: all 0.2s ease;
 }
 
 .btn-danger:hover {
-  box-shadow:
-    0 8px 24px rgba(255, 59, 48, 0.45);
-  transform: translateY(-2px);
+  background: #E6352B;
+  box-shadow: 0 4px 12px rgba(255, 59, 48, 0.35);
 }
 
 /* 成功按钮 */
 .btn-success {
-  @apply px-6 py-3 rounded-2xl font-semibold text-white;
-  background: linear-gradient(180deg, #34C759 0%, #248A3D 100%);
-  box-shadow:
-    0 4px 16px rgba(52, 199, 89, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  @apply px-6 py-3 rounded-xl font-semibold text-white;
+  background: #34C759;
+  box-shadow: 0 2px 8px rgba(52, 199, 89, 0.25);
+  transition: all 0.2s ease;
 }
 
 .btn-success:hover {
-  box-shadow:
-    0 8px 24px rgba(52, 199, 89, 0.45);
-  transform: translateY(-2px);
+  background: #2DB84D;
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.35);
 }
 
-/* 幽灵按钮 */
+/* 幽灵按钮 - 适配浅色背景 */
 .btn-ghost {
-  @apply px-6 py-3 rounded-2xl font-medium;
+  @apply px-6 py-3 rounded-xl font-medium;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #E5E5EA;
+  color: #1C1C1E;
+  transition: all 0.2s ease;
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: #F5F5F7;
+  border-color: #D1D1D6;
 }
 
-/* 图标按钮 */
+/* 图标按钮 - 适配浅色背景 */
 .btn-icon {
   @apply p-3 rounded-xl;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all var(--transition-normal);
-  color: white;
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  transition: all 0.2s ease;
+  color: #1C1C1E;
 }
 
 .btn-icon:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
+  background: #F5F5F7;
 }
 
 /* ========================================
-   输入框系统 - Apple 风格
+   输入框系统 - 简洁风格
    ======================================== */
 
 .input-glass {
   @apply w-full px-4 py-3 rounded-xl outline-none text-gray-800;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.05),
-    0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 }
 
 .input-glass:focus {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: var(--apple-blue);
-  box-shadow:
-    0 0 0 4px rgba(0, 122, 255, 0.15),
-    inset 0 1px 3px rgba(0, 0, 0, 0.02);
+  border-color: #007AFF;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
 }
 
 .input-glass::placeholder {
@@ -822,22 +725,11 @@ body::before {
   transition: 0s;
 }
 
-/* 状态卡片呼吸效果 */
+/* 状态卡片样式 - 简洁无动画 */
 .status-card-breathe {
-  animation: card-breathe 4s ease-in-out infinite;
-}
-
-@keyframes card-breathe {
-  0%, 100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 4px 20px rgba(0, 0, 0, 0.2);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.15),
-      0 6px 24px rgba(0, 0, 0, 0.25);
-  }
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 /* 柔和闪烁效果 */
@@ -1074,32 +966,27 @@ body::before {
 
 .tooltip {
   @apply px-3 py-2 rounded-lg text-sm;
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(20px);
+  background: #1C1C1E;
   color: white;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* ========================================
    通用工具类
    ======================================== */
 
-/* 文字渐变 */
+/* 文字渐变 - 简化为纯色 */
 .text-gradient {
-  background: linear-gradient(135deg, var(--apple-blue) 0%, var(--apple-purple) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #007AFF;
 }
 
-/* 悬浮阴影增强 */
+/* 悬浮阴影增强 - 简化 */
 .hover-lift {
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 0.2s ease;
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 /* 点击反馈 */
@@ -1377,20 +1264,16 @@ body::before {
 
 .dropdown-menu {
   @apply absolute z-50 py-2 rounded-xl overflow-hidden;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.15),
-    0 4px 16px rgba(0, 0, 0, 0.1);
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   min-width: 180px;
 }
 
 .dropdown-item {
   @apply flex items-center gap-3 px-4 py-2.5 cursor-pointer;
-  color: var(--gray-700);
-  transition: all var(--transition-fast);
+  color: #3C3C43;
+  transition: all 0.15s ease;
 }
 
 .dropdown-item:hover {
@@ -1465,21 +1348,20 @@ body::before {
 /* Toast 通知 */
 .toast {
   @apply fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl flex items-center gap-3;
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(20px);
+  background: #1C1C1E;
   color: white;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  animation: toast-in 0.3s var(--ease-spring);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  animation: toast-in 0.25s ease-out;
 }
 
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.95);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 

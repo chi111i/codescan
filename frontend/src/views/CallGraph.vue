@@ -3,8 +3,8 @@
     <!-- 页面标题 -->
     <div class="flex justify-between items-center">
       <div>
-        <h1 class="text-3xl font-bold text-white">调用链分析</h1>
-        <p class="text-white/60 mt-1">分析函数调用关系和污点传播路径</p>
+        <h1 class="text-2xl font-semibold text-gray-900">调用链分析</h1>
+        <p class="text-gray-500 text-sm mt-1">分析函数调用关系和污点传播路径</p>
       </div>
       <button
         @click="runAnalysis"

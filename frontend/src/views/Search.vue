@@ -2,8 +2,8 @@
   <div class="space-y-6 animate-fade-in">
     <!-- 页面标题 -->
     <div>
-      <h1 class="text-3xl font-bold text-white">代码搜索</h1>
-      <p class="text-white/60 mt-1">使用语义搜索查找相关代码</p>
+      <h1 class="text-2xl font-semibold text-gray-900">代码搜索</h1>
+      <p class="text-gray-500 text-sm mt-1">使用语义搜索查找相关代码</p>
     </div>
 
     <!-- 搜索框 -->

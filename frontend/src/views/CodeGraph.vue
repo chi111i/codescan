@@ -3,13 +3,13 @@
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white mb-2">代码属性图</h1>
-        <p class="text-white/60">可视化代码结构：AST + 控制流 + 数据流</p>
+        <h1 class="text-2xl font-semibold text-gray-900">代码属性图</h1>
+        <p class="text-gray-500 text-sm mt-1">可视化代码结构：AST + 控制流 + 数据流</p>
       </div>
       <div class="flex items-center gap-4">
         <div class="glass-subtle px-4 py-2 rounded-lg">
           <span class="text-sm text-gray-400">已构建图:</span>
-          <span class="text-lg font-bold text-white ml-2">{{ graphs.length }}</span>
+          <span class="text-lg font-bold text-gray-800 ml-2">{{ graphs.length }}</span>
         </div>
       </div>
     </div>
@@ -389,9 +389,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-
-// API 基础URL
-const API_BASE = 'http://localhost:8000/api'
+import * as api from '../api'
 
 // 状态
 const graphs = ref([])
@@ -633,8 +631,7 @@ const sinkNodes = computed(() => {
 // 方法
 const loadGraphs = async () => {
   try {
-    const res = await fetch(`${API_BASE}/graph/list`)
-    const data = await res.json()
+    const data = await api.listGraphs()
     if (data.success) {
       graphs.value = data.graphs
     }
@@ -648,12 +645,7 @@ const buildGraph = async () => {
 
   building.value = true
   try {
-    const res = await fetch(`${API_BASE}/graph/build`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newGraph),
-    })
-    const data = await res.json()
+    const data = await api.buildGraph(newGraph)
     if (data.success) {
       await loadGraphs()
       selectedGraph.value = data.graph
@@ -673,13 +665,10 @@ const selectGraph = async (graphId) => {
   dataFlowPaths.value = []
 
   try {
-    const [graphRes, summaryRes] = await Promise.all([
-      fetch(`${API_BASE}/graph/${graphId}`),
-      fetch(`${API_BASE}/graph/${graphId}/summary`),
+    const [graphData, summaryData] = await Promise.all([
+      api.getGraph(graphId),
+      api.getGraphSummary(graphId),
     ])
-
-    const graphData = await graphRes.json()
-    const summaryData = await summaryRes.json()
 
     if (graphData.success) {
       selectedGraph.value = graphData.graph
@@ -701,17 +690,12 @@ const analyzeDataFlow = async () => {
 
   analyzingFlow.value = true
   try {
-    const res = await fetch(`${API_BASE}/graph/${selectedGraphId.value}/data-flow`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        graph_id: selectedGraphId.value,
-        source_node_id: dataFlowConfig.source,
-        sink_node_id: dataFlowConfig.sink,
-        max_depth: dataFlowConfig.max_depth,
-      }),
+    const data = await api.analyzeGraphDataFlow(selectedGraphId.value, {
+      graph_id: selectedGraphId.value,
+      source_node_id: dataFlowConfig.source,
+      sink_node_id: dataFlowConfig.sink,
+      max_depth: dataFlowConfig.max_depth,
     })
-    const data = await res.json()
     if (data.success) {
       dataFlowPaths.value = data.paths
     }

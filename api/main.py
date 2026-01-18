@@ -2009,6 +2009,25 @@ async def list_scans(
     for scan_id, task in app_state.scan_tasks.items():
         if status and task.status.value != status:
             continue
+
+        # 计算内存中任务的严重性统计
+        critical_count = 0
+        high_count = 0
+        medium_count = 0
+        low_count = 0
+        all_findings = list(task.findings) + list(task.vuln_findings)
+        for f in all_findings:
+            sev = getattr(f, 'severity', None) or (f.get('severity') if isinstance(f, dict) else 'medium')
+            sev = sev.lower() if isinstance(sev, str) else 'medium'
+            if sev == 'critical':
+                critical_count += 1
+            elif sev == 'high':
+                high_count += 1
+            elif sev == 'medium':
+                medium_count += 1
+            else:
+                low_count += 1
+
         tasks.append({
             "scan_id": scan_id,
             "status": task.status.value,
@@ -2017,6 +2036,10 @@ async def list_scans(
             "completed_at": task.completed_at.isoformat() if task.completed_at else None,
             "findings_count": len(task.findings),
             "vuln_count": len(task.vuln_findings),
+            "critical_count": critical_count,
+            "high_count": high_count,
+            "medium_count": medium_count,
+            "low_count": low_count,
             "progress": task.progress,
             "source": "memory",
         })
@@ -2029,11 +2052,11 @@ async def list_scans(
         )
         for db_task in db_tasks:
             if db_task.scan_id not in seen_ids:
-                # 获取发现数量
-                finding_count = 0
+                # 获取发现统计（包含严重性分布）
+                finding_stats = {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0}
                 if app_state.finding_repo:
-                    finding_count = await asyncio.to_thread(
-                        app_state.finding_repo.count, db_task.scan_id
+                    finding_stats = await asyncio.to_thread(
+                        app_state.finding_repo.get_stats, db_task.scan_id
                     )
 
                 tasks.append({
@@ -2042,8 +2065,12 @@ async def list_scans(
                     "target_path": db_task.target_path,
                     "started_at": db_task.started_at,
                     "completed_at": db_task.completed_at,
-                    "findings_count": finding_count,
+                    "findings_count": finding_stats.get("total", 0),
                     "vuln_count": 0,  # 数据库中合并存储
+                    "critical_count": finding_stats.get("critical", 0),
+                    "high_count": finding_stats.get("high", 0),
+                    "medium_count": finding_stats.get("medium", 0),
+                    "low_count": finding_stats.get("low", 0),
                     "progress": db_task.progress,
                     "source": "database",
                 })
@@ -3161,9 +3188,9 @@ async def get_scan_stats(scan_id: str):
 
 # ============ 调用图接口 ============
 
-@app.post("/api/callgraph", response_model=APIResponse)
+@app.post("/api/callgraph/analyze", response_model=APIResponse)
 async def analyze_callgraph(request: CallGraphRequest):
-    """分析调用图"""
+    """分析调用图（污点分析和危险调用链）"""
     if not app_state.indexer:
         raise HTTPException(status_code=500, detail="索引器未初始化")
 

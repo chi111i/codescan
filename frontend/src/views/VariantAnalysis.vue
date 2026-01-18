@@ -3,13 +3,13 @@
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white mb-2">变体分析</h1>
-        <p class="text-white/60">发现一个漏洞，挖出一串兄弟漏洞</p>
+        <h1 class="text-2xl font-semibold text-gray-900">变体分析</h1>
+        <p class="text-gray-500 text-sm mt-1">发现一个漏洞，挖出一串兄弟漏洞</p>
       </div>
       <div class="flex items-center gap-4">
         <div class="glass-subtle px-4 py-2 rounded-lg">
           <span class="text-sm text-gray-400">已确认模式:</span>
-          <span class="text-lg font-bold text-white ml-2">{{ stats.total_patterns }}</span>
+          <span class="text-lg font-bold text-gray-800 ml-2">{{ stats.total_patterns }}</span>
         </div>
         <div class="glass-subtle px-4 py-2 rounded-lg">
           <span class="text-sm text-gray-400">发现变体:</span>
@@ -345,9 +345,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-
-// API 基础URL
-const API_BASE = 'http://localhost:8000/api'
+import * as api from '../api'
 
 // 状态
 const patterns = ref([])
@@ -389,8 +387,7 @@ const severities = [
 // 方法
 const loadPatterns = async () => {
   try {
-    const res = await fetch(`${API_BASE}/variant/patterns`)
-    const data = await res.json()
+    const data = await api.listVariantPatterns()
     if (data.success) {
       patterns.value = data.patterns
     }
@@ -401,8 +398,7 @@ const loadPatterns = async () => {
 
 const loadStats = async () => {
   try {
-    const res = await fetch(`${API_BASE}/variant/stats`)
-    const data = await res.json()
+    const data = await api.getVariantStats()
     if (data.success) {
       stats.value = data.stats
     }
@@ -416,16 +412,11 @@ const confirmVulnerability = async () => {
 
   confirming.value = true
   try {
-    const res = await fetch(`${API_BASE}/variant/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        finding_id: `F-${Date.now()}`,
-        finding: newFinding,
-        code_context: codeContext.value,
-      }),
+    const data = await api.confirmVulnerability({
+      finding_id: `F-${Date.now()}`,
+      finding: newFinding,
+      code_context: codeContext.value,
     })
-    const data = await res.json()
     if (data.success) {
       await loadPatterns()
       await loadStats()
@@ -452,15 +443,10 @@ const searchVariants = async () => {
 
   searching.value = true
   try {
-    const res = await fetch(`${API_BASE}/variant/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pattern_id: selectedPattern.value.id,
-        ...searchConfig,
-      }),
+    const data = await api.searchVariants({
+      pattern_id: selectedPattern.value.id,
+      ...searchConfig,
     })
-    const data = await res.json()
     if (data.success) {
       variants.value = data.variants
     }
@@ -473,16 +459,11 @@ const searchVariants = async () => {
 
 const confirmVariant = async (variant, isTruePositive) => {
   try {
-    const res = await fetch(`${API_BASE}/variant/confirm-variant`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        variant_id: variant.id,
-        is_true_positive: isTruePositive,
-        confirmed_by: 'user',
-      }),
+    const data = await api.confirmVariant({
+      variant_id: variant.id,
+      is_true_positive: isTruePositive,
+      confirmed_by: 'user',
     })
-    const data = await res.json()
     if (data.success) {
       variant.status = isTruePositive ? 'confirmed' : 'false_positive'
       // 刷新统计
@@ -498,15 +479,10 @@ const generateRule = async () => {
 
   generatingRule.value = true
   try {
-    const res = await fetch(`${API_BASE}/variant/generate-rule`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pattern_id: selectedPattern.value.id,
-        rule_type: ruleType.value,
-      }),
+    const data = await api.generateVariantRule({
+      pattern_id: selectedPattern.value.id,
+      rule_type: ruleType.value,
     })
-    const data = await res.json()
     if (data.success) {
       generatedRule.value = data.rule
     }
@@ -519,10 +495,7 @@ const generateRule = async () => {
 
 const approveRule = async (ruleId) => {
   try {
-    const res = await fetch(`${API_BASE}/variant/rules/${ruleId}/approve`, {
-      method: 'POST',
-    })
-    const data = await res.json()
+    const data = await api.approveVariantRule(ruleId)
     if (data.success && generatedRule.value) {
       generatedRule.value.approved = true
     }
@@ -535,10 +508,7 @@ const deleteRule = async (ruleId) => {
   if (!confirm('确定要删除这条规则吗？')) return
 
   try {
-    const res = await fetch(`${API_BASE}/variant/rules/${ruleId}`, {
-      method: 'DELETE',
-    })
-    const data = await res.json()
+    const data = await api.deleteVariantRule(ruleId)
     if (data.success) {
       generatedRule.value = null
     }

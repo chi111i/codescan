@@ -3,8 +3,8 @@
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white mb-2">开始扫描</h1>
-        <p class="text-white/60">配置并启动代码安全扫描任务</p>
+        <h1 class="text-2xl font-semibold text-gray-900 mb-1">开始扫描</h1>
+        <p class="text-gray-500 text-sm">配置并启动代码安全扫描任务</p>
       </div>
       <div v-if="currentScan && currentScan.status !== 'completed'" class="flex items-center gap-2">
         <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 text-blue-300">
