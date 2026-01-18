@@ -20,12 +20,16 @@ from .prompts import build_analysis_prompt, build_chain_analysis_prompt
 from .sink_scanner import SinkCallScanner, SinkCallSite, SinkCategory
 from .chain_context import ChainContextCollector, ChainContext, ChainNode
 from .call_chain import CallChainAnalyzer
+from .enhancer import DeepAnalysisEnhancer, EnhancementConfig, EnhancedSite
 from .fc_adapter import (
     FunctionCallingAdapter,
     FCAdapterConfig,
     FCSecurityTools,
     FCAnalysisResult,
 )
+
+# P0-6: 导入 Token 预算管理器
+from prompts.token_budget import TokenBudgetManager, ContentBlock, TokenPriority
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +82,25 @@ class SecurityAnalyzer:
         self.output_validator = OutputValidator(
             project_root=config.scan.target_path,
             min_confidence=config.rules.min_confidence if hasattr(config.rules, 'min_confidence') else 0.0,
+        )
+
+        # P0-6: Token 预算管理器
+        # 默认使用 8000 token 预算（为 LLM 输出预留空间）
+        max_context_tokens = getattr(config.llm, 'max_context_tokens', 8000)
+        self.token_budget_manager = TokenBudgetManager(
+            max_total_tokens=max_context_tokens,
+            encoding_name="cl100k_base",
+        )
+
+        # P0-7: 深度分析增强器（用于 sink_sites 排序）
+        self.deep_enhancer = DeepAnalysisEnhancer(
+            rule_manager=rule_manager,
+            config=EnhancementConfig(
+                enable_call_chain=True,
+                enable_taint_analysis=True,
+                max_call_depth=10,
+                min_confidence_threshold=0.3,
+            ),
         )
 
     def discover_candidates(
@@ -492,9 +515,6 @@ class SecurityAnalyzer:
             logger.info("[P0-1] 过滤后未发现任何危险函数触发点")
             return []
 
-        # 限制候选点数量
-        sink_sites = sink_sites[:max_candidates]
-
         # ============================================================
         # P0-2: 构建调用图
         # ============================================================
@@ -510,6 +530,28 @@ class SecurityAnalyzer:
             f"{len(self._call_graph.edges)} 边"
         )
         report_progress(0.46, f"调用图: {len(self._call_graph.nodes)} 节点")
+
+        # ============================================================
+        # P0-7: sink_sites 排序（enhancer 评分）并截断
+        # ============================================================
+        report_progress(0.465, "对危险函数触发点排序...")
+        logger.info(f"[P0-7] 使用 DeepAnalysisEnhancer 对 {len(sink_sites)} 个触发点评分排序...")
+
+        enhancement_result = self.deep_enhancer.enhance_sites(
+            sink_sites=sink_sites,
+            code_units=code_units,
+            call_graph=self._call_graph,  # 复用已构建的调用图
+        )
+
+        # 按 enhanced_score 排序后取 top max_candidates（修复：先排序再截断）
+        sorted_enhanced = enhancement_result.get_top_sites(limit=max_candidates)
+        sink_sites = [enhanced.site for enhanced in sorted_enhanced]
+
+        logger.info(
+            f"[P0-7] 排序截断完成: {len(sink_sites)}/{len(enhancement_result.enhanced_sites)} 个, "
+            f"高置信度 {enhancement_result.high_confidence_count} 个, "
+            f"top-3 分数: {[f'{s.enhanced_score:.2f}' for s in sorted_enhanced[:3]]}"
+        )
 
         # ============================================================
         # P0-3 & P0-4: 枚举调用链并收集上下文
@@ -756,9 +798,6 @@ class SecurityAnalyzer:
             # 获取 sink 类别
             sink_category = sink_site.sink_category.value
 
-            # 构建调用链上下文文本
-            context_text = chain_context.to_prompt_text()
-
             # 添加规则信息
             rule_info_parts = []
             for rule_id in sink_site.matched_rule_ids:
@@ -767,9 +806,20 @@ class SecurityAnalyzer:
                     rule_info_parts.append(f"- {rule.name}: {rule.description}")
                     if rule.cwe_ids:
                         rule_info_parts.append(f"  CWE: {', '.join(rule.cwe_ids)}")
+            rule_info = "\n".join(rule_info_parts)
 
-            if rule_info_parts:
-                context_text += f"\n\n【触发的安全规则】\n" + "\n".join(rule_info_parts)
+            # P0-6: 使用 Token 预算管理器构建上下文
+            context_text, budget_info = self._build_prompt_with_budget(
+                chain_context=chain_context,
+                rule_info=rule_info,
+            )
+
+            # 记录 Token 预算信息
+            if budget_info.get("truncated_count", 0) > 0:
+                logger.info(
+                    f"[P0-6] 调用链 {chain_id}: Token 截断 {budget_info['truncated_count']} 个块, "
+                    f"节省 {budget_info.get('tokens_saved', 0)} tokens"
+                )
 
             # 使用链级分析提示词（根据目标文档 P0-5）
             system_prompt, user_prompt = build_chain_analysis_prompt(
@@ -925,6 +975,129 @@ class SecurityAnalyzer:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return None
+
+    def _build_prompt_with_budget(
+        self,
+        chain_context: ChainContext,
+        rule_info: str,
+    ) -> tuple:
+        """P0-6: 使用 Token 预算管理器构建 Prompt
+
+        将 chain_context 的各部分按优先级分配 Token 预算。
+
+        Args:
+            chain_context: 调用链上下文
+            rule_info: 规则信息文本
+
+        Returns:
+            (final_prompt, budget_info)
+        """
+        content_blocks = []
+
+        # 1. Sink 信息（CRITICAL - 绝不截断）
+        sink_site = chain_context.sink_site
+        sink_text = f"""【危险函数调用】
+文件: {sink_site.file_path}:{sink_site.line_start}
+函数: {sink_site.symbol}
+类别: {sink_site.sink_category.value}
+风险等级: {sink_site.risk_level.value}
+匹配规则: {', '.join(sink_site.matched_rule_ids)}
+```
+{sink_site.call_snippet}
+```"""
+        content_blocks.append(ContentBlock(
+            text=sink_text,
+            priority=TokenPriority.CRITICAL,
+            name="sink_info",
+        ))
+
+        # 2. 入口点代码（HIGH - 优先保留）
+        if chain_context.entry_point:
+            entry_text = f"""【入口点】
+函数: {chain_context.entry_point.qualified_name}
+位置: {chain_context.entry_point.file_path}:{chain_context.entry_point.line_start}
+```
+{chain_context.entry_point.code[:1500]}
+```"""
+            content_blocks.append(ContentBlock(
+                text=entry_text,
+                priority=TokenPriority.HIGH,
+                name="entry_point",
+            ))
+
+        # 3. 调用链概述（HIGH）
+        chain_summary_lines = ["【调用链路】"]
+        for i, node in enumerate(chain_context.chain_nodes):
+            prefix = "└─>" if i == len(chain_context.chain_nodes) - 1 else "├─>"
+            marks = []
+            if node.is_sink:
+                marks.append("[SINK]")
+            if node.node_type == "entry_point":
+                marks.append("[ENTRY]")
+            if node.node_type == "sanitizer":
+                marks.append("[SANITIZER]")
+            mark_str = " ".join(marks)
+            chain_summary_lines.append(f"{prefix} {node.qualified_name} {mark_str}")
+            chain_summary_lines.append(f"    位置: {node.file_path}:{node.line_start}")
+
+        content_blocks.append(ContentBlock(
+            text="\n".join(chain_summary_lines),
+            priority=TokenPriority.HIGH,
+            name="chain_summary",
+        ))
+
+        # 4. 中间函数代码（MEDIUM - 可部分截断）
+        intermediate_nodes = [
+            node for node in chain_context.chain_nodes
+            if not node.is_sink and node.node_type != "entry_point" and node.code
+        ]
+        if intermediate_nodes:
+            intermediate_lines = ["【中间函数代码】"]
+            for node in intermediate_nodes:
+                intermediate_lines.append(f"--- {node.qualified_name} ---")
+                intermediate_lines.append(f"```")
+                intermediate_lines.append(node.code[:800])
+                intermediate_lines.append("```")
+                intermediate_lines.append("")
+
+            content_blocks.append(ContentBlock(
+                text="\n".join(intermediate_lines),
+                priority=TokenPriority.MEDIUM,
+                name="intermediate_code",
+            ))
+
+        # 5. 规则信息（LOW - 可大量截断）
+        if rule_info:
+            content_blocks.append(ContentBlock(
+                text=f"【触发的安全规则】\n{rule_info}",
+                priority=TokenPriority.LOW,
+                name="rule_info",
+            ))
+
+        # 6. 元数据（LOW）
+        meta_lines = [
+            f"【分析元数据】",
+            f"调用链长度: {chain_context.chain_length}",
+            f"存在用户输入: {'是' if chain_context.has_user_input else '否'}",
+        ]
+        if chain_context.sanitizers_on_path:
+            meta_lines.append(f"路径过滤器: {', '.join(chain_context.sanitizers_on_path)}")
+
+        content_blocks.append(ContentBlock(
+            text="\n".join(meta_lines),
+            priority=TokenPriority.LOW,
+            name="metadata",
+        ))
+
+        # 使用预算管理器构建最终 Prompt
+        final_prompt, budget_info = self.token_budget_manager.build_prompt(content_blocks)
+
+        logger.debug(
+            f"[P0-6] Token 预算: {budget_info.get('total_tokens', 0)}/{budget_info.get('max_tokens', 0)} "
+            f"(利用率: {budget_info.get('utilization', 0):.1%})"
+        )
+
+        return final_prompt, budget_info
 
     def _contains_pattern(self, code: str, patterns: List[str], debug: bool = False) -> bool:
         """检查代码是否包含指定模式"""
@@ -1261,51 +1434,53 @@ class SecurityAnalyzer:
         Returns:
             Finding 列表
         """
-        # 如果提供了 code_units，优先使用链级分析
-        if code_units is not None:
-            logger.info(f"Using direct analysis mode with {len(code_units)} code units")
-            if vuln_types:
-                logger.info(f"漏洞类型过滤: {vuln_types}")
+        # P0-3: chain_analysis 开关优先级最高
+        # 无论是否提供 code_units，都应该尊重 use_chain_analysis 参数
+        logger.info(f"[Analyze] Mode: {'chain' if use_chain_analysis else 'simple'}")
 
-            # 默认使用链级分析（P0 目标推荐）
-            if use_chain_analysis:
-                logger.info("[P0] Using chain-level analysis (recommended)")
-                return self.analyze_chains(
-                    code_units=code_units,
-                    language=language,
-                    max_candidates=max_candidates,
-                    max_workers=max_workers,
-                    max_chain_depth=max_chain_depth,
-                    max_llm_calls=max_llm_calls,
-                    vuln_types=vuln_types,
-                    progress_callback=progress_callback,
-                )
-            else:
-                # 回退到 SinkScanner 模式
-                return self.analyze_units_direct(
-                    code_units=code_units,
-                    language=language,
-                    max_candidates=max_candidates,
-                    max_workers=max_workers,
-                )
+        # 如果没有提供 code_units，从索引器获取
+        if code_units is None:
+            logger.info("No code_units provided, fetching from indexer...")
+            code_units = self.indexer.get_all_units()
+            if language:
+                code_units = [u for u in code_units if u.language == language]
+            logger.info(f"Fetched {len(code_units)} code units from indexer")
 
-        use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
+        if vuln_types:
+            logger.info(f"漏洞类型过滤: {vuln_types}")
 
-        if use_agent_mode:
-            logger.info("Using Agent-based analysis mode")
-            return self.analyze_with_agent(
+        # 根据 use_chain_analysis 选择分析模式
+        if use_chain_analysis:
+            logger.info("[P0] Using chain-level analysis (recommended)")
+            return self.analyze_chains(
+                code_units=code_units,
                 language=language,
-                file_pattern=file_pattern,
-                max_candidates=max_candidates,
-            )
-        else:
-            logger.info("Using legacy analysis mode")
-            return self.analyze_legacy(
-                language=language,
-                file_pattern=file_pattern,
                 max_candidates=max_candidates,
                 max_workers=max_workers,
+                max_chain_depth=max_chain_depth,
+                max_llm_calls=max_llm_calls,
+                vuln_types=vuln_types,
+                progress_callback=progress_callback,
             )
+        else:
+            # 不使用链级分析时，根据 use_agent 决定使用哪种模式
+            use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
+
+            if use_agent_mode:
+                logger.info("Using Agent-based analysis mode (no chain)")
+                return self.analyze_with_agent(
+                    language=language,
+                    file_pattern=file_pattern,
+                    max_candidates=max_candidates,
+                )
+            else:
+                logger.info("Using legacy analysis mode (no chain)")
+                return self.analyze_legacy(
+                    language=language,
+                    file_pattern=file_pattern,
+                    max_candidates=max_candidates,
+                    max_workers=max_workers,
+                )
 
     def analyze_units_direct(
         self,

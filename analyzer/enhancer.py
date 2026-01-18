@@ -161,20 +161,48 @@ class DeepAnalysisEnhancer:
         Returns:
             EnhancementResult 包含增强后的触发点列表
         """
+        # 使用 enhance_sites 方法复用逻辑
+        return self.enhance_sites(prescan_result.filtered_sites, code_units)
+
+    def enhance_sites(
+        self,
+        sink_sites: List[SinkCallSite],
+        code_units: List[CodeUnit],
+        call_graph: Optional[CallGraph] = None,
+    ) -> EnhancementResult:
+        """P0-7: 对 SinkCallSite 列表执行深度增强分析
+
+        直接接受 sink_sites 列表，无需 PreScanResult。
+        可复用已有的 call_graph 避免重复构建。
+
+        Args:
+            sink_sites: 危险函数触发点列表
+            code_units: 代码单元列表
+            call_graph: 可选的已有调用图（避免重复构建）
+
+        Returns:
+            EnhancementResult 包含增强后的触发点列表
+        """
         import time
         start_time = time.time()
 
         self._code_units_map = {u.id: u for u in code_units}
 
-        if self.config.enable_call_chain:
+        # 复用已有调用图或构建新的
+        if call_graph is not None:
+            self.call_graph = call_graph
+            self.taint_analyzer.call_graph = call_graph
+        elif self.config.enable_call_chain:
             self.call_graph = self.call_chain_analyzer.build_call_graph(code_units)
             self.taint_analyzer.call_graph = self.call_graph
         else:
+            # 修复 Codex 发现的问题：确保 taint_analyzer.call_graph 也同步
             self.call_graph = CallGraph()
+            self.taint_analyzer.call_graph = self.call_graph
 
         enhanced_sites: List[EnhancedSite] = []
 
-        for site in prescan_result.filtered_sites:
+        for site in sink_sites:
             enhanced = self._enhance_site(site)
             enhanced_sites.append(enhanced)
 
