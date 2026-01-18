@@ -13,6 +13,7 @@ import hashlib
 import logging
 import sqlite3
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional, Set, Iterator, Callable, Dict, Any, Tuple, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,6 +24,7 @@ from config import AuditConfig, ScanConfig
 if TYPE_CHECKING:
     from llm_client import BaseLLMClient
 
+from functools import lru_cache
 from .models import CodeUnit
 from .parser import get_parser_for_file, BaseLanguageParser
 from .vector_store_legacy import BaseVectorStore, SearchResult, HybridSearchConfig, create_vector_store
@@ -372,6 +374,16 @@ class CodeIndexer:
         # 初始化向量存储
         self.vector_store.initialize()
 
+        # P0-1: Chunk 映射数据结构（按需加载机制）
+        # chunk_id -> parent_id (原始完整单元的 id)
+        self._chunk_parent_map: Dict[str, str] = {}
+        # parent_id -> [chunk_ids] (一个原始单元被分成的所有 chunk)
+        self._chunk_siblings: Dict[str, List[str]] = {}
+        # parent_id -> CodeUnit (LRU 缓存的原始完整单元)
+        self._raw_unit_cache: OrderedDict[str, CodeUnit] = OrderedDict()
+        # LRU 缓存大小
+        self._raw_unit_cache_max_size: int = 500
+
     @property
     def code_units(self) -> Dict[str, 'CodeUnit']:
         """获取所有已索引的代码单元（字典格式）
@@ -507,6 +519,8 @@ class CodeIndexer:
     def _chunk_units(self, units: List[CodeUnit], max_tokens: int = 2000) -> List[CodeUnit]:
         """将大代码单元分块
 
+        P0-1: 同时记录 chunk 到 parent 的映射关系，支持按需重建完整单元。
+
         估算：平均每个字符约 0.25 token（英文），中文约 0.5 token
         """
         result = []
@@ -518,7 +532,9 @@ class CodeIndexer:
             if estimated_tokens <= max_tokens:
                 result.append(unit)
             else:
-                # 需要分块
+                # 需要分块 - 先缓存原始完整单元
+                self._raw_unit_cache[unit.id] = unit
+
                 chunk_size = int(max_tokens / 0.3)  # 字符数
                 code = unit.code
                 chunks = []
@@ -541,10 +557,19 @@ class CodeIndexer:
                 if current_chunk:
                     chunks.append("\n".join(current_chunk))
 
+                # P0-1: 记录 chunk 映射关系
+                chunk_ids = []
+
                 # 创建分块的 CodeUnit
                 for i, chunk_code in enumerate(chunks):
+                    chunk_id = f"{unit.id}_chunk{i}"
+                    chunk_ids.append(chunk_id)
+
+                    # 记录 chunk -> parent 映射
+                    self._chunk_parent_map[chunk_id] = unit.id
+
                     chunked_unit = CodeUnit(
-                        id=f"{unit.id}_chunk{i}",
+                        id=chunk_id,
                         language=unit.language,
                         file_path=unit.file_path,
                         symbol=unit.symbol,
@@ -562,6 +587,14 @@ class CodeIndexer:
                         total_chunks=len(chunks),
                     )
                     result.append(chunked_unit)
+
+                # 记录 parent -> [chunk_ids] 映射
+                self._chunk_siblings[unit.id] = chunk_ids
+
+                logger.debug(
+                    f"[Chunk] {unit.symbol} 被分为 {len(chunks)} 个块 "
+                    f"(原始 {len(code)} 字符, ~{estimated_tokens:.0f} tokens)"
+                )
 
         return result
 
@@ -1009,10 +1042,204 @@ class CodeIndexer:
         """获取指定的代码单元"""
         return self.vector_store.get_by_id(unit_id)
 
+    def get_raw_unit(self, unit_id: str) -> Optional[CodeUnit]:
+        """P0-1: 获取完整的原始代码单元（从 chunk 重建）
+
+        如果传入的是 chunk_id，会自动找到其 parent 并重建完整代码。
+        如果传入的是非分块单元的 id，直接返回该单元。
+
+        Args:
+            unit_id: 代码单元 ID（可以是 chunk_id 或原始 unit_id）
+
+        Returns:
+            完整的 CodeUnit，如果找不到返回 None
+        """
+        # 检查是否是 chunk_id，获取其 parent_id
+        parent_id = self._chunk_parent_map.get(unit_id)
+
+        if parent_id:
+            # 是 chunk，需要重建 parent
+            return self._rebuild_raw_unit(parent_id)
+        elif unit_id in self._chunk_siblings:
+            # 本身就是 parent_id
+            return self._rebuild_raw_unit(unit_id)
+        else:
+            # 非分块单元，直接返回
+            return self.get_unit(unit_id)
+
+    def _rebuild_raw_unit(self, parent_id: str) -> Optional[CodeUnit]:
+        """从 chunk 重建完整的原始代码单元
+
+        使用 LRU 缓存策略避免重复重建。
+
+        Args:
+            parent_id: 原始代码单元的 ID
+
+        Returns:
+            完整的 CodeUnit
+        """
+        # 检查缓存（LRU: 命中时刷新访问时间）
+        if parent_id in self._raw_unit_cache:
+            logger.debug(f"[RawUnit] 缓存命中: {parent_id}")
+            # LRU: 将命中的条目移到末尾（最近使用）
+            self._raw_unit_cache.move_to_end(parent_id)
+            return self._raw_unit_cache[parent_id]
+
+        # 获取所有兄弟 chunk
+        chunk_ids = self._chunk_siblings.get(parent_id)
+        if not chunk_ids:
+            logger.warning(f"[RawUnit] 未找到 chunk 映射: {parent_id}")
+            return None
+
+        # 按顺序获取所有 chunk
+        chunks: List[CodeUnit] = []
+        for chunk_id in chunk_ids:
+            chunk = self.get_unit(chunk_id)
+            if chunk:
+                chunks.append(chunk)
+            else:
+                logger.warning(f"[RawUnit] 未找到 chunk: {chunk_id}")
+
+        if not chunks:
+            return None
+
+        # 按 chunk_index 排序
+        chunks.sort(key=lambda c: c.chunk_index or 0)
+
+        # 合并代码
+        merged_code = "\n".join(c.code for c in chunks)
+
+        # 使用第一个 chunk 的元数据重建完整单元
+        first_chunk = chunks[0]
+        raw_unit = CodeUnit(
+            id=parent_id,
+            language=first_chunk.language,
+            file_path=first_chunk.file_path,
+            symbol=first_chunk.symbol,
+            unit_type=first_chunk.unit_type,
+            signature=first_chunk.signature,
+            span=first_chunk.span,
+            code=merged_code,
+            docstring=first_chunk.docstring,
+            calls=first_chunk.calls,
+            parent_class=first_chunk.parent_class,
+            decorators=first_chunk.decorators,
+            imports=first_chunk.imports,
+            metadata=first_chunk.metadata,
+            chunk_index=None,  # 标记为完整单元
+            total_chunks=None,
+        )
+
+        # 缓存重建的单元（LRU 策略）
+        self._cache_raw_unit(parent_id, raw_unit)
+
+        logger.debug(
+            f"[RawUnit] 重建完成: {parent_id} ({len(chunks)} chunks -> {len(merged_code)} chars)"
+        )
+
+        return raw_unit
+
+    def _cache_raw_unit(self, parent_id: str, unit: CodeUnit) -> None:
+        """缓存重建的原始单元（LRU 实现）
+
+        使用 OrderedDict 实现 LRU:
+        - 新条目添加到末尾
+        - 访问命中时在 get_raw_unit 中调用 move_to_end
+        - 淘汰时使用 popitem(last=False) 移除最久未访问的条目
+        """
+        # 如果已存在，先删除（确保重新插入到末尾）
+        if parent_id in self._raw_unit_cache:
+            del self._raw_unit_cache[parent_id]
+        # 如果缓存已满，移除最久未访问的条目（LRU）
+        elif len(self._raw_unit_cache) >= self._raw_unit_cache_max_size:
+            # popitem(last=False) 移除第一个条目（最久未使用）
+            oldest_key, _ = self._raw_unit_cache.popitem(last=False)
+            logger.debug(f"[RawUnit] LRU 缓存淘汰: {oldest_key}")
+
+        # 添加到末尾（最近使用）
+        self._raw_unit_cache[parent_id] = unit
+
+    def get_raw_units_batch(self, unit_ids: List[str]) -> List[CodeUnit]:
+        """批量获取完整的原始代码单元
+
+        Args:
+            unit_ids: 代码单元 ID 列表
+
+        Returns:
+            完整的 CodeUnit 列表（保持顺序，过滤掉 None）
+        """
+        result = []
+        seen_parents: Set[str] = set()  # 避免重复重建同一个 parent
+
+        for unit_id in unit_ids:
+            # 确定实际的 parent_id
+            parent_id = self._chunk_parent_map.get(unit_id)
+            if parent_id:
+                if parent_id in seen_parents:
+                    continue
+                seen_parents.add(parent_id)
+                raw_unit = self._rebuild_raw_unit(parent_id)
+            elif unit_id in self._chunk_siblings:
+                if unit_id in seen_parents:
+                    continue
+                seen_parents.add(unit_id)
+                raw_unit = self._rebuild_raw_unit(unit_id)
+            else:
+                raw_unit = self.get_unit(unit_id)
+
+            if raw_unit:
+                result.append(raw_unit)
+
+        return result
+
+    def is_chunked(self, unit_id: str) -> bool:
+        """检查一个单元是否是 chunk 或被分块的 parent
+
+        Args:
+            unit_id: 代码单元 ID
+
+        Returns:
+            True 如果是 chunk 或其 parent 被分块
+        """
+        return unit_id in self._chunk_parent_map or unit_id in self._chunk_siblings
+
+    def get_chunk_info(self, unit_id: str) -> Optional[Dict[str, Any]]:
+        """获取 chunk 相关信息
+
+        Args:
+            unit_id: 代码单元 ID
+
+        Returns:
+            包含 parent_id、siblings 等信息的字典
+        """
+        if unit_id in self._chunk_parent_map:
+            parent_id = self._chunk_parent_map[unit_id]
+            siblings = self._chunk_siblings.get(parent_id, [])
+            return {
+                "is_chunk": True,
+                "parent_id": parent_id,
+                "chunk_count": len(siblings),
+                "siblings": siblings,
+            }
+        elif unit_id in self._chunk_siblings:
+            siblings = self._chunk_siblings[unit_id]
+            return {
+                "is_chunk": False,
+                "is_parent": True,
+                "chunk_count": len(siblings),
+                "chunks": siblings,
+            }
+        else:
+            return None
+
     def clear_index(self) -> None:
         """清空索引"""
         self.vector_store.clear()
-        logger.info("Index cleared")
+        # P0-1: 同时清空 chunk 映射和缓存
+        self._chunk_parent_map.clear()
+        self._chunk_siblings.clear()
+        self._raw_unit_cache.clear()
+        logger.info("Index cleared (including chunk mappings)")
 
     def get_stats(self) -> dict:
         """获取索引统计信息"""
@@ -1020,6 +1247,11 @@ class CodeIndexer:
             "total_units": self.vector_store.count(),
             "collection_name": self.config.vector_store.collection_name,
             "hybrid_search_enabled": self.hybrid_config.enable_keyword_boost,
+            # P0-1: Chunk 相关统计
+            "chunked_parents": len(self._chunk_siblings),
+            "total_chunks": len(self._chunk_parent_map),
+            "raw_unit_cache_size": len(self._raw_unit_cache),
+            "raw_unit_cache_max": self._raw_unit_cache_max_size,
         }
 
         # 添加缓存统计
