@@ -98,7 +98,9 @@ class PythonParser(BaseLanguageParser):
                     imports.append(f"{module}.{alias.name}")
         return imports
 
-    def _get_decorators(self, node: Union[ast.FunctionDef, ast.ClassDef]) -> List[str]:
+    def _get_decorators(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
+    ) -> List[str]:
         """提取装饰器"""
         decorators = []
         for dec in node.decorator_list:
@@ -113,8 +115,10 @@ class PythonParser(BaseLanguageParser):
                     decorators.append(ast.unparse(dec.func))
         return decorators
 
-    def _get_function_signature(self, node: ast.FunctionDef) -> str:
-        """获取函数签名"""
+    def _get_function_signature(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> str:
+        """获取函数签名，支持同步和异步函数"""
         args = []
         for arg in node.args.args:
             arg_str = arg.arg
@@ -130,7 +134,10 @@ class PythonParser(BaseLanguageParser):
         if node.args.kwarg:
             args.append(f"**{node.args.kwarg.arg}")
 
-        signature = f"def {node.name}({', '.join(args)})"
+        # 判断是否为异步函数
+        is_async = isinstance(node, ast.AsyncFunctionDef)
+        prefix = "async def" if is_async else "def"
+        signature = f"{prefix} {node.name}({', '.join(args)})"
 
         # 返回值注解
         if node.returns:
@@ -184,7 +191,9 @@ class PythonParser(BaseLanguageParser):
                     calls.add(child.func.attr)
         return list(calls)
 
-    def _get_docstring(self, node: Union[ast.FunctionDef, ast.ClassDef]) -> Optional[str]:
+    def _get_docstring(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
+    ) -> Optional[str]:
         """提取文档字符串"""
         return ast.get_docstring(node)
 
@@ -208,7 +217,7 @@ class PythonParser(BaseLanguageParser):
 
     def _parse_function(
         self,
-        node: ast.FunctionDef,
+        node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
         file_path: str,
         lines: List[str],
         imports: List[str],
