@@ -569,7 +569,61 @@ class UnifiedAuditAgent:
             category="code_navigation",
         )
 
-        logger.debug("[UnifiedAgent] 代码导航工具已注册")
+        # get_callers - 查找调用者（基础版）
+        self.tool_manager.register_tool(
+            name="get_callers",
+            description="查找谁调用了指定函数（向上追溯调用链）。适用于：找到函数的所有使用位置；追踪数据流入口；分析函数的影响范围。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "symbol_name": {
+                        "type": "string",
+                        "description": "要查找调用者的函数名"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "限定在特定文件中查找（可选）"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "最大返回数量",
+                        "default": 10
+                    }
+                },
+                "required": ["symbol_name"]
+            },
+            executor=self._execute_get_callers,
+            category="code_navigation",
+        )
+
+        # get_callees - 查找被调用者（基础版）
+        self.tool_manager.register_tool(
+            name="get_callees",
+            description="查找指定函数调用了哪些其他函数（向下追溯调用链）。适用于：分析函数依赖；追踪数据流向危险函数；理解函数行为。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "symbol_name": {
+                        "type": "string",
+                        "description": "要分析的函数名"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "限定在特定文件中查找（可选）"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "调用链追溯深度（1=直接调用，2=间接调用）",
+                        "default": 1
+                    }
+                },
+                "required": ["symbol_name"]
+            },
+            executor=self._execute_get_callees,
+            category="code_navigation",
+        )
+
+        logger.debug("[UnifiedAgent] 代码导航工具已注册（含 get_callers/get_callees）")
 
     def _register_call_chain_tools(self, code_units: List[CodeUnit]):
         """注册调用链分析工具"""
@@ -902,7 +956,81 @@ class UnifiedAuditAgent:
             category="deep_analysis",
         )
 
-        logger.debug("[UnifiedAgent] 安全分析工具已注册")
+        # === 污点分析工具 ===
+        self.tool_manager.register_tool(
+            name="analyze_taint_path",
+            description="""分析从输入源（Source）到危险函数（Sink）的污点传播路径。
+用于追踪用户输入如何流向危险函数，判断是否存在可利用的数据流。""",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "source_symbol": {
+                        "type": "string",
+                        "description": "污点源函数名（如 'request.get_json'）"
+                    },
+                    "sink_symbol": {
+                        "type": "string",
+                        "description": "危险函数名（如 'cursor.execute'）"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "最大路径深度",
+                        "default": 10
+                    }
+                }
+            },
+            executor=self._execute_analyze_taint_path,
+            category="security_analysis",
+        )
+
+        # === 认证检查工具 ===
+        self.tool_manager.register_tool(
+            name="check_auth",
+            description="检查指定函数是否有认证和授权检查。用于发现缺少权限验证的敏感操作。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "symbol_name": {
+                        "type": "string",
+                        "description": "要检查的函数名"
+                    },
+                    "check_type": {
+                        "type": "string",
+                        "description": "检查类型",
+                        "enum": ["authentication", "authorization", "both"],
+                        "default": "both"
+                    }
+                },
+                "required": ["symbol_name"]
+            },
+            executor=self._execute_check_auth,
+            category="security_analysis",
+        )
+
+        # === 入口点发现工具 ===
+        self.tool_manager.register_tool(
+            name="find_entry_points",
+            description="查找项目的入口点（HTTP 路由、API 端点等）。用于发现可被外部访问的函数。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "framework": {
+                        "type": "string",
+                        "description": "框架类型",
+                        "enum": ["flask", "django", "fastapi", "express", "spring", "auto"]
+                    },
+                    "include_internal": {
+                        "type": "boolean",
+                        "description": "是否包含内部 API",
+                        "default": False
+                    }
+                }
+            },
+            executor=self._execute_find_entry_points,
+            category="security_analysis",
+        )
+
+        logger.debug("[UnifiedAgent] 安全分析工具已注册（含污点分析/认证检查/入口点发现）")
 
     # ============ 核心对话接口 ============
 
@@ -1437,7 +1565,7 @@ Step 5: 输出结构化发现报告
 ## 会话信息
 
 - 会话 ID: {self.session_id}
-- 已索引代码单元: {len(self.indexer.code_units) if self.indexer.code_units else 0}
+- 已索引代码单元: {len(getattr(self.indexer, 'code_units', {}) or {})}
 - 可用工具数: {self.tool_manager.count()}
 """
 
@@ -2097,7 +2225,7 @@ Step 5: 输出结构化发现报告
         try:
             # 在代码单元中查找
             matching_units = []
-            for unit in (self.indexer.code_units or {}).values():
+            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
                 if unit.symbol == symbol_name or symbol_name in unit.symbol:
                     if file_path and file_path not in unit.file_path:
                         continue
@@ -2151,7 +2279,7 @@ Step 5: 输出结构化发现报告
         try:
             # 从代码单元中提取该文件的符号
             symbols = []
-            for unit in (self.indexer.code_units or {}).values():
+            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
                 if unit.file_path == file_path or file_path in unit.file_path:
                     symbols.append({
                         "name": unit.symbol,
@@ -2171,6 +2299,175 @@ Step 5: 输出结构化发现报告
             }
 
         except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _execute_get_callers(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行获取调用者 - 基础版本
+
+        查找谁调用了指定函数。支持通过 symbol_name 查找，
+        可选限定文件路径和最大返回数量。
+        """
+        symbol_name = args.get("symbol_name", "")
+        file_path = args.get("file_path")
+        max_results = args.get("max_results", 10)
+
+        if not symbol_name:
+            return {"success": False, "error": "symbol_name 是必需参数"}
+
+        try:
+            # 首先在代码单元中查找目标符号
+            target_units = []
+            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+                if unit.symbol == symbol_name or symbol_name in unit.symbol:
+                    if file_path and file_path not in unit.file_path:
+                        continue
+                    target_units.append(unit)
+
+            if not target_units:
+                return {
+                    "success": False,
+                    "error": f"未找到符号: {symbol_name}",
+                    "hint": "请确认函数名称正确，或尝试使用部分名称搜索"
+                }
+
+            # 如果有调用链分析器，使用调用图查找
+            callers_result = []
+
+            if self.call_chain_analyzer and hasattr(self.call_chain_analyzer, 'call_graph'):
+                call_graph = self.call_chain_analyzer.call_graph
+                if call_graph:
+                    for unit in target_units:
+                        caller_nodes = call_graph.get_callers(unit.id)
+                        for caller in caller_nodes[:max_results]:
+                            callers_result.append({
+                                "name": caller.name,
+                                "qualified_name": caller.qualified_name,
+                                "file_path": caller.file_path,
+                                "line_start": caller.line_start,
+                                "line_end": caller.line_end,
+                                "node_type": caller.node_type.value if hasattr(caller.node_type, 'value') else str(caller.node_type),
+                            })
+
+            # 如果调用图没有结果，回退到代码单元的 calls 字段反向查找
+            if not callers_result:
+                for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+                    if unit.calls:
+                        for call in unit.calls:
+                            if symbol_name in call or call == symbol_name:
+                                callers_result.append({
+                                    "name": unit.symbol,
+                                    "file_path": unit.file_path,
+                                    "line_start": unit.span.start_line,
+                                    "line_end": unit.span.end_line,
+                                    "called_as": call,
+                                })
+                                if len(callers_result) >= max_results:
+                                    break
+                    if len(callers_result) >= max_results:
+                        break
+
+            return {
+                "success": True,
+                "symbol_name": symbol_name,
+                "callers": callers_result[:max_results],
+                "total": len(callers_result),
+            }
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] get_callers 执行失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _execute_get_callees(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行获取被调用者 - 基础版本
+
+        查找指定函数调用了哪些其他函数。支持通过 symbol_name 查找，
+        可选限定文件路径和调用深度。
+        """
+        symbol_name = args.get("symbol_name", "")
+        file_path = args.get("file_path")
+        max_depth = args.get("max_depth", 1)
+
+        if not symbol_name:
+            return {"success": False, "error": "symbol_name 是必需参数"}
+
+        try:
+            # 首先在代码单元中查找目标符号
+            target_units = []
+            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+                if unit.symbol == symbol_name or symbol_name in unit.symbol:
+                    if file_path and file_path not in unit.file_path:
+                        continue
+                    target_units.append(unit)
+
+            if not target_units:
+                return {
+                    "success": False,
+                    "error": f"未找到符号: {symbol_name}",
+                    "hint": "请确认函数名称正确，或尝试使用部分名称搜索"
+                }
+
+            # 收集所有被调用的函数
+            callees_result = []
+
+            # 使用代码单元的 calls 字段
+            for unit in target_units:
+                if unit.calls:
+                    for call in unit.calls:
+                        # 查找 call 对应的代码单元
+                        found_unit = None
+                        for candidate in (getattr(self.indexer, 'code_units', None) or {}).values():
+                            if candidate.symbol == call or call in candidate.symbol:
+                                found_unit = candidate
+                                break
+
+                        callee_info = {
+                            "name": call,
+                            "called_from": unit.symbol,
+                            "source_file": unit.file_path,
+                            "source_line": unit.span.start_line,
+                        }
+
+                        if found_unit:
+                            callee_info.update({
+                                "file_path": found_unit.file_path,
+                                "line_start": found_unit.span.start_line,
+                                "line_end": found_unit.span.end_line,
+                                "is_internal": True,
+                            })
+                        else:
+                            callee_info["is_internal"] = False
+
+                        callees_result.append(callee_info)
+
+            # 如果有调用链分析器，补充调用图信息
+            if self.call_chain_analyzer and hasattr(self.call_chain_analyzer, 'call_graph'):
+                call_graph = self.call_chain_analyzer.call_graph
+                if call_graph and max_depth > 1:
+                    # 递归查找更深层次的被调用者
+                    for unit in target_units:
+                        callee_nodes = call_graph.get_callees(unit.id)
+                        for callee in callee_nodes:
+                            if not any(c.get("name") == callee.name for c in callees_result):
+                                callees_result.append({
+                                    "name": callee.name,
+                                    "qualified_name": callee.qualified_name,
+                                    "file_path": callee.file_path,
+                                    "line_start": callee.line_start,
+                                    "line_end": callee.line_end,
+                                    "node_type": callee.node_type.value if hasattr(callee.node_type, 'value') else str(callee.node_type),
+                                    "depth": 1,
+                                })
+
+            return {
+                "success": True,
+                "symbol_name": symbol_name,
+                "callees": callees_result,
+                "total": len(callees_result),
+                "max_depth": max_depth,
+            }
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] get_callees 执行失败: {e}")
             return {"success": False, "error": str(e)}
 
     def _execute_report_finding(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -2263,7 +2560,7 @@ Step 5: 输出结构化发现报告
             return {
                 "success": True,
                 "target_path": target_path,
-                "code_units_count": len(self.indexer.code_units) if self.indexer.code_units else 0,
+                "code_units_count": len(getattr(self.indexer, 'code_units', {}) or {}),
                 "languages": languages,
             }
 
@@ -2710,6 +3007,328 @@ Step 5: 输出结构化发现报告
             }
 
         except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _execute_analyze_taint_path(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """分析污点传播路径 - 从 Source 到 Sink
+
+        追踪用户输入如何传播到危险函数调用点。
+        """
+        source_symbol = args.get("source_symbol", "")
+        sink_symbol = args.get("sink_symbol", "")
+        max_depth = args.get("max_depth", 10)
+
+        try:
+            # 如果没有调用链分析器，返回提示信息
+            if not self.call_chain_analyzer:
+                return {
+                    "success": False,
+                    "error": "调用链分析器未配置，无法进行污点分析",
+                    "hint": "请先运行预扫描或确保项目已索引"
+                }
+
+            results = {
+                "success": True,
+                "source": source_symbol or "(all sources)",
+                "sink": sink_symbol or "(all sinks)",
+                "paths": [],
+                "summary": {
+                    "total_paths": 0,
+                    "high_risk_paths": 0,
+                    "sanitized_paths": 0,
+                }
+            }
+
+            # 获取 Source 和 Sink 节点
+            source_nodes = []
+            sink_nodes = []
+
+            if source_symbol:
+                source_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(source_symbol)
+            else:
+                # 获取所有 Source 类型节点
+                source_nodes = self.call_chain_analyzer.call_graph.get_sources()
+
+            if sink_symbol:
+                sink_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(sink_symbol)
+            else:
+                # 获取所有 Sink 类型节点
+                sink_nodes = self.call_chain_analyzer.call_graph.get_sinks()
+
+            if not source_nodes:
+                return {
+                    "success": True,
+                    "message": f"未找到 Source: {source_symbol or '任意'}",
+                    "paths": [],
+                }
+
+            if not sink_nodes:
+                return {
+                    "success": True,
+                    "message": f"未找到 Sink: {sink_symbol or '任意'}",
+                    "paths": [],
+                }
+
+            # 查找 Source -> Sink 路径
+            for source in source_nodes[:5]:  # 限制 Source 数量
+                for sink in sink_nodes[:10]:  # 限制 Sink 数量
+                    paths = self._find_paths_between(source.id, sink.id, max_depth=max_depth)
+                    for path in paths[:3]:  # 每对限制 3 条路径
+                        path_info = {
+                            "source": {
+                                "name": source.qualified_name,
+                                "file": source.file_path,
+                                "line": source.line_start,
+                            },
+                            "sink": {
+                                "name": sink.qualified_name,
+                                "file": sink.file_path,
+                                "line": sink.line_start,
+                            },
+                            "length": len(path),
+                            "nodes": [],
+                            "has_sanitizer": False,
+                        }
+
+                        # 填充路径节点
+                        for node_id in path:
+                            node = self.call_chain_analyzer.call_graph.get_node(node_id)
+                            if node:
+                                path_info["nodes"].append({
+                                    "name": node.qualified_name,
+                                    "type": node.node_type.value,
+                                })
+                                if node.node_type.value == "sanitizer":
+                                    path_info["has_sanitizer"] = True
+
+                        results["paths"].append(path_info)
+                        results["summary"]["total_paths"] += 1
+                        if not path_info["has_sanitizer"]:
+                            results["summary"]["high_risk_paths"] += 1
+                        else:
+                            results["summary"]["sanitized_paths"] += 1
+
+            return results
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] analyze_taint_path 执行失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _execute_check_auth(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """检查函数是否有认证和授权检查
+
+        分析函数代码，检测是否包含认证/授权相关的检查逻辑。
+        """
+        symbol_name = args.get("symbol_name", "")
+        check_type = args.get("check_type", "both")
+
+        if not symbol_name:
+            return {"success": False, "error": "symbol_name 是必需参数"}
+
+        try:
+            # 查找目标函数
+            target_unit = None
+            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+                if unit.symbol == symbol_name or symbol_name in unit.symbol:
+                    target_unit = unit
+                    break
+
+            if not target_unit:
+                return {
+                    "success": False,
+                    "error": f"未找到符号: {symbol_name}",
+                }
+
+            code = target_unit.code or ""
+
+            # 认证相关关键词
+            auth_patterns = [
+                "login", "authenticate", "is_authenticated", "require_login",
+                "@login_required", "session", "jwt", "token", "bearer",
+                "credentials", "password", "user_id", "current_user",
+            ]
+
+            # 授权相关关键词
+            authz_patterns = [
+                "authorize", "is_authorized", "permission", "role", "access",
+                "@permission_required", "@role_required", "can_", "has_permission",
+                "check_permission", "is_admin", "is_owner", "belongs_to",
+            ]
+
+            results = {
+                "success": True,
+                "symbol": symbol_name,
+                "file_path": target_unit.file_path,
+                "line_range": f"{target_unit.span.start_line}-{target_unit.span.end_line}",
+                "checks": {
+                    "authentication": {
+                        "found": False,
+                        "patterns": [],
+                    },
+                    "authorization": {
+                        "found": False,
+                        "patterns": [],
+                    },
+                },
+                "risk_assessment": "unknown",
+            }
+
+            code_lower = code.lower()
+
+            # 检查认证
+            if check_type in ["authentication", "both"]:
+                for pattern in auth_patterns:
+                    if pattern.lower() in code_lower:
+                        results["checks"]["authentication"]["found"] = True
+                        results["checks"]["authentication"]["patterns"].append(pattern)
+
+            # 检查授权
+            if check_type in ["authorization", "both"]:
+                for pattern in authz_patterns:
+                    if pattern.lower() in code_lower:
+                        results["checks"]["authorization"]["found"] = True
+                        results["checks"]["authorization"]["patterns"].append(pattern)
+
+            # 风险评估
+            has_auth = results["checks"]["authentication"]["found"]
+            has_authz = results["checks"]["authorization"]["found"]
+
+            if has_auth and has_authz:
+                results["risk_assessment"] = "low"
+                results["assessment_reason"] = "函数包含认证和授权检查"
+            elif has_auth:
+                results["risk_assessment"] = "medium"
+                results["assessment_reason"] = "函数包含认证检查，但可能缺少授权检查"
+            elif has_authz:
+                results["risk_assessment"] = "medium"
+                results["assessment_reason"] = "函数包含授权检查，但可能缺少认证检查"
+            else:
+                results["risk_assessment"] = "high"
+                results["assessment_reason"] = "未发现认证或授权检查，可能存在越权风险"
+
+            return results
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] check_auth 执行失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _execute_find_entry_points(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """查找项目的入口点
+
+        识别 HTTP 路由、API 端点等可被外部访问的函数。
+        """
+        framework = args.get("framework", "auto")
+        include_internal = args.get("include_internal", False)
+
+        try:
+            # 框架特定的入口点模式
+            framework_patterns = {
+                "flask": [
+                    r"@app\.route", r"@blueprint\.route", r"@.*\.route",
+                    r"add_url_rule",
+                ],
+                "django": [
+                    r"def\s+\w+\(request", r"class\s+\w+View",
+                    r"path\(", r"url\(",
+                ],
+                "fastapi": [
+                    r"@app\.(get|post|put|delete|patch)", r"@router\.(get|post|put|delete|patch)",
+                    r"@.*\.(get|post|put|delete|patch)",
+                ],
+                "express": [
+                    r"app\.(get|post|put|delete|patch)", r"router\.(get|post|put|delete|patch)",
+                ],
+                "spring": [
+                    r"@(Get|Post|Put|Delete|Patch)Mapping", r"@RequestMapping",
+                ],
+            }
+
+            # 通用入口点模式
+            generic_patterns = [
+                r"def\s+(handle|process|api|endpoint|route|controller|handler|service)",
+                r"class\s+\w+(Controller|Handler|View|API|Endpoint)",
+            ]
+
+            import re
+
+            entry_points = []
+
+            # 确定要使用的模式
+            patterns = []
+            if framework == "auto":
+                # 使用所有模式
+                for fw_patterns in framework_patterns.values():
+                    patterns.extend(fw_patterns)
+                patterns.extend(generic_patterns)
+            elif framework in framework_patterns:
+                patterns = framework_patterns[framework] + generic_patterns
+            else:
+                patterns = generic_patterns
+
+            # 遍历代码单元查找入口点
+            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+                is_entry_point = False
+                matched_pattern = None
+
+                code = unit.code or ""
+
+                for pattern in patterns:
+                    if re.search(pattern, code, re.IGNORECASE):
+                        is_entry_point = True
+                        matched_pattern = pattern
+                        break
+
+                # 检查符号名是否匹配入口点命名模式
+                entry_name_patterns = [
+                    "handle", "process", "api", "endpoint", "route",
+                    "controller", "handler", "view", "service",
+                ]
+                for name_pattern in entry_name_patterns:
+                    if name_pattern in unit.symbol.lower():
+                        is_entry_point = True
+                        matched_pattern = f"name contains '{name_pattern}'"
+                        break
+
+                if is_entry_point:
+                    # 过滤内部 API
+                    if not include_internal:
+                        internal_markers = ["_internal", "_private", "__", "test_", "_test"]
+                        if any(marker in unit.symbol.lower() for marker in internal_markers):
+                            continue
+
+                    entry_points.append({
+                        "name": unit.symbol,
+                        "file_path": unit.file_path,
+                        "line_start": unit.span.start_line,
+                        "line_end": unit.span.end_line,
+                        "matched_pattern": matched_pattern,
+                        "language": unit.language,
+                    })
+
+            # 如果有调用链分析器，也获取其识别的入口点
+            if self.call_chain_analyzer:
+                call_graph_entries = self.call_chain_analyzer.call_graph.get_entry_points()
+                for node in call_graph_entries:
+                    if not any(ep["name"] == node.qualified_name for ep in entry_points):
+                        entry_points.append({
+                            "name": node.qualified_name,
+                            "file_path": node.file_path,
+                            "line_start": node.line_start,
+                            "line_end": node.line_end,
+                            "matched_pattern": "call_graph_entry_point",
+                            "language": node.language,
+                        })
+
+            return {
+                "success": True,
+                "framework": framework,
+                "include_internal": include_internal,
+                "entry_points": entry_points,
+                "total": len(entry_points),
+            }
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] find_entry_points 执行失败: {e}")
             return {"success": False, "error": str(e)}
 
     def _collect_call_chain(self, node_id: str, max_depth: int, include_code: bool) -> List[Dict[str, Any]]:

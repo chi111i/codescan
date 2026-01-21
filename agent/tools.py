@@ -139,6 +139,47 @@ CODE_READER_TOOLS: List[Dict[str, Any]] = [
                 "required": ["file_path"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "grep_code",
+            "description": "精确代码搜索（基于正则/关键词，非语义搜索）。与 search_code 不同，此工具提供类似 grep/ripgrep 的精确字符串或正则表达式匹配。适用于：查找特定函数调用、变量名、关键词、代码模式等。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "搜索模式（字符串或正则表达式）。例如：'os.system'、'eval\\(.*\\)'、'password'"
+                    },
+                    "file_glob": {
+                        "type": "string",
+                        "description": "可选的文件过滤模式，如 '*.py'、'src/**/*.js'"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "最大返回结果数，默认 50",
+                        "default": 50
+                    },
+                    "context_lines": {
+                        "type": "integer",
+                        "description": "匹配行前后的上下文行数，默认 2",
+                        "default": 2
+                    },
+                    "use_regex": {
+                        "type": "boolean",
+                        "description": "是否将 pattern 作为正则表达式处理，默认 false",
+                        "default": False
+                    },
+                    "case_sensitive": {
+                        "type": "boolean",
+                        "description": "是否区分大小写，默认 true",
+                        "default": True
+                    }
+                },
+                "required": ["pattern"]
+            }
+        }
     }
 ]
 

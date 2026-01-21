@@ -309,8 +309,21 @@ class VariantToolExecutor:
         if not code_snippet and not query_text:
             return {"success": False, "error": "需要提供 code_snippet 或 query_text"}
 
-        if not self.vector_store or not self.embedding_client:
-            return {"success": False, "error": "向量存储或嵌入模型未配置"}
+        # P0-3.3: 增强依赖缺失提示
+        if not self.vector_store:
+            return {
+                "success": False,
+                "error": "向量存储未配置",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 vector_store 参数。"
+                       "可以使用 CodeIndexer.get_vector_store() 获取向量存储实例。",
+            }
+        if not self.embedding_client:
+            return {
+                "success": False,
+                "error": "嵌入模型客户端未配置",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 embedding_client 参数。"
+                       "可以使用 LLMClient 实例作为嵌入客户端。",
+            }
 
         try:
             # 生成查询向量
@@ -391,10 +404,21 @@ class VariantToolExecutor:
         max_results = args.get("max_results", 20)
 
         if not self.code_units:
-            return {"success": False, "error": "代码单元未加载"}
+            return {
+                "success": False,
+                "error": "代码单元未加载",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 code_units 参数。"
+                       "可以使用 CodeIndexer.get_all_units() 获取代码单元列表。",
+            }
 
+        # P0-3.3: 增强嵌入客户端依赖检查
         if not self.embedding_client:
-            return {"success": False, "error": "嵌入模型未配置"}
+            return {
+                "success": False,
+                "error": "嵌入模型客户端未配置",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 embedding_client 参数。"
+                       "可以使用 LLMClient 实例作为嵌入客户端。",
+            }
 
         try:
             # 过滤代码单元
@@ -508,8 +532,14 @@ class VariantToolExecutor:
         if not pattern_name or not pattern_type:
             return {"success": False, "error": "pattern_name 和 pattern_type 是必需参数"}
 
+        # P0-3.3: 增强变体分析器依赖检查
         if not self.analyzer:
-            return {"success": False, "error": "变体分析器未配置"}
+            return {
+                "success": False,
+                "error": "变体分析器未配置",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 variant_analyzer 参数。"
+                       "需要先创建 VariantAnalyzer 实例并注入到执行器中。",
+            }
 
         try:
             # 构建 finding 数据
@@ -559,8 +589,14 @@ class VariantToolExecutor:
         use_llm_verification = args.get("use_llm_verification", False)
         max_results = args.get("max_results", 20)
 
+        # P0-3.3: 增强变体分析器依赖检查
         if not self.analyzer:
-            return {"success": False, "error": "变体分析器未配置"}
+            return {
+                "success": False,
+                "error": "变体分析器未配置",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 variant_analyzer 参数。"
+                       "需要先创建 VariantAnalyzer 实例并注入到执行器中。",
+            }
 
         try:
             if pattern_id:
@@ -614,8 +650,14 @@ class VariantToolExecutor:
         pattern_type = args.get("pattern_type", "all")
         include_stats = args.get("include_stats", True)
 
+        # P0-3.3: 增强变体分析器依赖检查
         if not self.analyzer:
-            return {"success": False, "error": "变体分析器未配置"}
+            return {
+                "success": False,
+                "error": "变体分析器未配置",
+                "hint": "请确保在创建 VariantToolExecutor 时传入 variant_analyzer 参数。"
+                       "需要先创建 VariantAnalyzer 实例并注入到执行器中。",
+            }
 
         patterns = []
         for pid, pattern in self.analyzer.patterns.items():

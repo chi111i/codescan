@@ -93,6 +93,12 @@ class CodeAnalysisAgent:
             "get_file_outline": self._execute_get_file_outline,
             "get_callers": self._execute_get_callers,
             "get_callees": self._execute_get_callees,
+            "grep_code": self._execute_grep_code,
+            # P0-3.1: 安全分析专用工具执行器
+            "analyze_call_chain": self._execute_analyze_call_chain,
+            "trace_taint_path": self._execute_trace_taint_path,
+            "get_code_context": self._execute_get_code_context,
+            "check_vulnerability_pattern": self._execute_check_vulnerability_pattern,
         }
 
     def analyze(
@@ -342,6 +348,399 @@ class CodeAnalysisAgent:
             max_depth=args.get("max_depth", 1),
         )
 
+    def _execute_grep_code(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行精确代码搜索（基于正则/关键词）"""
+        return self.code_reader.grep_code(
+            pattern=args.get("pattern", ""),
+            file_glob=args.get("file_glob"),
+            max_results=args.get("max_results", 50),
+            context_lines=args.get("context_lines", 2),
+            use_regex=args.get("use_regex", False),
+            case_sensitive=args.get("case_sensitive", True),
+        )
+
+    # P0-3.1: 安全分析专用工具执行器实现
+
+    def _execute_analyze_call_chain(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """分析函数的调用关系链
+
+        基于 get_callers/get_callees 组合实现调用链分析。
+        """
+        symbol_name = args.get("symbol_name", "")
+        direction = args.get("direction", "both")
+        max_depth = min(args.get("max_depth", 3), 5)  # 限制最大深度
+        include_sources = args.get("include_sources", True)
+        include_sinks = args.get("include_sinks", True)
+
+        try:
+            result = {
+                "success": True,
+                "symbol": symbol_name,
+                "direction": direction,
+                "max_depth": max_depth,
+            }
+
+            # 获取符号定义
+            symbol_result = self.code_reader.read_symbol(symbol_name)
+            if not symbol_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"未找到符号: {symbol_name}",
+                    "hint": "使用 search_code 或 grep_code 搜索符号位置",
+                }
+
+            definitions = symbol_result.get("definitions", [])
+            if definitions:
+                result["symbol_definition"] = {
+                    "file_path": definitions[0].get("file_path"),
+                    "start_line": definitions[0].get("start_line"),
+                    "end_line": definitions[0].get("end_line"),
+                    "type": definitions[0].get("type"),
+                }
+
+            # 获取调用者（向上追溯）
+            if direction in ("both", "callers"):
+                callers_result = self.code_reader.get_callers(symbol_name)
+                result["callers"] = callers_result.get("callers", [])[:10]
+                result["callers_count"] = len(callers_result.get("callers", []))
+
+            # 获取被调用者（向下追溯）
+            if direction in ("both", "callees"):
+                callees_result = self.code_reader.get_callees(symbol_name)
+                result["callees"] = callees_result.get("callees", [])[:10]
+                result["callees_count"] = len(callees_result.get("callees", []))
+
+            # 标记 Source 和 Sink 节点
+            if include_sources or include_sinks:
+                result["security_markers"] = self._identify_security_markers(
+                    result.get("callers", []),
+                    result.get("callees", []),
+                    include_sources,
+                    include_sinks,
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Analyze call chain failed: {e}")
+            return {
+                "success": False,
+                "error": f"调用链分析失败: {str(e)}",
+            }
+
+    def _execute_trace_taint_path(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """追踪污点传播路径
+
+        基于调用链分析实现简化版污点追踪。
+        """
+        source_symbol = args.get("source_symbol")
+        sink_symbol = args.get("sink_symbol")
+        max_depth = min(args.get("max_depth", 10), 15)
+        show_sanitizers = args.get("show_sanitizers", True)
+        only_unsanitized = args.get("only_unsanitized", False)
+
+        try:
+            result = {
+                "success": True,
+                "max_depth": max_depth,
+                "paths": [],
+            }
+
+            # 如果指定了 source，追踪从 source 出发的调用
+            if source_symbol:
+                source_callees = self.code_reader.get_callees(source_symbol)
+                result["source"] = source_symbol
+                result["source_callees"] = source_callees.get("callees", [])[:5]
+
+            # 如果指定了 sink，追踪调用 sink 的位置
+            if sink_symbol:
+                sink_callers = self.code_reader.get_callers(sink_symbol)
+                result["sink"] = sink_symbol
+                result["sink_callers"] = sink_callers.get("callers", [])[:5]
+
+            # 识别潜在的 source 和 sink
+            if not source_symbol and not sink_symbol:
+                # 搜索常见的 source 和 sink 模式
+                result["hint"] = (
+                    "未指定 source 或 sink。建议：\n"
+                    "- 使用 grep_code 搜索危险函数如 'os.system', 'eval', 'exec'\n"
+                    "- 使用 grep_code 搜索输入源如 'request.', 'input('"
+                )
+
+            # 标记 sanitizer
+            if show_sanitizers:
+                result["common_sanitizers"] = [
+                    "escape", "quote", "sanitize", "validate",
+                    "encode", "filter", "clean", "safe",
+                ]
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Trace taint path failed: {e}")
+            return {
+                "success": False,
+                "error": f"污点追踪失败: {str(e)}",
+            }
+
+    def _execute_get_code_context(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """获取代码的完整上下文信息
+
+        组合 read_symbol、get_callers、get_callees 实现。
+        """
+        symbol_name = args.get("symbol_name", "")
+        file_path = args.get("file_path")
+        include_callers = args.get("include_callers", True)
+        include_callees = args.get("include_callees", True)
+        include_class = args.get("include_class", True)
+        include_imports = args.get("include_imports", False)
+
+        try:
+            result = {
+                "success": True,
+                "symbol": symbol_name,
+            }
+
+            # 读取符号定义
+            symbol_result = self.code_reader.read_symbol(
+                symbol_name,
+                file_path=file_path,
+                include_callers=include_callers,
+                include_callees=include_callees,
+            )
+
+            if not symbol_result.get("success"):
+                return symbol_result
+
+            result["definition"] = symbol_result.get("definitions", [])
+            result["total_definitions"] = symbol_result.get("total_found", 0)
+
+            # 添加调用关系
+            if include_callers:
+                result["callers"] = symbol_result.get("callers", [])
+
+            if include_callees:
+                result["callees"] = symbol_result.get("callees", [])
+
+            # 如果是方法，获取类的其他方法
+            if include_class and result["definition"]:
+                parent_class = result["definition"][0].get("parent_class")
+                if parent_class:
+                    class_result = self.code_reader.read_symbol(parent_class)
+                    if class_result.get("success"):
+                        result["parent_class"] = {
+                            "name": parent_class,
+                            "file_path": class_result.get("definitions", [{}])[0].get("file_path"),
+                        }
+
+            # 获取导入信息
+            if include_imports and result["definition"]:
+                file_path = result["definition"][0].get("file_path")
+                if file_path:
+                    # 读取文件头部获取导入语句
+                    file_result = self.code_reader.read_file(file_path, start_line=1, end_line=50)
+                    if file_result.get("success"):
+                        content = file_result.get("content", "")
+                        imports = [
+                            line for line in content.split("\n")
+                            if line.strip().startswith(("import ", "from "))
+                        ]
+                        result["imports"] = imports[:20]
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Get code context failed: {e}")
+            return {
+                "success": False,
+                "error": f"获取代码上下文失败: {str(e)}",
+            }
+
+    def _execute_check_vulnerability_pattern(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """检查代码中是否存在特定的漏洞模式
+
+        使用 grep_code 搜索常见漏洞模式。
+        """
+        pattern_type = args.get("pattern_type", "")
+        file_path = args.get("file_path")
+        symbol_name = args.get("symbol_name")
+
+        # 漏洞模式对应的搜索 patterns
+        vuln_patterns = {
+            "sql_injection": [
+                r"execute\s*\(.*%.*\)",
+                r"execute\s*\(.*\.format\(",
+                r"execute\s*\(.*\+",
+                r"raw\s*\(",
+                r"cursor\.execute\s*\(.*f['\"]",
+            ],
+            "command_injection": [
+                r"os\.system\s*\(",
+                r"subprocess\.call\s*\(.*shell\s*=\s*True",
+                r"subprocess\.Popen\s*\(.*shell\s*=\s*True",
+                r"eval\s*\(",
+                r"exec\s*\(",
+            ],
+            "xss": [
+                r"innerHTML\s*=",
+                r"document\.write\s*\(",
+                r"\|safe",
+                r"mark_safe\s*\(",
+                r"dangerouslySetInnerHTML",
+            ],
+            "path_traversal": [
+                r"open\s*\(.*\+",
+                r"Path\s*\(.*\+",
+                r"os\.path\.join\s*\(.*request",
+                r"send_file\s*\(",
+                r"\.\.\/",
+            ],
+            "insecure_deserialization": [
+                r"pickle\.loads?\s*\(",
+                r"yaml\.load\s*\(",
+                r"marshal\.loads?\s*\(",
+                r"unserialize\s*\(",
+            ],
+            "authentication_bypass": [
+                r"@login_not_required",
+                r"authentication_classes\s*=\s*\[\]",
+                r"IsAuthenticated.*False",
+                r"AllowAny",
+            ],
+            "authorization_bypass": [
+                r"permission_classes\s*=\s*\[\]",
+                r"@permission_exempt",
+                r"check_permission\s*=\s*False",
+            ],
+            "idor": [
+                r"\.get\s*\(\s*['\"]id['\"]\s*\)",
+                r"\.objects\.get\s*\(.*id\s*=",
+                r"filter\s*\(.*user_id\s*=.*request",
+            ],
+            "ssrf": [
+                r"requests\.get\s*\(.*request\.",
+                r"urllib\.request\.urlopen\s*\(",
+                r"http\.client\.",
+                r"curl_exec\s*\(",
+            ],
+            "open_redirect": [
+                r"redirect\s*\(.*request\.",
+                r"HttpResponseRedirect\s*\(",
+                r"Location:\s*.*\$",
+            ],
+        }
+
+        patterns = vuln_patterns.get(pattern_type, [])
+        if not patterns:
+            return {
+                "success": False,
+                "error": f"未知的漏洞模式类型: {pattern_type}",
+                "available_types": list(vuln_patterns.keys()),
+            }
+
+        try:
+            result = {
+                "success": True,
+                "pattern_type": pattern_type,
+                "matches": [],
+            }
+
+            # 对每个 pattern 执行搜索
+            for pattern in patterns[:5]:  # 限制搜索次数
+                grep_result = self.code_reader.grep_code(
+                    pattern=pattern,
+                    file_glob=file_path,
+                    max_results=10,
+                    use_regex=True,
+                    context_lines=2,
+                )
+
+                if grep_result.get("success") and grep_result.get("matches"):
+                    for match in grep_result["matches"]:
+                        match["pattern"] = pattern
+                        result["matches"].append(match)
+
+            result["total_matches"] = len(result["matches"])
+
+            if result["matches"]:
+                result["warning"] = (
+                    f"发现 {len(result['matches'])} 个可能的 {pattern_type} 模式匹配。"
+                    "请人工验证这些匹配是否为真正的漏洞。"
+                )
+            else:
+                result["message"] = f"未发现 {pattern_type} 相关的漏洞模式。"
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Check vulnerability pattern failed: {e}")
+            return {
+                "success": False,
+                "error": f"漏洞模式检查失败: {str(e)}",
+            }
+
+    def _identify_security_markers(
+        self,
+        callers: List[Dict[str, Any]],
+        callees: List[Dict[str, Any]],
+        include_sources: bool,
+        include_sinks: bool,
+    ) -> Dict[str, List[str]]:
+        """识别调用链中的安全相关标记
+
+        Args:
+            callers: 调用者列表
+            callees: 被调用者列表
+            include_sources: 是否标记 source
+            include_sinks: 是否标记 sink
+
+        Returns:
+            安全标记字典
+        """
+        markers = {"sources": [], "sinks": [], "sanitizers": []}
+
+        source_patterns = [
+            "request", "input", "argv", "environ", "stdin",
+            "get", "post", "query", "param", "body",
+        ]
+        sink_patterns = [
+            "exec", "eval", "system", "popen", "execute",
+            "write", "open", "send", "query", "render",
+        ]
+        sanitizer_patterns = [
+            "escape", "quote", "sanitize", "validate", "encode",
+            "filter", "clean", "safe", "check",
+        ]
+
+        # 检查调用者是否包含 source
+        if include_sources:
+            for caller in callers:
+                caller_name = caller.get("caller", "").lower()
+                for pattern in source_patterns:
+                    if pattern in caller_name:
+                        markers["sources"].append(caller.get("caller"))
+                        break
+
+        # 检查被调用者是否包含 sink
+        if include_sinks:
+            for callee in callees:
+                callee_name = str(callee).lower()
+                for pattern in sink_patterns:
+                    if pattern in callee_name:
+                        markers["sinks"].append(str(callee))
+                        break
+
+        # 检查是否有 sanitizer
+        all_symbols = [c.get("caller", "") for c in callers] + [str(c) for c in callees]
+        for symbol in all_symbols:
+            symbol_lower = symbol.lower()
+            for pattern in sanitizer_patterns:
+                if pattern in symbol_lower:
+                    markers["sanitizers"].append(symbol)
+                    break
+
+        return markers
+
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
         return """# 角色定位
@@ -354,6 +753,7 @@ class CodeAnalysisAgent:
 
 ## 搜索与发现
 - **search_code**: 语义搜索，根据功能描述查找相关代码（如"用户登录验证"、"文件上传处理"）
+- **grep_code**: 精确搜索，基于正则/关键词查找代码（如"os.system"、"eval("），适合查找特定函数调用
 - **list_files**: 列出项目文件结构，了解项目布局
 
 ## 代码阅读

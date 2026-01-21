@@ -4,9 +4,10 @@
 提供：
 1. analyze_call_chain - 分析完整调用链
 2. trace_taint_path - 追踪污点传播路径
-3. get_callers - 查找调用者
-4. get_callees - 查找被调用者
+3. analyze_callers - 查找调用者（高级版，与 registry.py 中的 get_callers 区分）
+4. analyze_callees - 查找被调用者（高级版，与 registry.py 中的 get_callees 区分）
 5. list_entry_points - 列出入口点
+6. list_sink_sites - 列出危险函数调用点
 """
 
 import logging
@@ -124,8 +125,13 @@ CALLCHAIN_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "get_callers",
-            "description": """查找谁调用了指定函数（向上追溯调用链）。
+            "name": "analyze_callers",
+            "description": """查找谁调用了指定函数（向上追溯调用链）- 高级版本。
+
+与基础版 get_callers 的区别：
+- 支持更深层次的调用链追溯
+- 可识别安全相关节点（Source/Sink/Sanitizer）
+- 提供风险等级标注
 
 使用场景：
 - 找到函数的所有使用位置
@@ -160,8 +166,13 @@ CALLCHAIN_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "get_callees",
-            "description": """查找指定函数调用了哪些其他函数（向下追溯调用链）。
+            "name": "analyze_callees",
+            "description": """查找指定函数调用了哪些其他函数（向下追溯调用链）- 高级版本。
+
+与基础版 get_callees 的区别：
+- 支持更深层次的调用链追溯
+- 可识别安全相关节点（Source/Sink/Sanitizer）
+- 提供风险等级标注
 
 使用场景：
 - 分析函数的依赖关系
@@ -528,8 +539,8 @@ class CallChainToolExecutor:
             "summary": f"找到 {len(results)} 条{'未过滤的' if only_unsanitized else ''}污点传播路径"
         }
 
-    def get_callers(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """执行 get_callers 工具"""
+    def analyze_callers(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行 analyze_callers 工具（调用链高级版）"""
         symbol_name = args.get("symbol_name")
         file_path = args.get("file_path")
         max_depth = args.get("max_depth", 1)
@@ -561,8 +572,8 @@ class CallChainToolExecutor:
             "total": len(callers),
         }
 
-    def get_callees(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """执行 get_callees 工具"""
+    def analyze_callees(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行 analyze_callees 工具（调用链高级版）"""
         symbol_name = args.get("symbol_name")
         file_path = args.get("file_path")
         max_depth = args.get("max_depth", 1)
@@ -673,8 +684,8 @@ class CallChainToolExecutor:
         return {
             "analyze_call_chain": self.analyze_call_chain,
             "trace_taint_path": self.trace_taint_path,
-            "get_callers": self.get_callers,
-            "get_callees": self.get_callees,
+            "analyze_callers": self.analyze_callers,
+            "analyze_callees": self.analyze_callees,
             "list_entry_points": self.list_entry_points,
             "list_sink_sites": self.list_sink_sites,
         }
