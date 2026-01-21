@@ -1,10 +1,34 @@
 # CodeScan - LLM 驱动的代码安全审计工具
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.8+-blue.svg" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/Node.js-16+-green.svg" alt="Node.js 16+">
+  <img src="https://img.shields.io/badge/FastAPI-0.109+-orange.svg" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Vue-3.x-brightgreen.svg" alt="Vue 3">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
+</p>
+
 一款基于大语言模型（LLM）的智能代码安全审计工具，专注于检测传统静态分析工具难以发现的**业务逻辑漏洞、权限控制问题和高危安全缺陷**（RCE、任意文件读写、反序列化、SSRF、鉴权绕过、IDOR、状态机绕过等）。
+
+## 📑 目录
+
+- [核心理念](#核心理念)
+- [功能特性](#功能特性)
+- [系统要求](#系统要求)
+- [快速开始](#快速开始)
+- [命令行使用](#命令行使用)
+- [API 接口](#api-接口)
+- [核心架构](#核心架构)
+- [项目结构](#项目结构)
+- [配置说明](#配置说明)
+- [LLM Agent 工具系统](#llm-agent-工具系统)
+- [常见问题](#常见问题)
+
+---
 
 ## 核心理念
 
-### 北极星目标
+### 🎯 北极星目标
 
 **核心使命**：挖掘深层次高危逻辑漏洞，通过：
 
@@ -15,44 +39,65 @@
 
 **衡量标准**：能否在中大型仓库里高召回地输出 sink 触发点、调用链路径、链上代码证据 + LLM 结构化审计结论。
 
-## 功能特性
+## ✨ 功能特性
 
-### 核心功能
+### 🔍 核心功能
 
-- **智能代码索引**：使用向量数据库（Qdrant）存储代码嵌入，支持语义搜索和增量索引
-- **多语言支持**：Python（AST 解析）、JavaScript、TypeScript、PHP（正则解析）代码解析
-- **高危漏洞检测**：RCE、命令注入、SQL 注入、文件操作、SSRF、反序列化等
-- **业务逻辑分析**：认证绕过、权限控制、IDOR、竞态条件等逻辑漏洞
-- **污点分析**：Source → Sink 数据流追踪
-- **调用链分析**：函数调用图构建与危险路径识别
-- **LLM Agent**：支持 Function Calling 的自主代码探索
-- **LLM 深度分析**：以调用链为单位进行复杂漏洞验证和分析
+| 功能 | 描述 |
+|------|------|
+| **智能代码索引** | 使用向量数据库（Qdrant/内存）存储代码嵌入，支持语义搜索和增量索引 |
+| **多语言支持** | Python（AST 解析）、JavaScript、TypeScript、PHP（正则解析） |
+| **高危漏洞检测** | RCE、命令注入、SQL 注入、文件操作、SSRF、反序列化、XXE、SSTI 等 |
+| **业务逻辑分析** | 认证绕过、权限控制、IDOR、竞态条件、批量赋值等逻辑漏洞 |
+| **污点分析** | Source → Sink 数据流追踪，自动识别过滤函数 |
+| **调用链分析** | 函数调用图构建与危险路径识别，支持深度控制 |
+| **LLM Agent** | 支持 Function Calling 的自主代码探索，模拟安全专家审计过程 |
+| **链级深度分析** | 以调用链为单位进行复杂漏洞验证，提供结构化 JSON 输出 |
 
-### 界面特性
+### 🖥️ 界面特性
 
-- **Apple 风格 UI**：磨砂玻璃效果的现代化界面
-- **实时扫描进度**：WebSocket 实时更新扫描状态
-- **LLM 交互面板**：显示 LLM 每一步分析过程和工具调用
-- **可视化仪表盘**：安全评分、严重性分布、语言统计
-- **详细报告**：支持 JSON、Console、SARIF 多种输出格式
+| 功能 | 描述 |
+|------|------|
+| **Apple 风格 UI** | 磨砂玻璃效果的现代化界面，Vue 3 + Vite 构建 |
+| **实时扫描进度** | WebSocket 实时更新扫描状态和发现 |
+| **LLM 交互面板** | 显示 LLM 每一步分析过程和工具调用详情 |
+| **可视化仪表盘** | 安全评分、严重性分布、语言统计图表 |
+| **多格式报告** | 支持 JSON、Console、SARIF 输出格式 |
 
-## 系统要求
+## 📋 系统要求
 
-- Python 3.8+
-- Node.js 16+
-- Qdrant 向量数据库（可选，支持内存模式）
+| 组件 | 版本要求 | 说明 |
+|------|---------|------|
+| Python | 3.8+ | 核心运行环境 |
+| Node.js | 16+ | 前端构建（可选） |
+| Qdrant | 1.7+ | 向量数据库（可选，支持内存模式） |
 
-## 快速开始
+### 核心依赖
+
+```
+pyyaml>=6.0          # 配置解析
+httpx>=0.25.0        # HTTP 客户端
+pydantic>=2.0.0      # 数据验证
+fastapi>=0.109.0     # Web API
+qdrant-client>=1.7.0 # 向量存储
+typer>=0.9.0         # CLI 框架
+rich>=13.0.0         # 终端美化
+```
+
+## 🚀 快速开始
 
 ### 1. 安装依赖
 
 ```bash
+# 克隆项目
+git clone https://github.com/your-repo/codescan.git
+cd codescan
+
 # 后端依赖
 pip install -r requirements.txt
 
-# 前端依赖
-cd frontend
-npm install
+# 前端依赖（可选）
+cd frontend && npm install
 ```
 
 ### 2. 配置
@@ -322,66 +367,103 @@ WS /ws/scan/{scan_id}    # 实时扫描进度
 | **CallGraph** | `analyzer/call_chain.py` | 函数调用图，用于求入口点到 sink 的路径 |
 | **TaintPath** | `analyzer/taint_analysis.py` | 污点传播路径 source → sink |
 
-## 项目结构
+## 📁 项目结构
 
 ```
 codescan/
-├── agent/                 # LLM Agent 系统
-│   ├── tools/            # Function Calling 工具
-│   │   ├── registry.py   # 工具定义管理
-│   │   └── executor.py   # 工具调用执行
-│   ├── logged_agent.py   # 带日志的安全审计 Agent
-│   └── unified_agent.py  # 统一 Agent 入口
-├── analyzer/              # 核心分析引擎
-│   ├── engine.py          # 安全分析器
-│   ├── call_chain.py      # 调用链分析
-│   ├── taint_analysis.py  # 污点分析
-│   ├── sink_scanner.py    # Sink 确定性扫描
-│   ├── vuln_detector.py   # 漏洞检测器
-│   ├── models.py          # 数据模型
-│   └── prompts.py         # LLM 提示词
-├── api/                    # FastAPI 后端
-│   ├── main.py            # 主应用
-│   ├── schemas.py         # Pydantic 模型
-│   └── agent_router.py    # Agent API 路由
-├── cli/                   # 命令行接口
-│   └── main.py
-├── config/                # 配置管理
-│   ├── settings.py        # 配置加载
-│   └── validator.py       # 配置验证
-├── frontend/              # Vue 3 前端
+├── agent/                    # LLM Agent 系统
+│   ├── tools/               # Function Calling 工具
+│   │   ├── registry.py      # 工具定义管理
+│   │   └── executor.py      # 工具调用执行
+│   ├── code_agent.py        # 代码审计专用 Agent（36KB）
+│   ├── context_manager.py   # 上下文管理器（21KB）
+│   ├── enhanced_agent.py    # 增强型 Agent
+│   ├── logged_agent.py      # 带日志的安全审计 Agent
+│   ├── logged_enhanced_agent.py # 增强日志 Agent
+│   ├── tools.py             # Agent 工具集定义
+│   └── unified_agent.py     # 统一 Agent 入口（138KB 核心）
+├── analyzer/                 # 核心分析引擎
+│   ├── engine.py            # 安全分析器（115KB 核心）
+│   ├── call_chain.py        # 调用链分析（32KB）
+│   ├── chain_context.py     # 调用链上下文收集（28KB）
+│   ├── taint_analysis.py    # 污点分析（56KB）
+│   ├── sink_scanner.py      # Sink 确定性扫描
+│   ├── vuln_detector.py     # 漏洞检测器（39KB）
+│   ├── multi_stage_verifier.py # 多阶段验证器（31KB）
+│   ├── variant_analysis.py  # 变体分析（21KB）
+│   ├── business_logic.py    # 业务逻辑分析（21KB）
+│   ├── fc_adapter.py        # Function Calling 适配器
+│   ├── interactive_agent.py # 交互式 Agent
+│   ├── session_manager.py   # 会话管理
+│   ├── validator.py         # 结果验证器
+│   ├── enhancer.py          # 结果增强器
+│   ├── prescan.py           # 预扫描模块
+│   ├── optimized_algorithms.py # 优化算法
+│   ├── models.py            # 数据模型
+│   └── prompts.py           # LLM 提示词
+├── api/                      # FastAPI 后端
+│   ├── main.py              # 主应用（142KB 核心 API）
+│   ├── server.py            # 服务器配置
+│   ├── schemas.py           # Pydantic 模型
+│   ├── schemas_agent.py     # Agent API 模型
+│   ├── schemas_interactive.py # 交互式 API 模型
+│   ├── agent_router.py      # Agent API 路由（42KB）
+│   ├── graph_router.py      # 调用图 API 路由
+│   ├── interactive_router.py # 交互式分析路由
+│   └── variant_router.py    # 变体分析路由
+├── cli/                      # 命令行接口
+│   └── main.py              # CLI 入口（47KB，typer 框架）
+├── config/                   # 配置管理
+│   ├── settings.py          # 配置加载（YAML + 环境变量）
+│   └── validator.py         # 配置验证
+├── frontend/                 # Vue 3 前端
 │   ├── src/
-│   │   ├── views/        # 页面组件
-│   │   ├── components/   # 通用组件
-│   │   ├── stores/       # Pinia 状态管理
-│   │   ├── api/          # API 调用
-│   │   └── style.css     # 全局样式
+│   │   ├── views/           # 页面组件
+│   │   ├── components/      # 通用组件
+│   │   ├── stores/          # Pinia 状态管理
+│   │   ├── api/             # API 调用
+│   │   └── style.css        # 全局样式（磨砂玻璃效果）
 │   └── package.json
-├── indexer/               # 代码索引
-│   ├── indexer.py         # 索引器（支持增量索引）
-│   ├── parser.py          # 语言解析器
-│   ├── vector_store/      # 向量存储（Qdrant/内存）
-│   ├── embedding_cache.py # 嵌入缓存（LRU + 压缩）
-│   └── models.py          # 代码单元模型
-├── llm_client/            # LLM 客户端
-│   ├── client.py          # OpenAI 兼容 API 封装
-│   └── output_validator.py
-├── prompts/               # 提示词模板
-├── reporting/             # 报告生成
-│   └── reporter.py
-├── rules/                 # 安全规则
-│   ├── manager.py         # 规则管理器
-│   ├── models.py          # 规则模型
-│   └── data/              # 内置规则（YAML）
-├── storage/               # 数据持久化
-│   ├── database.py        # SQLite 连接管理
-│   ├── scan_repository.py # 扫描任务 CRUD
-│   ├── finding_repository.py  # 发现结果 CRUD
+├── indexer/                  # 代码索引
+│   ├── indexer.py           # 索引器（62KB，支持增量索引）
+│   ├── parser.py            # 语言解析器（38KB，AST/正则）
+│   ├── code_reader.py       # 代码读取器（39KB）
+│   ├── code_graph.py        # 代码图构建（38KB）
+│   ├── incremental.py       # 增量索引支持
+│   ├── file_filter.py       # 文件过滤器
+│   ├── storage.py           # 存储层
+│   ├── vector_store/        # 向量存储（Qdrant/内存）
+│   ├── chunker/             # 代码分块器
+│   ├── embedding/           # 嵌入模块
+│   ├── search/              # 搜索模块
+│   ├── embedding_cache.py   # 嵌入缓存（28KB，LRU + 压缩）
+│   └── models.py            # 代码单元模型
+├── llm_client/               # LLM 客户端
+│   ├── client.py            # OpenAI 兼容 API 封装
+│   └── output_validator.py  # 输出验证
+├── prompts/                  # 提示词模板
+├── reporting/                # 报告生成
+│   └── reporter.py          # 多格式报告器
+├── rules/                    # 安全规则
+│   ├── manager.py           # 规则管理器
+│   ├── models.py            # 规则模型
+│   └── data/                # 内置规则（YAML）
+├── scanners/                 # 外部扫描器集成（新增）
+│   ├── semgrep_runner.py    # Semgrep 扫描器集成（14KB）
+│   └── sarif_importer.py    # SARIF 结果导入（18KB）
+├── storage/                  # 数据持久化
+│   ├── database.py          # SQLite 连接管理
+│   ├── scan_repository.py   # 扫描任务 CRUD
+│   ├── finding_repository.py    # 发现结果 CRUD
 │   └── interaction_repository.py # LLM 交互日志
-├── utils/                 # 工具函数
-├── requirements.txt       # Python 依赖
-├── start.py               # 启动脚本
-└── __main__.py            # CLI 入口
+├── tests/                    # 测试用例
+├── utils/                    # 工具函数
+├── examples/                 # 示例代码
+├── scripts/                  # 辅助脚本
+├── requirements.txt          # Python 依赖
+├── start.py                  # 启动脚本
+├── pytest.ini               # 测试配置
+└── __main__.py              # CLI 入口
 ```
 
 ## 配置说明
