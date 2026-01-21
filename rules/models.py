@@ -2,10 +2,26 @@
 安全规则数据模型
 """
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import total_ordering
-from typing import List, Optional, Dict, Any
+from functools import total_ordering, lru_cache
+from typing import List, Optional, Dict, Any, Pattern, Tuple
+
+
+# 全局正则表达式缓存（预编译）
+_regex_cache: Dict[str, Pattern] = {}
+
+
+def _get_compiled_regex(pattern: str) -> Pattern:
+    """获取或编译正则表达式（带缓存）"""
+    if pattern not in _regex_cache:
+        try:
+            _regex_cache[pattern] = re.compile(pattern)
+        except re.error:
+            # 无效正则表达式，返回一个永不匹配的模式
+            _regex_cache[pattern] = re.compile(r"^\b$")
+    return _regex_cache[pattern]
 
 
 @total_ordering
@@ -88,27 +104,103 @@ class SecurityRule:
     # 元数据
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def matches(self, function_name: str) -> bool:
-        """检查函数名是否匹配该规则"""
-        import re
+    # 内部缓存：解析后的模式（延迟初始化）
+    _parsed_patterns: Optional[Dict[str, List[str]]] = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    def _ensure_patterns_parsed(self) -> None:
+        """确保模式已被解析和分类（延迟初始化）"""
+        if self._parsed_patterns is not None:
+            return
+
+        self._parsed_patterns = {
+            "exact": [],      # 精确匹配
+            "prefix": [],     # 前缀匹配
+            "suffix": [],     # 后缀匹配
+            "contains": [],   # 包含匹配
+            "regex": [],      # 正则匹配
+        }
+
         for pattern in self.patterns:
             if pattern.startswith("regex:"):
-                if re.match(pattern[6:], function_name):
-                    return True
+                # 预编译正则表达式
+                regex_str = pattern[6:]
+                _get_compiled_regex(regex_str)  # 预编译并缓存
+                self._parsed_patterns["regex"].append(regex_str)
             elif pattern.startswith("prefix:"):
-                if function_name.startswith(pattern[7:]):
-                    return True
+                self._parsed_patterns["prefix"].append(pattern[7:])
             elif pattern.startswith("suffix:"):
-                if function_name.endswith(pattern[7:]):
-                    return True
+                self._parsed_patterns["suffix"].append(pattern[7:])
             elif pattern.startswith("contains:"):
-                if pattern[9:] in function_name:
-                    return True
+                self._parsed_patterns["contains"].append(pattern[9:])
             else:
-                # 精确匹配
-                if function_name == pattern:
-                    return True
+                self._parsed_patterns["exact"].append(pattern)
+
+    def matches(self, function_name: str) -> bool:
+        """检查函数名是否匹配该规则
+
+        优化：
+        1. 延迟解析和分类模式
+        2. 使用预编译的正则表达式
+        3. 精确匹配使用 O(1) 查找（如果模式数量多可进一步优化为 set）
+        """
+        self._ensure_patterns_parsed()
+        parsed = self._parsed_patterns
+
+        # 1. 精确匹配（最快）
+        if function_name in parsed["exact"]:
+            return True
+
+        # 2. 前缀匹配
+        for prefix in parsed["prefix"]:
+            if function_name.startswith(prefix):
+                return True
+
+        # 3. 后缀匹配
+        for suffix in parsed["suffix"]:
+            if function_name.endswith(suffix):
+                return True
+
+        # 4. 包含匹配
+        for substr in parsed["contains"]:
+            if substr in function_name:
+                return True
+
+        # 5. 正则匹配（最慢，放最后）
+        for regex_str in parsed["regex"]:
+            compiled = _get_compiled_regex(regex_str)
+            if compiled.match(function_name):
+                return True
+
         return False
+
+    def get_matched_pattern(self, function_name: str) -> Optional[str]:
+        """获取匹配的模式（用于诊断和日志）"""
+        self._ensure_patterns_parsed()
+        parsed = self._parsed_patterns
+
+        if function_name in parsed["exact"]:
+            return function_name
+
+        for prefix in parsed["prefix"]:
+            if function_name.startswith(prefix):
+                return f"prefix:{prefix}"
+
+        for suffix in parsed["suffix"]:
+            if function_name.endswith(suffix):
+                return f"suffix:{suffix}"
+
+        for substr in parsed["contains"]:
+            if substr in function_name:
+                return f"contains:{substr}"
+
+        for regex_str in parsed["regex"]:
+            compiled = _get_compiled_regex(regex_str)
+            if compiled.match(function_name):
+                return f"regex:{regex_str}"
+
+        return None
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""

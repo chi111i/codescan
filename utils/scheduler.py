@@ -345,6 +345,7 @@ class TaskScheduler:
         # 控制
         self._running = False
         self._lock = threading.Lock()
+        self._stats_lock = threading.Lock()  # H-1 修复: 专门用于保护统计数据的锁
         self._semaphore = threading.Semaphore(max_concurrent)
 
         # 任务处理器映射
@@ -384,7 +385,9 @@ class TaskScheduler:
         )
 
         self.queue.put(task)
-        self.stats.total_tasks += 1
+        # H-1 修复: 使用锁保护统计数据的更新
+        with self._stats_lock:
+            self.stats.total_tasks += 1
 
         logger.debug(f"Task {task.id} submitted: {task_type}")
         return task.id
@@ -457,17 +460,18 @@ class TaskScheduler:
             task.completed_at = datetime.now().isoformat()
             task.execution_time_ms = int((time.time() - start_time) * 1000)
 
-            # 更新统计
-            self.stats.completed_tasks += 1
-            self.stats.total_tokens += task.tokens_used
-            self.stats.total_cost += task.estimated_cost
+            # H-1 修复: 使用锁保护统计数据的更新
+            with self._stats_lock:
+                self.stats.completed_tasks += 1
+                self.stats.total_tokens += task.tokens_used
+                self.stats.total_cost += task.estimated_cost
 
-            # 更新平均执行时间
-            completed = self.stats.completed_tasks
-            avg = self.stats.avg_execution_time_ms
-            self.stats.avg_execution_time_ms = (
-                avg * (completed - 1) + task.execution_time_ms
-            ) / completed
+                # 更新平均执行时间
+                completed = self.stats.completed_tasks
+                avg = self.stats.avg_execution_time_ms
+                self.stats.avg_execution_time_ms = (
+                    avg * (completed - 1) + task.execution_time_ms
+                ) / completed
 
             logger.debug(f"Task {task.id} completed in {task.execution_time_ms}ms")
 
@@ -479,7 +483,9 @@ class TaskScheduler:
             if self._should_retry(task, e):
                 task.retry_count += 1
                 task.status = TaskStatus.RETRYING
-                self.stats.retried_tasks += 1
+                # H-1 修复: 使用锁保护统计数据的更新
+                with self._stats_lock:
+                    self.stats.retried_tasks += 1
 
                 # 计算重试延迟
                 delay = (
@@ -495,7 +501,9 @@ class TaskScheduler:
                 task.status = TaskStatus.FAILED
                 task.error = error_msg
                 task.completed_at = datetime.now().isoformat()
-                self.stats.failed_tasks += 1
+                # H-1 修复: 使用锁保护统计数据的更新
+                with self._stats_lock:
+                    self.stats.failed_tasks += 1
 
         finally:
             # 从运行中任务移除
@@ -641,7 +649,9 @@ class TaskScheduler:
             self.queue.remove(task_id)
             task.status = TaskStatus.CANCELLED
             self._completed_tasks[task_id] = task
-            self.stats.cancelled_tasks += 1
+            # H-1 修复: 使用锁保护统计数据的更新
+            with self._stats_lock:
+                self.stats.cancelled_tasks += 1
             return True
         return False
 
@@ -650,20 +660,22 @@ class TaskScheduler:
         with self._lock:
             running_count = len(self._running_tasks)
 
-        return {
-            "total_tasks": self.stats.total_tasks,
-            "completed_tasks": self.stats.completed_tasks,
-            "failed_tasks": self.stats.failed_tasks,
-            "retried_tasks": self.stats.retried_tasks,
-            "cancelled_tasks": self.stats.cancelled_tasks,
-            "queued_tasks": self.queue.size(),
-            "running_tasks": running_count,
-            "total_tokens": self.stats.total_tokens,
-            "total_cost": round(self.stats.total_cost, 4),
-            "avg_execution_time_ms": round(self.stats.avg_execution_time_ms, 2),
-            "by_model_tier": self.stats.by_model_tier,
-            "by_task_type": self.stats.by_task_type,
-        }
+        # H-1 修复: 使用锁保护统计数据的读取以确保一致性
+        with self._stats_lock:
+            return {
+                "total_tasks": self.stats.total_tasks,
+                "completed_tasks": self.stats.completed_tasks,
+                "failed_tasks": self.stats.failed_tasks,
+                "retried_tasks": self.stats.retried_tasks,
+                "cancelled_tasks": self.stats.cancelled_tasks,
+                "queued_tasks": self.queue.size(),
+                "running_tasks": running_count,
+                "total_tokens": self.stats.total_tokens,
+                "total_cost": round(self.stats.total_cost, 4),
+                "avg_execution_time_ms": round(self.stats.avg_execution_time_ms, 2),
+                "by_model_tier": dict(self.stats.by_model_tier),
+                "by_task_type": dict(self.stats.by_task_type),
+            }
 
     def save_state(self) -> Optional[str]:
         """保存调度器状态

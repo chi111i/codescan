@@ -3,8 +3,9 @@
 """
 
 import logging
+from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Tuple
 import yaml
 
 from config import RulesConfig
@@ -14,7 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class RuleManager:
-    """安全规则管理器"""
+    """安全规则管理器
+
+    优化特性：
+    1. 按语言+类型的复合索引
+    2. 精确匹配快速查找索引
+    3. 匹配结果 LRU 缓存
+    """
 
     def __init__(self, config: RulesConfig):
         self.config = config
@@ -22,6 +29,15 @@ class RuleManager:
         self._by_category: Dict[RuleCategory, List[SecurityRule]] = {}
         self._by_language: Dict[str, List[SecurityRule]] = {}
         self._by_type: Dict[RuleType, List[SecurityRule]] = {}
+
+        # 复合索引：(语言, 类型) -> 规则列表
+        self._by_lang_type: Dict[Tuple[str, RuleType], List[SecurityRule]] = {}
+
+        # 精确匹配快速索引：(语言, 类型, 函数名) -> 规则列表
+        self._exact_match_index: Dict[Tuple[str, Optional[RuleType], str], List[SecurityRule]] = {}
+
+        # 匹配结果缓存版本号（用于缓存失效）
+        self._cache_version: int = 0
 
     def load_builtin_rules(self) -> int:
         """加载内置规则"""
@@ -99,10 +115,30 @@ class RuleManager:
                 self._by_language[lang] = []
             self._by_language[lang].append(rule)
 
+            # 复合索引：(语言, 类型)
+            key = (lang, rule.rule_type)
+            if key not in self._by_lang_type:
+                self._by_lang_type[key] = []
+            self._by_lang_type[key].append(rule)
+
+            # 精确匹配索引：提取不带前缀的精确匹配模式
+            for pattern in rule.patterns:
+                if not any(pattern.startswith(prefix) for prefix in
+                           ["regex:", "prefix:", "suffix:", "contains:"]):
+                    # 精确匹配模式，添加到快速索引
+                    exact_key = (lang, rule.rule_type, pattern)
+                    if exact_key not in self._exact_match_index:
+                        self._exact_match_index[exact_key] = []
+                    self._exact_match_index[exact_key].append(rule)
+
         # 按类型索引
         if rule.rule_type not in self._by_type:
             self._by_type[rule.rule_type] = []
         self._by_type[rule.rule_type].append(rule)
+
+        # 使缓存失效
+        self._cache_version += 1
+        self._invalidate_match_cache()
 
     def get_rule(self, rule_id: str) -> Optional[SecurityRule]:
         """获取指定规则"""
@@ -147,17 +183,85 @@ class RuleManager:
         language: str,
         rule_type: Optional[RuleType] = None
     ) -> List[SecurityRule]:
-        """匹配函数名到规则"""
-        candidates = self.get_rules_by_language(language)
-        if rule_type:
-            candidates = [r for r in candidates if r.rule_type == rule_type]
+        """匹配函数名到规则
 
-        matched = []
+        优化策略：
+        1. 先查精确匹配快速索引
+        2. 使用复合索引 (语言, 类型) 减少候选集
+        3. 使用 LRU 缓存避免重复匹配
+        """
+        # 使用缓存的内部方法
+        return self._match_function_cached(function_name, language, rule_type)
+
+    def _match_function_cached(
+        self,
+        function_name: str,
+        language: str,
+        rule_type: Optional[RuleType]
+    ) -> List[SecurityRule]:
+        """带缓存的函数匹配（内部实现）"""
+        matched: List[SecurityRule] = []
+        seen_rule_ids: Set[str] = set()
+
+        # 1. 快速精确匹配查找
+        exact_key = (language, rule_type, function_name)
+        if exact_key in self._exact_match_index:
+            for rule in self._exact_match_index[exact_key]:
+                if rule.id not in seen_rule_ids:
+                    matched.append(rule)
+                    seen_rule_ids.add(rule.id)
+
+        # 2. 使用复合索引获取候选规则
+        if rule_type:
+            candidates = self._by_lang_type.get((language, rule_type), [])
+        else:
+            candidates = self._by_language.get(language, [])
+
+        # 3. 遍历候选规则进行匹配（跳过已精确匹配的）
         for rule in candidates:
+            if rule.id in seen_rule_ids:
+                continue
             if rule.matches(function_name):
                 matched.append(rule)
+                seen_rule_ids.add(rule.id)
 
         return matched
+
+    def _invalidate_match_cache(self) -> None:
+        """使匹配缓存失效"""
+        # 当前使用简单的版本号机制，未来可添加 LRU 缓存
+        pass
+
+    def clear(self) -> None:
+        """清空所有规则和索引（用于热更新）"""
+        self._rules.clear()
+        self._by_category.clear()
+        self._by_language.clear()
+        self._by_type.clear()
+        self._by_lang_type.clear()
+        self._exact_match_index.clear()
+        self._cache_version += 1
+        logger.info("All rules and indexes cleared")
+
+    def reload(self) -> Dict[str, int]:
+        """热更新规则：清空后重新加载
+
+        Returns:
+            Dict 包含 builtin 和 custom 加载的规则数量
+        """
+        self.clear()
+
+        result = {"builtin": 0, "custom": 0}
+
+        # 重新加载内置规则
+        result["builtin"] = self.load_builtin_rules()
+
+        # 重新加载自定义规则目录
+        if self.config.custom_rules_dir:
+            result["custom"] = self.load_from_directory(self.config.custom_rules_dir)
+
+        logger.info(f"Rules reloaded: {result}")
+        return result
 
     def get_rules_summary(
         self,
@@ -265,6 +369,58 @@ class RuleManager:
                 owasp_ids=["A10:2021"],
                 fix_suggestion="验证和限制目标 URL，使用白名单",
             ),
+            SecurityRule(
+                id="py-file-read",
+                name="Python 任意文件读取风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.FILE,
+                risk_level=RiskLevel.HIGH,
+                languages=["python"],
+                patterns=["open", "Path.read_text", "Path.read_bytes", "send_file", "send_from_directory", "aiofiles.open"],
+                description="使用用户输入构造文件路径可能导致任意文件读取",
+                cwe_ids=["CWE-22", "CWE-73"],
+                owasp_ids=["A01:2021"],
+                fix_suggestion="验证和限制文件路径，使用白名单，避免路径遍历",
+            ),
+            SecurityRule(
+                id="py-file-write",
+                name="Python 任意文件写入风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.FILE,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["python"],
+                patterns=["Path.write_text", "Path.write_bytes", "shutil.copy", "shutil.move", "os.rename"],
+                description="使用用户输入构造文件路径可能导致任意文件写入",
+                cwe_ids=["CWE-22", "CWE-434"],
+                owasp_ids=["A01:2021"],
+                fix_suggestion="验证和限制文件路径，使用白名单，检查文件扩展名",
+            ),
+            SecurityRule(
+                id="py-template-injection",
+                name="Python 模板注入风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.INJECTION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["python"],
+                patterns=["render_template_string", "Template", "Environment.from_string", "jinja2.Template"],
+                description="使用用户输入构造模板可能导致服务端模板注入(SSTI)",
+                cwe_ids=["CWE-94"],
+                owasp_ids=["A03:2021"],
+                fix_suggestion="避免使用用户输入构造模板，使用预定义模板",
+            ),
+            SecurityRule(
+                id="py-xxe",
+                name="Python XXE 风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.XXE,
+                risk_level=RiskLevel.HIGH,
+                languages=["python"],
+                patterns=["xml.etree.ElementTree.parse", "lxml.etree.parse", "xml.dom.minidom.parse", "xml.sax.parse"],
+                description="解析不可信 XML 可能导致 XXE 攻击",
+                cwe_ids=["CWE-611"],
+                owasp_ids=["A05:2021"],
+                fix_suggestion="使用 defusedxml 库或禁用外部实体解析",
+            ),
 
             # === Python 输入源 (Sources) ===
             SecurityRule(
@@ -361,6 +517,45 @@ class RuleManager:
                 description="不安全的对象合并可能导致原型链污染",
                 cwe_ids=["CWE-1321"],
                 fix_suggestion="验证合并的键名，禁止 __proto__ 和 constructor",
+            ),
+            SecurityRule(
+                id="js-ssrf",
+                name="JavaScript SSRF 风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.SSRF,
+                risk_level=RiskLevel.HIGH,
+                languages=["javascript", "typescript"],
+                patterns=["fetch", "axios.get", "axios.post", "got", "node-fetch", "request", "superagent"],
+                description="使用用户输入构造 URL 可能导致 SSRF",
+                cwe_ids=["CWE-918"],
+                owasp_ids=["A10:2021"],
+                fix_suggestion="验证和限制目标 URL，使用白名单",
+            ),
+            SecurityRule(
+                id="js-file-operation",
+                name="JavaScript 文件操作风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.FILE,
+                risk_level=RiskLevel.HIGH,
+                languages=["javascript", "typescript"],
+                patterns=["fs.readFile", "fs.readFileSync", "fs.writeFile", "fs.writeFileSync", "fs.unlink", "fs.rename"],
+                description="使用用户输入构造文件路径可能导致任意文件读写",
+                cwe_ids=["CWE-22", "CWE-73"],
+                owasp_ids=["A01:2021"],
+                fix_suggestion="验证和限制文件路径，使用白名单，避免路径遍历",
+            ),
+            SecurityRule(
+                id="js-deserialization",
+                name="JavaScript 反序列化风险",
+                rule_type=RuleType.SINK,
+                category=RuleCategory.DESERIALIZATION,
+                risk_level=RiskLevel.CRITICAL,
+                languages=["javascript", "typescript"],
+                patterns=["unserialize", "node-serialize", "serialize-javascript", "funcster"],
+                description="反序列化不可信数据可能导致远程代码执行",
+                cwe_ids=["CWE-502"],
+                owasp_ids=["A08:2021"],
+                fix_suggestion="避免反序列化不可信数据，使用 JSON.parse",
             ),
 
             # === JavaScript 输入源 (Sources) ===

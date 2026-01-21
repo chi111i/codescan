@@ -79,6 +79,10 @@ class CodeReader:
         self.max_file_lines = max_file_lines
         self.max_search_results = max_search_results
 
+        # P0-3.4: 调用关系缓存（懒加载）
+        self._caller_index: Optional[Dict[str, List[Dict[str, Any]]]] = None
+        self._caller_index_version: int = 0
+
     def _validate_path(self, file_path: str) -> Optional[Path]:
         """验证并解析文件路径
 
@@ -136,12 +140,36 @@ class CodeReader:
             # 限制结果数量
             top_k = min(top_k, self.max_search_results)
 
+            # P0-2.2: 检查索引状态
+            index_status = self._get_index_status()
+            if not index_status["is_ready"]:
+                return {
+                    "success": False,
+                    "error": index_status["message"],
+                    "results": [],
+                    "total": 0,
+                    "hint": index_status.get("hint"),
+                    "index_status": index_status,
+                }
+
             results = self.indexer.search(
                 query=query,
                 top_k=top_k,
                 language=language,
                 file_pattern=file_pattern,
             )
+
+            # P0-2.2: 处理空结果情况
+            if not results:
+                return {
+                    "success": True,
+                    "query": query,
+                    "results": [],
+                    "total": 0,
+                    "message": "未找到匹配的代码。语义搜索依赖向量相似度，可能无法匹配精确关键词。",
+                    "hint": f"如果需要精确匹配关键词或正则表达式，请使用 grep_code(pattern='{query}') 工具。",
+                    "index_status": index_status,
+                }
 
             return {
                 "success": True,
@@ -164,11 +192,57 @@ class CodeReader:
             }
         except Exception as e:
             logger.error(f"Search failed: {e}")
+            error_msg = str(e).lower()
+
+            # P0-2.2: 区分不同类型的错误
+            if "embed" in error_msg or "embedding" in error_msg:
+                hint = "嵌入生成失败，可能是 LLM API 配置问题。请检查 API 密钥和网络连接。"
+            elif "connect" in error_msg or "timeout" in error_msg:
+                hint = "连接超时，请检查向量数据库服务是否正常运行。"
+            else:
+                hint = f"如果需要精确搜索，可以使用 grep_code(pattern='{query}') 工具作为替代。"
+
             return {
                 "success": False,
                 "error": f"搜索失败: {str(e)}",
                 "results": [],
                 "total": 0,
+                "hint": hint,
+            }
+
+    def _get_index_status(self) -> Dict[str, Any]:
+        """获取索引状态
+
+        Returns:
+            索引状态字典，包含 is_ready、total_units、message 等
+        """
+        try:
+            stats = self.indexer.get_stats()
+            total_units = stats.get("total_units", 0)
+
+            if total_units == 0:
+                return {
+                    "is_ready": False,
+                    "total_units": 0,
+                    "message": "索引为空，没有可搜索的代码单元。请先执行索引操作。",
+                    "hint": "使用 'python -m codescan index <项目路径>' 命令索引项目，或通过 API 调用 /api/index 端点。",
+                }
+
+            return {
+                "is_ready": True,
+                "total_units": total_units,
+                "collection_name": stats.get("collection_name"),
+                "chunked_parents": stats.get("chunked_parents", 0),
+                "total_chunks": stats.get("total_chunks", 0),
+                "message": f"索引就绪，共 {total_units} 个代码单元。",
+            }
+        except Exception as e:
+            logger.warning(f"Failed to get index status: {e}")
+            return {
+                "is_ready": False,
+                "total_units": 0,
+                "message": f"无法获取索引状态: {str(e)}",
+                "hint": "索引器可能未正确初始化，请检查配置。",
             }
 
     def read_file(
@@ -180,7 +254,7 @@ class CodeReader:
     ) -> Dict[str, Any]:
         """读取文件内容
 
-        支持读取整个文件或指定行范围
+        支持读取整个文件或指定行范围。类似于 Claude Code 的精确行号读取功能。
 
         Args:
             file_path: 文件路径（相对于项目根目录）
@@ -247,7 +321,7 @@ class CodeReader:
             except ValueError:
                 rel_path = file_path
 
-            return {
+            result = {
                 "success": True,
                 "file_path": rel_path,
                 "content": "\n".join(numbered_lines),
@@ -257,6 +331,28 @@ class CodeReader:
                 "language": self._detect_language(file_path),
                 "truncated": truncated,
             }
+
+            # 增强：为大文件提供智能提示
+            if truncated or total_lines > self.max_file_lines:
+                remaining_lines = total_lines - end_idx
+                result["hint"] = (
+                    f"文件共 {total_lines} 行，当前显示第 {start_idx + 1}-{end_idx} 行。"
+                )
+                if remaining_lines > 0:
+                    # 计算建议的下一个读取范围
+                    next_start = end_idx + 1
+                    next_end = min(total_lines, next_start + self.max_file_lines - 1)
+                    result["next_range"] = {
+                        "start_line": next_start,
+                        "end_line": next_end,
+                        "remaining_lines": remaining_lines,
+                    }
+                    result["hint"] += (
+                        f" 还有 {remaining_lines} 行未显示。"
+                        f"使用 read_file(file_path, start_line={next_start}, end_line={next_end}) 继续读取。"
+                    )
+
+            return result
         except Exception as e:
             logger.error(f"Read file failed: {e}")
             return {
@@ -285,6 +381,16 @@ class CodeReader:
             包含符号定义的字典
         """
         try:
+            # P0-2.3: 检查索引状态
+            index_status = self._get_index_status()
+            if not index_status["is_ready"]:
+                return {
+                    "success": False,
+                    "error": index_status["message"],
+                    "hint": index_status.get("hint"),
+                    "alternative": f"使用 grep_code(pattern='{symbol_name}') 进行精确搜索",
+                }
+
             # 从向量库搜索符号
             results = self.indexer.search(
                 query=symbol_name,
@@ -308,26 +414,56 @@ class CodeReader:
                 return {
                     "success": False,
                     "error": f"未找到符号: {symbol_name}",
-                    "hint": "尝试使用 search_code 进行模糊搜索",
+                    "hint": "尝试使用 search_code 进行模糊搜索，或 grep_code 进行精确匹配",
                 }
+
+            # 大函数阈值（行数）
+            max_symbol_lines = 200
+
+            definitions = []
+            for unit in matched[:3]:  # 最多返回 3 个定义
+                code = unit.code
+                start_line = unit.span.start_line
+                end_line = unit.span.end_line
+                total_lines = end_line - start_line + 1
+                truncated = False
+                truncation_hint = None
+
+                # 大函数截断处理
+                if total_lines > max_symbol_lines:
+                    lines = code.splitlines()
+                    code = "\n".join(lines[:max_symbol_lines])
+                    truncated = True
+                    display_end = start_line + max_symbol_lines - 1
+                    truncation_hint = (
+                        f"函数过大（共 {total_lines} 行），已截断为前 {max_symbol_lines} 行。"
+                        f"使用 read_file(file_path='{unit.file_path}', start_line={display_end + 1}, "
+                        f"end_line={end_line}) 查看剩余部分。"
+                    )
+
+                definition = {
+                    "file_path": unit.file_path,
+                    "type": unit.unit_type.value,
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "code": code,
+                    "signature": unit.signature,
+                    "parent_class": unit.parent_class,
+                    "docstring": unit.docstring,
+                    "decorators": unit.decorators,
+                    "total_lines": total_lines,
+                }
+
+                if truncated:
+                    definition["truncated"] = True
+                    definition["truncation_hint"] = truncation_hint
+
+                definitions.append(definition)
 
             result = {
                 "success": True,
                 "symbol": symbol_name,
-                "definitions": [
-                    {
-                        "file_path": unit.file_path,
-                        "type": unit.unit_type.value,
-                        "start_line": unit.span.start_line,
-                        "end_line": unit.span.end_line,
-                        "code": unit.code,
-                        "signature": unit.signature,
-                        "parent_class": unit.parent_class,
-                        "docstring": unit.docstring,
-                        "decorators": unit.decorators,
-                    }
-                    for unit in matched[:3]  # 最多返回 3 个定义
-                ],
+                "definitions": definitions,
                 "total_found": len(matched),
             }
 
@@ -480,6 +616,76 @@ class CodeReader:
                 "outline": [],
             }
 
+    def _build_caller_index(self) -> Dict[str, List[Dict[str, Any]]]:
+        """P0-3.4: 构建调用者索引缓存
+
+        遍历所有代码单元一次，建立 被调用函数名 -> 调用者列表 的反向索引。
+        后续 get_callers 调用直接查索引，避免重复遍历。
+
+        Returns:
+            符号名到调用者列表的映射
+        """
+        caller_index: Dict[str, List[Dict[str, Any]]] = {}
+
+        try:
+            all_units = self.indexer.get_all_units(limit=10000)
+            logger.info(f"Building caller index for {len(all_units)} code units...")
+
+            for unit in all_units:
+                # 分析该单元调用了哪些函数
+                calls = getattr(unit, 'calls', []) or []
+
+                # 从代码中额外提取函数调用（更可靠）
+                if unit.code:
+                    import re
+                    # 匹配函数调用模式: word(
+                    call_pattern = re.compile(r'\b(\w+)\s*\(')
+                    code_calls = call_pattern.findall(unit.code)
+                    calls = list(set(calls) | set(code_calls))
+
+                caller_info = {
+                    "file_path": unit.file_path,
+                    "caller_symbol": unit.symbol,
+                    "caller_type": unit.unit_type.value,
+                    "start_line": unit.span.start_line,
+                    "end_line": unit.span.end_line,
+                    "code_preview": unit.code[:200] + "..." if len(unit.code) > 200 else unit.code,
+                }
+
+                for call in calls:
+                    if call == unit.symbol:
+                        continue  # 跳过自引用
+                    if call not in caller_index:
+                        caller_index[call] = []
+                    # 避免重复添加
+                    if not any(c["caller_symbol"] == unit.symbol and c["file_path"] == unit.file_path
+                               for c in caller_index[call]):
+                        caller_index[call].append(caller_info)
+
+            logger.info(f"Caller index built: {len(caller_index)} unique symbols")
+            return caller_index
+
+        except Exception as e:
+            logger.warning(f"Failed to build caller index: {e}")
+            return {}
+
+    def _get_caller_index(self) -> Dict[str, List[Dict[str, Any]]]:
+        """P0-3.4: 获取或构建调用者索引
+
+        懒加载调用者索引，只在首次访问时构建。
+
+        Returns:
+            符号名到调用者列表的映射
+        """
+        # 检查索引版本是否过期
+        current_version = getattr(self.indexer, '_index_version', 0)
+
+        if self._caller_index is None or self._caller_index_version != current_version:
+            self._caller_index = self._build_caller_index()
+            self._caller_index_version = current_version
+
+        return self._caller_index
+
     def _find_callers(self, unit) -> List[Dict[str, Any]]:
         """查找调用者
 
@@ -522,6 +728,8 @@ class CodeReader:
     ) -> Dict[str, Any]:
         """查找谁调用了指定函数（向上追溯调用链）
 
+        P0-3.4: 使用调用者索引缓存优化性能，避免每次遍历所有代码单元。
+
         Args:
             symbol_name: 要查找调用者的函数名
             file_path: 限定在特定文件中查找（可选）
@@ -531,7 +739,7 @@ class CodeReader:
             包含调用者列表的字典
         """
         try:
-            # 先找到目标符号
+            # 先找到目标符号，验证其存在
             symbol_result = self.read_symbol(symbol_name, file_path)
             if not symbol_result.get("success"):
                 return {
@@ -540,51 +748,32 @@ class CodeReader:
                     "callers": [],
                 }
 
-            # 搜索所有可能调用此符号的代码
-            all_units = self.indexer.get_all_units(limit=5000)
+            # P0-3.4: 使用调用者索引缓存
+            caller_index = self._get_caller_index()
+
+            # 获取符号的短名称（用于匹配）
+            symbol_parts = symbol_name.split(".")
+            short_name = symbol_parts[-1]
+
+            # 从索引中查找调用者
             callers = []
 
-            for unit in all_units:
-                # 跳过自身
-                if unit.symbol == symbol_name:
-                    continue
+            # 尝试完整名称匹配
+            if symbol_name in caller_index:
+                callers.extend(caller_index[symbol_name])
 
-                # 检查代码中是否包含对目标符号的调用
-                symbol_parts = symbol_name.split(".")
-                short_name = symbol_parts[-1]  # 获取最后一部分（方法名）
+            # 尝试短名称匹配（避免重复）
+            if short_name != symbol_name and short_name in caller_index:
+                for caller in caller_index[short_name]:
+                    if not any(c["caller_symbol"] == caller["caller_symbol"] and
+                               c["file_path"] == caller["file_path"] for c in callers):
+                        callers.append(caller)
 
-                # 检查 calls 列表或代码内容
-                is_caller = False
-                if unit.calls:
-                    for call in unit.calls:
-                        if short_name in call or symbol_name in call:
-                            is_caller = True
-                            break
+            # 过滤自身
+            callers = [c for c in callers if c["caller_symbol"] != symbol_name]
 
-                # 也检查代码文本（更可靠）
-                if not is_caller and (short_name + "(" in unit.code or symbol_name + "(" in unit.code):
-                    is_caller = True
-
-                if is_caller:
-                    # 找到调用位置的具体行号
-                    call_lines = []
-                    lines = unit.code.split("\n")
-                    for i, line in enumerate(lines):
-                        if short_name + "(" in line or symbol_name + "(" in line:
-                            call_lines.append(unit.span.start_line + i)
-
-                    callers.append({
-                        "file_path": unit.file_path,
-                        "caller_symbol": unit.symbol,
-                        "caller_type": unit.unit_type.value,
-                        "start_line": unit.span.start_line,
-                        "end_line": unit.span.end_line,
-                        "call_lines": call_lines[:3],  # 只显示前3个调用位置
-                        "code_preview": unit.code[:200] + "..." if len(unit.code) > 200 else unit.code,
-                    })
-
-                    if len(callers) >= max_results:
-                        break
+            # 限制结果数量
+            callers = callers[:max_results]
 
             return {
                 "success": True,
@@ -592,6 +781,7 @@ class CodeReader:
                 "callers": callers,
                 "total": len(callers),
                 "hint": "使用 read_file 查看调用位置的完整上下文" if callers else "未找到调用者，可能是入口函数或未被使用",
+                "cache_status": "indexed" if caller_index else "empty",
             }
 
         except Exception as e:
@@ -702,4 +892,190 @@ class CodeReader:
                 "success": False,
                 "error": f"查找被调用函数失败: {str(e)}",
                 "callees": [],
+            }
+
+    def grep_code(
+        self,
+        pattern: str,
+        file_glob: str | None = None,
+        max_results: int = 50,
+        context_lines: int = 2,
+        use_regex: bool = False,
+        case_sensitive: bool = True,
+    ) -> dict:
+        """精确代码搜索（基于正则/关键词，非语义搜索）
+
+        与 search_code（语义搜索）不同，此方法提供精确的字符串/正则匹配，
+        类似于 grep/ripgrep 的功能，但集成了索引辅助加速。
+
+        Args:
+            pattern: 搜索模式（字符串或正则表达式）
+            file_glob: 可选的文件过滤模式，如 "*.py", "src/**/*.js"
+            max_results: 最大返回结果数
+            context_lines: 匹配行前后的上下文行数
+            use_regex: 是否将 pattern 作为正则表达式处理
+            case_sensitive: 是否区分大小写
+
+        Returns:
+            {
+                "success": bool,
+                "matches": [
+                    {
+                        "file_path": str,
+                        "line_number": int,
+                        "line_content": str,
+                        "context_before": [str],
+                        "context_after": [str],
+                        "match_start": int,  # 匹配在行内的起始位置
+                        "match_end": int,    # 匹配在行内的结束位置
+                    }
+                ],
+                "total_matches": int,
+                "truncated": bool,
+                "hint": str,
+            }
+        """
+        import fnmatch
+        import re
+        from pathlib import Path
+
+        matches = []
+        total_matches = 0
+        truncated = False
+
+        try:
+            # 编译搜索模式
+            if use_regex:
+                try:
+                    flags = 0 if case_sensitive else re.IGNORECASE
+                    regex = re.compile(pattern, flags)
+                except re.error as e:
+                    return {
+                        "success": False,
+                        "error": f"无效的正则表达式: {str(e)}",
+                        "matches": [],
+                    }
+            else:
+                # 纯字符串搜索，转义特殊字符
+                escaped = re.escape(pattern)
+                flags = 0 if case_sensitive else re.IGNORECASE
+                regex = re.compile(escaped, flags)
+
+            # 方案 B：索引辅助搜索 - 先从已索引的文件列表中筛选
+            # 获取所有已索引的文件
+            indexed_files = set()
+
+            if self.indexer and hasattr(self.indexer, 'get_all_units'):
+                units = self.indexer.get_all_units()
+                for unit in units:
+                    if hasattr(unit, 'file_path') and unit.file_path:
+                        indexed_files.add(unit.file_path)
+
+            # 如果没有索引，回退到目录扫描
+            if not indexed_files:
+                # 从项目根目录扫描文件
+                project_root = Path.cwd()
+                if hasattr(self.indexer, 'project_root'):
+                    project_root = Path(self.indexer.project_root)
+
+                # 常见代码文件扩展名
+                code_extensions = {
+                    '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go',
+                    '.c', '.cpp', '.h', '.hpp', '.cs', '.php', '.rb',
+                    '.rs', '.swift', '.kt', '.scala', '.vue', '.svelte',
+                }
+
+                for file_path in project_root.rglob('*'):
+                    if file_path.is_file() and file_path.suffix.lower() in code_extensions:
+                        # 跳过常见的忽略目录
+                        parts = file_path.parts
+                        if any(p in {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build'} for p in parts):
+                            continue
+                        indexed_files.add(str(file_path))
+
+            # 应用文件过滤
+            target_files = list(indexed_files)
+            if file_glob:
+                target_files = [
+                    f for f in target_files
+                    if fnmatch.fnmatch(Path(f).name, file_glob) or
+                       fnmatch.fnmatch(str(f), file_glob)
+                ]
+
+            # 按文件名排序，便于结果稳定
+            target_files.sort()
+
+            # 遍历文件搜索
+            for file_path in target_files:
+                if len(matches) >= max_results:
+                    truncated = True
+                    break
+
+                try:
+                    path = Path(file_path)
+                    if not path.exists() or not path.is_file():
+                        continue
+
+                    # 读取文件内容
+                    try:
+                        content = path.read_text(encoding='utf-8', errors='ignore')
+                    except Exception:
+                        continue
+
+                    lines = content.splitlines()
+
+                    # 逐行搜索
+                    for line_idx, line in enumerate(lines):
+                        match = regex.search(line)
+                        if match:
+                            total_matches += 1
+
+                            if len(matches) < max_results:
+                                # 获取上下文
+                                start_ctx = max(0, line_idx - context_lines)
+                                end_ctx = min(len(lines), line_idx + context_lines + 1)
+
+                                matches.append({
+                                    "file_path": str(file_path),
+                                    "line_number": line_idx + 1,  # 1-based
+                                    "line_content": line,
+                                    "context_before": lines[start_ctx:line_idx],
+                                    "context_after": lines[line_idx + 1:end_ctx],
+                                    "match_start": match.start(),
+                                    "match_end": match.end(),
+                                    "matched_text": match.group(),
+                                })
+                            else:
+                                truncated = True
+
+                except Exception as e:
+                    logger.debug(f"Error searching file {file_path}: {e}")
+                    continue
+
+            # 构建提示信息
+            hint = f"找到 {total_matches} 处匹配"
+            if truncated:
+                hint += f"，仅显示前 {max_results} 条结果。使用 file_glob 参数缩小搜索范围。"
+            if not use_regex:
+                hint += " 提示：设置 use_regex=True 可使用正则表达式进行更复杂的模式匹配。"
+
+            return {
+                "success": True,
+                "pattern": pattern,
+                "use_regex": use_regex,
+                "case_sensitive": case_sensitive,
+                "file_glob": file_glob,
+                "matches": matches,
+                "total_matches": total_matches,
+                "truncated": truncated,
+                "files_searched": len(target_files),
+                "hint": hint,
+            }
+
+        except Exception as e:
+            logger.exception(f"Grep code failed: {e}")
+            return {
+                "success": False,
+                "error": f"代码搜索失败: {str(e)}",
+                "matches": [],
             }

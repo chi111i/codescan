@@ -520,9 +520,29 @@ class CodeIndexer:
         """将大代码单元分块
 
         P0-1: 同时记录 chunk 到 parent 的映射关系，支持按需重建完整单元。
+        P0-2: 所有 chunk 保留 calls/imports（用于调用图构建）。
+        P0-3: 计算每个 chunk 的准确行号范围。
 
         估算：平均每个字符约 0.25 token（英文），中文约 0.5 token
         """
+        from indexer.models import CodeSpan
+
+        def _get_span_attr(span, attr: str, default: int = 0) -> int:
+            """兼容 CodeSpan 对象和 tuple 格式的 span"""
+            if isinstance(span, CodeSpan):
+                return getattr(span, attr, default)
+            elif isinstance(span, tuple):
+                # 兼容旧格式 (start_line, end_line)
+                if attr == "start_line":
+                    return span[0] if len(span) > 0 else default
+                elif attr == "end_line":
+                    return span[1] if len(span) > 1 else default
+                elif attr == "start_col":
+                    return span[2] if len(span) > 2 else default
+                elif attr == "end_col":
+                    return span[3] if len(span) > 3 else default
+            return default
+
         result = []
 
         for unit in units:
@@ -530,44 +550,104 @@ class CodeIndexer:
             estimated_tokens = len(unit.code) * 0.3
 
             if estimated_tokens <= max_tokens:
-                result.append(unit)
+                # P0-2: 标记为 base_unit
+                unit_metadata = dict(unit.metadata) if unit.metadata else {}
+                unit_metadata["artifact_type"] = "base_unit"
+                updated_unit = CodeUnit(
+                    id=unit.id,
+                    language=unit.language,
+                    file_path=unit.file_path,
+                    symbol=unit.symbol,
+                    unit_type=unit.unit_type,
+                    signature=unit.signature,
+                    span=unit.span,
+                    code=unit.code,
+                    docstring=unit.docstring,
+                    calls=unit.calls,
+                    called_by=unit.called_by,
+                    parent_class=unit.parent_class,
+                    decorators=unit.decorators,
+                    imports=unit.imports,
+                    metadata=unit_metadata,
+                    chunk_index=unit.chunk_index,
+                    total_chunks=unit.total_chunks,
+                )
+                result.append(updated_unit)
             else:
                 # 需要分块 - 先缓存原始完整单元
                 self._raw_unit_cache[unit.id] = unit
 
                 chunk_size = int(max_tokens / 0.3)  # 字符数
                 code = unit.code
-                chunks = []
+                # P0-3: 记录每个 chunk 的行信息
+                chunk_data = []  # [(chunk_code, start_line_offset, end_line_offset)]
 
                 # 尝试按行分割
                 lines = code.split("\n")
-                current_chunk = []
+                current_chunk_lines = []
                 current_size = 0
+                current_start_line = 0
 
-                for line in lines:
+                for line_idx, line in enumerate(lines):
                     line_size = len(line) + 1  # +1 for newline
-                    if current_size + line_size > chunk_size and current_chunk:
-                        chunks.append("\n".join(current_chunk))
-                        current_chunk = [line]
+                    if current_size + line_size > chunk_size and current_chunk_lines:
+                        # 保存当前 chunk
+                        chunk_data.append((
+                            "\n".join(current_chunk_lines),
+                            current_start_line,
+                            line_idx - 1  # end_line_offset (inclusive)
+                        ))
+                        current_chunk_lines = [line]
                         current_size = line_size
+                        current_start_line = line_idx
                     else:
-                        current_chunk.append(line)
+                        current_chunk_lines.append(line)
                         current_size += line_size
 
-                if current_chunk:
-                    chunks.append("\n".join(current_chunk))
+                if current_chunk_lines:
+                    chunk_data.append((
+                        "\n".join(current_chunk_lines),
+                        current_start_line,
+                        len(lines) - 1
+                    ))
 
                 # P0-1: 记录 chunk 映射关系
                 chunk_ids = []
+                total_chunks = len(chunk_data)
 
                 # 创建分块的 CodeUnit
-                for i, chunk_code in enumerate(chunks):
+                for i, (chunk_code, start_offset, end_offset) in enumerate(chunk_data):
                     chunk_id = f"{unit.id}_chunk{i}"
                     chunk_ids.append(chunk_id)
 
                     # 记录 chunk -> parent 映射
                     self._chunk_parent_map[chunk_id] = unit.id
 
+                    # P0-3: 计算 chunk 的实际行号（兼容 CodeSpan 和 tuple）
+                    orig_start_line = _get_span_attr(unit.span, "start_line", 1)
+                    orig_start_col = _get_span_attr(unit.span, "start_col", 0)
+                    orig_end_col = _get_span_attr(unit.span, "end_col", 0)
+
+                    chunk_start_line = orig_start_line + start_offset
+                    chunk_end_line = orig_start_line + end_offset
+                    chunk_span = CodeSpan(
+                        start_line=chunk_start_line,
+                        end_line=chunk_end_line,
+                        start_col=orig_start_col if i == 0 else 0,
+                        end_col=orig_end_col if i == total_chunks - 1 else 0,
+                    )
+
+                    # P0-2: 构建 chunk 元数据
+                    chunk_metadata = dict(unit.metadata) if unit.metadata else {}
+                    chunk_metadata.update({
+                        "artifact_type": "chunk_unit",
+                        "parent_id": unit.id,
+                        "base_id": unit.id,
+                        "chunk_start_offset": start_offset,
+                        "chunk_end_offset": end_offset,
+                    })
+
+                    # P0-2: 所有 chunk 保留 calls/imports（用于调用图构建）
                     chunked_unit = CodeUnit(
                         id=chunk_id,
                         language=unit.language,
@@ -575,16 +655,17 @@ class CodeIndexer:
                         symbol=unit.symbol,
                         unit_type=unit.unit_type,
                         signature=unit.signature,
-                        span=unit.span,
+                        span=chunk_span,  # P0-3: 使用计算后的 span
                         code=chunk_code,
                         docstring=unit.docstring if i == 0 else None,
-                        calls=unit.calls if i == 0 else [],
+                        calls=unit.calls,  # P0-2: 所有 chunk 保留 calls
+                        called_by=unit.called_by,
                         parent_class=unit.parent_class,
                         decorators=unit.decorators if i == 0 else [],
-                        imports=unit.imports if i == 0 else [],
-                        metadata=unit.metadata,
+                        imports=unit.imports,  # P0-2: 所有 chunk 保留 imports
+                        metadata=chunk_metadata,
                         chunk_index=i,
-                        total_chunks=len(chunks),
+                        total_chunks=total_chunks,
                     )
                     result.append(chunked_unit)
 
@@ -592,7 +673,7 @@ class CodeIndexer:
                 self._chunk_siblings[unit.id] = chunk_ids
 
                 logger.debug(
-                    f"[Chunk] {unit.symbol} 被分为 {len(chunks)} 个块 "
+                    f"[Chunk] {unit.symbol} 被分为 {total_chunks} 个块 "
                     f"(原始 {len(code)} 字符, ~{estimated_tokens:.0f} tokens)"
                 )
 
@@ -689,13 +770,59 @@ class CodeIndexer:
                 # Fall through to sync implementation
 
         # Fallback: 无缓存时直接计算（带进度）
-        batch_size = 50
+        # 使用动态批次大小，根据代码长度估算
+        avg_text_length = sum(len(t) for t in texts) // max(len(texts), 1)
+        batch_size = min(100, max(10, 8000 // max(avg_text_length // 4, 100)))
         all_embeddings = []
+
+        # 重试配置
+        max_retries = 3
+        retry_delay = 2.0
 
         for i in range(0, len(texts), batch_size):
             batch_texts = texts[i:i + batch_size]
-            response = self.llm_client.embed(batch_texts)
-            all_embeddings.extend(response.embeddings)
+            current_batch_size = len(batch_texts)
+
+            # 带重试的批次处理
+            for attempt in range(max_retries):
+                try:
+                    response = self.llm_client.embed(batch_texts)
+                    all_embeddings.extend(response.embeddings)
+                    break
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    # 检测 token 超限错误
+                    if "token" in error_msg or "limit" in error_msg or "413" in error_msg:
+                        # 减半批次大小重试
+                        if current_batch_size > 5:
+                            new_batch_size = current_batch_size // 2
+                            logger.warning(
+                                f"Batch size {current_batch_size} too large, "
+                                f"retrying with {new_batch_size}..."
+                            )
+                            # 重新分批处理当前范围
+                            for j in range(0, len(batch_texts), new_batch_size):
+                                sub_batch = batch_texts[j:j + new_batch_size]
+                                try:
+                                    sub_response = self.llm_client.embed(sub_batch)
+                                    all_embeddings.extend(sub_response.embeddings)
+                                except Exception as sub_e:
+                                    logger.error(f"Sub-batch embedding failed: {sub_e}")
+                                    # 填充空向量以保持索引对齐
+                                    all_embeddings.extend([[0.0] * 1536] * len(sub_batch))
+                            break
+                        else:
+                            logger.error(f"Batch too small ({current_batch_size}), giving up")
+                            all_embeddings.extend([[0.0] * 1536] * len(batch_texts))
+                            break
+                    elif attempt < max_retries - 1:
+                        import time
+                        logger.warning(f"Embedding attempt {attempt + 1} failed: {e}, retrying...")
+                        time.sleep(retry_delay * (attempt + 1))
+                    else:
+                        logger.error(f"Embedding failed after {max_retries} attempts: {e}")
+                        # 填充空向量以保持索引对齐
+                        all_embeddings.extend([[0.0] * 1536] * len(batch_texts))
 
             if progress_callback:
                 processed = min(i + batch_size, total)
@@ -774,6 +901,11 @@ class CodeIndexer:
 
         if not all_units:
             return 0
+
+        # P0-1 BugFix: 重新索引前清空 chunk 映射，避免旧数据累积
+        self._chunk_parent_map.clear()
+        self._chunk_siblings.clear()
+        self._raw_unit_cache.clear()
 
         # 分块处理大代码单元
         chunked_units = self._chunk_units(all_units, self.scan_config.chunk_size)
@@ -1111,6 +1243,36 @@ class CodeIndexer:
 
         # 使用第一个 chunk 的元数据重建完整单元
         first_chunk = chunks[0]
+        last_chunk = chunks[-1]
+
+        # BugFix: 计算完整的 span (从第一个 chunk 的 start 到最后一个 chunk 的 end)
+        from indexer.models import CodeSpan
+
+        def _get_span_attr_local(span, attr: str, default: int = 0) -> int:
+            """兼容 CodeSpan 对象和 tuple 格式的 span"""
+            if span is None:
+                return default
+            if isinstance(span, CodeSpan):
+                return getattr(span, attr, default)
+            elif isinstance(span, tuple):
+                if attr == "start_line":
+                    return span[0] if len(span) > 0 else default
+                elif attr == "end_line":
+                    return span[1] if len(span) > 1 else default
+                elif attr == "start_col":
+                    return span[2] if len(span) > 2 else default
+                elif attr == "end_col":
+                    return span[3] if len(span) > 3 else default
+            return getattr(span, attr, default)
+
+        # 重建完整 span
+        full_span = CodeSpan(
+            start_line=_get_span_attr_local(first_chunk.span, "start_line", 1),
+            end_line=_get_span_attr_local(last_chunk.span, "end_line", 1),
+            start_col=_get_span_attr_local(first_chunk.span, "start_col", 0),
+            end_col=_get_span_attr_local(last_chunk.span, "end_col", 0),
+        )
+
         raw_unit = CodeUnit(
             id=parent_id,
             language=first_chunk.language,
@@ -1118,7 +1280,7 @@ class CodeIndexer:
             symbol=first_chunk.symbol,
             unit_type=first_chunk.unit_type,
             signature=first_chunk.signature,
-            span=first_chunk.span,
+            span=full_span,  # BugFix: 使用计算后的完整 span
             code=merged_code,
             docstring=first_chunk.docstring,
             calls=first_chunk.calls,
