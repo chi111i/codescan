@@ -816,13 +816,18 @@ const loadSession = async (sessionId) => {
 
 const loadSessionData = async (sessionId) => {
   try {
-    // 并行加载数据
-    const [chainsResult, sinksResult, unitsResult, findingsResult] = await Promise.all([
+    // M-8 修复: 使用 Promise.allSettled 防止单个请求失败导致全部失败
+    const results = await Promise.allSettled([
       api.listChainContexts(sessionId),
       api.listSinkSites(sessionId),
       api.listCodeUnits(sessionId),
       api.getFindings(sessionId),
     ])
+
+    // 提取成功的结果（失败的返回 { success: false }）
+    const [chainsResult, sinksResult, unitsResult, findingsResult] = results.map(
+      r => r.status === 'fulfilled' ? r.value : { success: false }
+    )
 
     if (chainsResult.success) {
       chainContexts.value = chainsResult.data.chain_contexts || []

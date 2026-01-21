@@ -1,5 +1,5 @@
 <template>
-  <div class="llm-interaction-panel glass-card rounded-2xl p-4 flex flex-col" :class="{ 'h-full': fullHeight }">
+  <div class="llm-interaction-panel glass-card rounded-2xl p-4 flex flex-col" :class="fullHeight ? 'h-full' : 'max-h-[500px]'">
     <!-- 头部 -->
     <div class="flex items-center justify-between mb-4 shrink-0">
       <div class="flex items-center gap-3">

@@ -307,12 +307,18 @@ export const useAuditStore = defineStore('audit', () => {
 
   const loadSessionData = async (sessionId) => {
     try {
-      const [toolsResult, messagesResult, toolCallsResult, statsResult] = await Promise.all([
+      // M-8 修复: 使用 Promise.allSettled 防止单个请求失败导致全部失败
+      const results = await Promise.allSettled([
         api.getAgentTools(sessionId),
         api.getAgentMessages(sessionId),
         api.getAgentToolCalls(sessionId),
         api.getAgentStats(sessionId),
       ])
+
+      // 提取成功的结果（失败的返回 undefined）
+      const [toolsResult, messagesResult, toolCallsResult, statsResult] = results.map(
+        r => r.status === 'fulfilled' ? r.value : { success: false }
+      )
 
       // 校验会话 ID，防止快速切换会话导致数据错乱
       if (!currentSession.value || currentSession.value.session_id !== sessionId) {

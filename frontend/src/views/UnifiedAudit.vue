@@ -38,7 +38,7 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
-            快速扫描
+            深度扫描
           </span>
         </button>
       </div>
@@ -74,7 +74,7 @@
 
     <!-- 无会话时：根据模式显示不同界面 -->
     <div v-if="!currentSession" class="flex-1 flex flex-col min-h-0">
-      <!-- 快速扫描模式 - 两步扫描 -->
+      <!-- 深度扫描模式 - 两步扫描 -->
       <div v-if="auditMode === 'quick-scan'" class="flex-1 flex flex-col min-h-0">
         <!-- 阶段1：配置阶段 -->
         <div v-if="scanPhase === 'config'" class="flex-1 flex items-center justify-center">
@@ -85,7 +85,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <h2 class="text-2xl font-bold text-gray-800 mb-2">快速安全扫描</h2>
+              <h2 class="text-2xl font-bold text-gray-800 mb-2">深度安全扫描</h2>
               <p class="text-gray-500">发现触发点 → 选择分析目标 → LLM 深度分析</p>
             </div>
 
@@ -226,6 +226,30 @@
               >
                 查看完整报告
               </button>
+            </div>
+
+            <!-- 实时发现面板 (深度扫描模式) -->
+            <div v-if="currentScan?.findings?.length > 0" class="glass-card rounded-2xl p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div class="flex items-center justify-between mb-3 shrink-0">
+                <h4 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
+                  <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                  发现漏洞
+                </h4>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                  {{ currentScan.findings.length }} 个
+                </span>
+              </div>
+              <div class="flex-1 overflow-y-auto space-y-2 dark-scroll">
+                <FindingCard
+                  v-for="finding in currentScan.findings.slice().reverse().slice(0, 20)"
+                  :key="finding.id"
+                  :finding="finding"
+                  class="cursor-pointer hover:shadow-md transition-shadow"
+                  @click="viewFindingDetail(finding)"
+                />
+              </div>
             </div>
 
             <!-- 空状态提示 -->
@@ -586,6 +610,8 @@
               v-for="finding in realtimeFindings.slice(0, 20)"
               :key="finding.id"
               :finding="finding"
+              class="cursor-pointer hover:shadow-md transition-shadow"
+              @click="viewFindingDetail(finding)"
             />
             <div v-if="realtimeFindings.length === 0" class="text-center py-6 text-gray-400 text-sm">
               <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -598,6 +624,13 @@
       </div>
     </div>
   </div>
+
+  <!-- 漏洞详情弹窗 -->
+  <FindingDetailModal
+    :visible="showFindingDetailModal"
+    :finding="selectedFinding"
+    @close="closeFindingDetailModal"
+  />
 
   <!-- 调用链选择器模态框 -->
   <transition name="fade">
@@ -693,6 +726,7 @@ import CallChainSelector from '../components/CallChainSelector.vue'
 import CallGraphViewer from '../components/CallGraphViewer.vue'
 import LLMInteractionPanel from '../components/LLMInteractionPanel.vue'
 import FCProgressPanel from '../components/FCProgressPanel.vue'
+import FindingDetailModal from '../components/FindingDetailModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -732,6 +766,10 @@ const auditMode = ref('conversation') // 'conversation' | 'quick-scan'
 // 扫描结果弹窗状态
 const showResultsModal = ref(false)
 const resultsScanId = ref('')
+
+// 漏洞详情弹窗状态
+const showFindingDetailModal = ref(false)
+const selectedFinding = ref(null)
 
 // 新会话配置
 const newSessionConfig = reactive({
@@ -865,7 +903,19 @@ const clearHistory = async () => {
   }
 }
 
-// ============ 快速扫描功能 ============
+// ============ 深度扫描功能 ============
+
+// 显示漏洞详情
+const viewFindingDetail = (finding) => {
+  selectedFinding.value = finding
+  showFindingDetailModal.value = true
+}
+
+// 关闭漏洞详情
+const closeFindingDetailModal = () => {
+  showFindingDetailModal.value = false
+  selectedFinding.value = null
+}
 
 const handleQuickScan = async (config) => {
   try {
@@ -1150,6 +1200,26 @@ const handleFCProgress = (data) => {
 
 const handleFCFinding = (data) => {
   fcState.findingsCount += 1
+  // 保存 finding 数据到 currentScan.findings
+  if (data.finding && currentScan.value) {
+    if (!currentScan.value.findings) {
+      currentScan.value.findings = []
+    }
+    // 添加元数据
+    const finding = {
+      ...data.finding,
+      _isNew: true,
+      received_at: data.timestamp || new Date().toISOString(),
+    }
+    currentScan.value.findings.push(finding)
+    // 3秒后移除新发现标记
+    if (finding.id) {
+      setTimeout(() => {
+        const f = currentScan.value?.findings?.find(f => f.id === finding.id)
+        if (f) f._isNew = false
+      }, 3000)
+    }
+  }
 }
 
 const handleFCLLMThinking = (data) => {

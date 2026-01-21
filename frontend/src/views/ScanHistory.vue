@@ -9,7 +9,7 @@
           </svg>
           扫描记录
         </h1>
-        <p class="text-gray-500 text-sm">查看快速扫描的历史记录和结果</p>
+        <p class="text-gray-500 text-sm">查看深度扫描的历史记录和结果</p>
       </div>
 
       <div class="flex items-center gap-3">
@@ -355,19 +355,23 @@
                   <div
                     v-for="finding in selectedScanFindings"
                     :key="finding.id"
-                    class="p-3 bg-white/50 rounded-lg"
+                    class="p-3 bg-white/50 rounded-lg cursor-pointer hover:bg-white/70 hover:shadow-sm transition-all"
+                    @click="viewFindingDetail(finding)"
                   >
                     <div class="flex items-start justify-between">
-                      <div>
+                      <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1">
                           <span :class="getSeverityBadgeClass(finding.severity)" class="severity-badge">
                             {{ finding.severity }}
                           </span>
                           <span class="font-medium text-gray-800">{{ finding.issue_type || finding.type }}</span>
                         </div>
-                        <p class="text-sm text-gray-600">{{ finding.summary || finding.description }}</p>
+                        <p class="text-sm text-gray-600 line-clamp-2">{{ finding.summary || finding.description }}</p>
                         <p class="text-xs text-gray-400 mt-1">{{ finding.file_path }}:{{ finding.line_start }}</p>
                       </div>
+                      <svg class="w-5 h-5 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -377,6 +381,13 @@
         </div>
       </transition>
     </teleport>
+
+    <!-- 漏洞详情弹窗 -->
+    <FindingDetailModal
+      :visible="showFindingDetailModal"
+      :finding="selectedFinding"
+      @close="closeFindingDetailModal"
+    />
   </div>
 </template>
 
@@ -387,6 +398,7 @@ defineOptions({ name: 'ScanHistory' })
 import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import * as api from '../api'
+import FindingDetailModal from '../components/FindingDetailModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -404,6 +416,10 @@ const totalCount = ref(0)
 const showDetailModal = ref(false)
 const selectedScanDetail = ref(null)
 const selectedScanFindings = ref([])
+
+// 漏洞详情弹窗状态
+const showFindingDetailModal = ref(false)
+const selectedFinding = ref(null)
 
 // 统计
 const stats = computed(() => {
@@ -503,6 +519,18 @@ const closeDetailModal = () => {
   showDetailModal.value = false
   selectedScanDetail.value = null
   selectedScanFindings.value = []
+}
+
+// 显示漏洞详情
+const viewFindingDetail = (finding) => {
+  selectedFinding.value = finding
+  showFindingDetailModal.value = true
+}
+
+// 关闭漏洞详情
+const closeFindingDetailModal = () => {
+  showFindingDetailModal.value = false
+  selectedFinding.value = null
 }
 
 const rescan = async (scan) => {

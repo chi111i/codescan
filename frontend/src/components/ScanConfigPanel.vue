@@ -162,6 +162,46 @@
             </div>
           </label>
 
+          <!-- P2-1: 多阶段验证选项 -->
+          <label class="option-card">
+            <input type="checkbox" v-model="config.enableTriage" class="hidden" />
+            <div class="option-checkbox" :class="{ checked: config.enableTriage }">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <span class="text-sm font-medium text-gray-800">Triage 快筛</span>
+              <p class="text-xs text-gray-500">快速过滤明显误报</p>
+            </div>
+          </label>
+
+          <label class="option-card">
+            <input type="checkbox" v-model="config.enableDeepVerify" class="hidden" />
+            <div class="option-checkbox" :class="{ checked: config.enableDeepVerify }">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <span class="text-sm font-medium text-gray-800">深度验证</span>
+              <p class="text-xs text-gray-500">使用强模型深度分析</p>
+            </div>
+          </label>
+
+          <label class="option-card">
+            <input type="checkbox" v-model="config.enableDeterministicValidation" class="hidden" />
+            <div class="option-checkbox" :class="{ checked: config.enableDeterministicValidation }">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <span class="text-sm font-medium text-gray-800">确定性验证</span>
+              <p class="text-xs text-gray-500">校验行号/路径防幻觉</p>
+            </div>
+          </label>
+
           <div class="col-span-2 grid grid-cols-2 gap-4">
             <div class="p-4 rounded-xl bg-white/30">
               <label class="text-sm font-medium text-gray-700 block mb-2">最大分析数</label>
@@ -237,6 +277,10 @@ const config = reactive({
   skipIndex: false,
   maxIssues: 50,
   maxChainDepth: 5,
+  // P2-1: 多阶段验证配置
+  enableTriage: true,
+  enableDeepVerify: true,
+  enableDeterministicValidation: true,
 })
 
 const availableLanguages = [

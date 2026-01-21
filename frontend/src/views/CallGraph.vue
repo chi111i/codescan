@@ -122,21 +122,21 @@
             </div>
 
             <div class="text-sm text-gray-700 mb-2">
-              <span class="font-medium">{{ chain.entry_point }}</span>
+              <span class="font-medium">{{ chain.entry_point?.name || chain.entry_point || '未知入口' }}</span>
               <span class="text-gray-400 mx-2">→</span>
-              <span class="text-red-600 font-medium">{{ chain.sink_function }}</span>
+              <span class="text-red-600 font-medium">{{ chain.sink?.name || chain.sink_function || '未知sink' }}</span>
             </div>
 
-            <div v-if="chain.chain && chain.chain.length > 0" class="flex flex-wrap gap-1">
+            <div v-if="(chain.chain_nodes && chain.chain_nodes.length > 0) || (chain.chain && chain.chain.length > 0)" class="flex flex-wrap gap-1">
               <span
-                v-for="(node, i) in chain.chain.slice(0, 5)"
+                v-for="(node, i) in (chain.chain_nodes || chain.chain).slice(0, 5)"
                 :key="i"
                 class="px-2 py-0.5 text-xs bg-white/50 rounded"
               >
-                {{ node }}
+                {{ node.name || node }}
               </span>
-              <span v-if="chain.chain.length > 5" class="text-xs text-gray-400">
-                +{{ chain.chain.length - 5 }} more
+              <span v-if="(chain.chain_nodes || chain.chain).length > 5" class="text-xs text-gray-400">
+                +{{ (chain.chain_nodes || chain.chain).length - 5 }} more
               </span>
             </div>
           </div>

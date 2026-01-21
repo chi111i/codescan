@@ -13,7 +13,7 @@
     <!-- Title & Type -->
     <div class="mb-2">
       <h4 class="font-medium text-gray-800 text-sm leading-tight">{{ finding.title }}</h4>
-      <span class="text-xs text-gray-500">{{ finding.vulnerability_type }}</span>
+      <span class="text-xs text-gray-500">{{ finding.vulnerability_type || finding.category }}</span>
     </div>
 
     <!-- File Location -->
@@ -22,16 +22,16 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
       </svg>
       <span class="truncate font-mono">{{ formatPath(finding.file_path) }}</span>
-      <span v-if="finding.line_number" class="text-blue-500">:{{ finding.line_number }}</span>
+      <span v-if="finding.line_number || finding.line_start" class="text-blue-500">:{{ finding.line_number || finding.line_start }}</span>
     </div>
 
     <!-- Description Preview -->
-    <div v-if="finding.description" class="text-xs text-gray-600 line-clamp-2 mb-3">
-      {{ finding.description }}
+    <div v-if="finding.description || finding.summary" class="text-xs text-gray-600 line-clamp-2 mb-3">
+      {{ finding.description || finding.summary }}
     </div>
 
     <!-- Code Evidence (collapsible) -->
-    <div v-if="finding.code_evidence" class="mb-3">
+    <div v-if="finding.code_evidence || finding.code_snippet" class="mb-3">
       <button
         @click="showEvidence = !showEvidence"
         class="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
@@ -42,18 +42,63 @@
         {{ showEvidence ? '隐藏代码' : '查看代码证据' }}
       </button>
       <div v-if="showEvidence" class="mt-2 bg-gray-900 rounded-lg p-3 overflow-x-auto">
-        <pre class="text-xs text-gray-100 font-mono whitespace-pre-wrap">{{ finding.code_evidence }}</pre>
+        <pre class="text-xs text-gray-100 font-mono whitespace-pre-wrap">{{ finding.code_evidence || finding.code_snippet }}</pre>
       </div>
     </div>
 
-    <!-- Confidence & Time -->
+    <!-- Confidence & Validation Status -->
     <div class="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100">
       <div class="flex items-center gap-3">
         <span v-if="finding.confidence != null" class="flex items-center gap-1">
           置信度: {{ ((finding.confidence || 0) * 100).toFixed(0) }}%
         </span>
+        <!-- Validation Status Badge -->
+        <span v-if="validationStatus" :class="validationBadgeClass" class="px-2 py-0.5 rounded-full text-xs font-medium">
+          {{ validationStatusText }}
+        </span>
+        <!-- Verification Stage -->
+        <span v-if="verificationStage" class="text-gray-500">
+          {{ verificationStageText }}
+        </span>
       </div>
       <span>{{ formattedTime }}</span>
+    </div>
+
+    <!-- Triage/Verification Info (collapsible) -->
+    <div v-if="hasVerificationInfo" class="mt-2">
+      <button
+        @click="showVerification = !showVerification"
+        class="text-xs text-purple-500 hover:text-purple-600 flex items-center gap-1"
+      >
+        <svg class="w-3 h-3 transition-transform" :class="{ 'rotate-90': showVerification }" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+        </svg>
+        {{ showVerification ? '隐藏验证详情' : '查看验证详情' }}
+      </button>
+      <div v-if="showVerification" class="mt-2 space-y-2">
+        <!-- Triage Result -->
+        <div v-if="finding.triage_result" class="bg-gray-50 rounded-lg p-2 text-xs">
+          <div class="font-medium text-gray-700 mb-1">Triage 结果</div>
+          <div class="text-gray-600">决策: {{ finding.triage_result.decision }}</div>
+          <div v-if="finding.triage_result.reason" class="text-gray-500">{{ finding.triage_result.reason }}</div>
+        </div>
+        <!-- Deep Verify Result -->
+        <div v-if="finding.deep_verify_result" class="bg-gray-50 rounded-lg p-2 text-xs">
+          <div class="font-medium text-gray-700 mb-1">深度验证结果</div>
+          <div class="text-gray-600">状态: {{ finding.deep_verify_result.status }}</div>
+          <div v-if="finding.deep_verify_result.attack_scenario" class="text-gray-500 mt-1">
+            攻击场景: {{ finding.deep_verify_result.attack_scenario }}
+          </div>
+        </div>
+        <!-- Deterministic Validation -->
+        <div v-if="finding._validation" class="bg-gray-50 rounded-lg p-2 text-xs">
+          <div class="font-medium text-gray-700 mb-1">确定性验证</div>
+          <div class="text-gray-600">状态: {{ finding._validation.status }}</div>
+          <div v-if="finding._validation.issues && finding._validation.issues.length > 0" class="text-orange-500 mt-1">
+            问题: {{ finding._validation.issues.map(i => i.message).join(', ') }}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -69,6 +114,7 @@ const props = defineProps({
 })
 
 const showEvidence = ref(false)
+const showVerification = ref(false)
 
 const severityClass = computed(() => {
   const classes = {
@@ -90,6 +136,56 @@ const severityBadgeClass = computed(() => {
     info: 'bg-gray-100 text-gray-600',
   }
   return classes[props.finding.severity] || classes.info
+})
+
+// Validation status from P2-2 DeterministicValidator
+const validationStatus = computed(() => {
+  return props.finding._validation?.status || null
+})
+
+const validationBadgeClass = computed(() => {
+  const status = validationStatus.value
+  const classes = {
+    valid: 'bg-green-100 text-green-700',
+    invalid: 'bg-red-100 text-red-700',
+    uncertain: 'bg-yellow-100 text-yellow-700',
+    needs_review: 'bg-orange-100 text-orange-700',
+  }
+  return classes[status] || 'bg-gray-100 text-gray-600'
+})
+
+const validationStatusText = computed(() => {
+  const status = validationStatus.value
+  const texts = {
+    valid: '已验证',
+    invalid: '无效',
+    uncertain: '不确定',
+    needs_review: '需审查',
+  }
+  return texts[status] || status
+})
+
+// Verification stage from P2-1 MultiStageVerifier
+const verificationStage = computed(() => {
+  if (props.finding.deep_verify_result) return 'deep_verify'
+  if (props.finding.triage_result) return 'triage'
+  return null
+})
+
+const verificationStageText = computed(() => {
+  const stage = verificationStage.value
+  const texts = {
+    triage: 'Triage',
+    deep_verify: '深度验证',
+  }
+  return texts[stage] || ''
+})
+
+// Check if any verification info is available
+const hasVerificationInfo = computed(() => {
+  return props.finding.triage_result ||
+         props.finding.deep_verify_result ||
+         props.finding._validation
 })
 
 const formattedTime = computed(() => {
