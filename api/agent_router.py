@@ -905,7 +905,7 @@ async def index_project(session_id: str, request: IndexProjectRequest):
             target_path=target_path,
         )
 
-        code_units_count = len(app_state.indexer.code_units) if app_state.indexer.code_units else 0
+        code_units_count = len(getattr(app_state.indexer, 'code_units', {}) or {})
 
         return APIResponse(
             success=True,
@@ -957,7 +957,21 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         while True:
             # 接收消息 (使用 orjson 加速反序列化)
             raw_data = await websocket.receive_text()
-            data = fast_json_loads(raw_data)
+
+            # H-2 修复: 捕获 JSON 解析异常，避免连接崩溃
+            try:
+                data = fast_json_loads(raw_data)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"[Session {session_id}] 收到无效 JSON: {e}")
+                await _safe_send_json(websocket,
+                    WSEvent(
+                        type=WSEventType.ERROR,
+                        session_id=session_id,
+                        data={"error": f"无效的 JSON 格式: {str(e)}"},
+                    ).model_dump(mode='json')
+                )
+                continue  # 跳过无效消息，保持连接
+
             msg_type = data.get("type", "")
 
             if msg_type == "ping":

@@ -269,14 +269,28 @@ class RuleSchema(BaseModel):
     risk_level: str
     languages: List[str]
     patterns: List[str]
+    frameworks: List[str] = Field(default_factory=list)
     description: str
+    example: str = ""
     fix_suggestion: str
+    cwe_ids: List[str] = Field(default_factory=list)
+    owasp_ids: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
 
 
 class RuleListSchema(BaseModel):
     """规则列表"""
     total: int
     rules: List[RuleSchema]
+
+
+class RuleStatsSchema(BaseModel):
+    """规则统计信息"""
+    total: int
+    by_language: Dict[str, int] = Field(default_factory=dict)
+    by_category: Dict[str, int] = Field(default_factory=dict)
+    by_type: Dict[str, int] = Field(default_factory=dict)
+    by_risk_level: Dict[str, int] = Field(default_factory=dict)
 
 
 # ============ 触发点相关 ============

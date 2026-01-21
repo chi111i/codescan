@@ -534,6 +534,52 @@ async def health_check():
     }
 
 
+# ============ WebSocket 广播辅助函数 ============
+
+
+async def _safe_ws_send(
+    ws: WebSocket,
+    message: dict,
+    connection_id: str,
+    connection_pool: dict,
+    context: str = "广播"
+) -> bool:
+    """安全地发送 WebSocket 消息，处理断开连接并清理连接池
+
+    H-4 修复: 统一处理 WebSocketDisconnect 异常，防止连接泄漏
+
+    Args:
+        ws: WebSocket 连接对象
+        message: 要发送的消息
+        connection_id: 连接标识（scan_id / index_id / session_id）
+        connection_pool: 连接池字典
+        context: 日志上下文描述
+
+    Returns:
+        bool: 发送是否成功
+    """
+    try:
+        await ws.send_json(message)
+        return True
+    except WebSocketDisconnect:
+        # 客户端已断开，清理连接
+        if connection_id in connection_pool:
+            del connection_pool[connection_id]
+            logger.info(f"[{context}] 客户端断开，已清理连接: {connection_id}")
+        return False
+    except Exception as e:
+        # 其他异常（如连接已关闭），也尝试清理
+        if connection_id in connection_pool:
+            # 检查是否是连接关闭相关的异常
+            error_msg = str(e).lower()
+            if "closed" in error_msg or "disconnect" in error_msg or "connection" in error_msg:
+                del connection_pool[connection_id]
+                logger.info(f"[{context}] 连接异常断开，已清理: {connection_id}")
+            else:
+                logger.warning(f"[{context}] WebSocket 发送失败 ({connection_id}): {e}")
+        return False
+
+
 # ============ 索引接口 ============
 
 
@@ -541,8 +587,9 @@ async def broadcast_index_progress(index_id: str, progress: IndexProgressSchema)
     """广播索引进度到 WebSocket"""
     if index_id in app_state.index_ws_connections:
         ws = app_state.index_ws_connections[index_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "index_progress",
                 "index_id": index_id,
                 "status": progress.status.value,
@@ -554,9 +601,11 @@ async def broadcast_index_progress(index_id: str, progress: IndexProgressSchema)
                 "processed_units": progress.processed_units,
                 "embedding_progress": progress.embedding_progress,
                 "error_message": progress.error_message,
-            })
-        except Exception as e:
-            logger.warning(f"广播索引进度失败: {e}")
+            },
+            index_id,
+            app_state.index_ws_connections,
+            "索引进度"
+        )
 
 
 async def run_index_task(index_id: str, target_path: Path, clear_existing: bool):
@@ -1399,27 +1448,27 @@ async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            message = {
-                "type": "progress",
-                "scan_id": scan_id,
-                "status": task.status.value,
-                "progress": task.progress,
-                "current_step": task.current_step,
-                "findings_count": len(task.findings),
-                "vuln_count": len(task.vuln_findings),
-                "total_units": task.total_units,
-                "target_path": task.target_path,
-                "timestamp": datetime.now().isoformat(),
-            }
-            await ws.send_json(message)
+        message = {
+            "type": "progress",
+            "scan_id": scan_id,
+            "status": task.status.value,
+            "progress": task.progress,
+            "current_step": task.current_step,
+            "findings_count": len(task.findings),
+            "vuln_count": len(task.vuln_findings),
+            "total_units": task.total_units,
+            "target_path": task.target_path,
+            "timestamp": datetime.now().isoformat(),
+        }
+        success = await _safe_ws_send(
+            ws, message, scan_id,
+            app_state.websocket_connections, "扫描进度"
+        )
 
-            # 如果是完成或失败状态，给前端一点时间处理消息
-            if task.status.value in ("completed", "failed"):
-                import asyncio
-                await asyncio.sleep(0.1)  # 100ms 延迟确保消息被处理
-        except Exception as e:
-            logger.warning(f"WebSocket 发送失败: {e}")
+        # 如果是完成或失败状态，给前端一点时间处理消息
+        if success and task.status.value in ("completed", "failed"):
+            import asyncio
+            await asyncio.sleep(0.1)  # 100ms 延迟确保消息被处理
 
 
 async def broadcast_llm_stream(scan_id: str, content: str, is_done: bool = False):
@@ -1434,16 +1483,19 @@ async def broadcast_llm_stream(scan_id: str, content: str, is_done: bool = False
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "llm_stream",
                 "scan_id": scan_id,
                 "content": content,
                 "is_done": is_done,
                 "timestamp": datetime.now().isoformat(),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket LLM 流发送失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "LLM流"
+        )
 
 
 async def broadcast_analysis_detail(scan_id: str, detail_type: str, data: dict):
@@ -1458,16 +1510,19 @@ async def broadcast_analysis_detail(scan_id: str, detail_type: str, data: dict):
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "analysis_detail",
                 "scan_id": scan_id,
                 "detail_type": detail_type,
                 "data": data,
                 "timestamp": datetime.now().isoformat(),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket 分析详情发送失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "分析详情"
+        )
 
 
 async def broadcast_fc_tool_call(
@@ -1488,17 +1543,20 @@ async def broadcast_fc_tool_call(
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "fc_tool_call",
                 "scan_id": scan_id,
                 "sink_symbol": sink_symbol,
                 "tool_call": to_jsonable(tool_call),
                 "status": status,
                 "timestamp": datetime.now().isoformat(),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket FC 工具调用发送失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "FC工具调用"
+        )
 
 
 async def broadcast_fc_progress(
@@ -1523,8 +1581,9 @@ async def broadcast_fc_progress(
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "fc_progress",
                 "scan_id": scan_id,
                 "sink_symbol": sink_symbol,
@@ -1533,9 +1592,11 @@ async def broadcast_fc_progress(
                 "tool_calls": to_jsonable(tool_calls[-10:]),  # 只发送最近 10 条
                 "status": status,
                 "timestamp": datetime.now().isoformat(),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket FC 进度发送失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "FC进度"
+        )
 
 
 async def broadcast_fc_finding(scan_id: str, finding: Dict[str, Any]):
@@ -1549,15 +1610,18 @@ async def broadcast_fc_finding(scan_id: str, finding: Dict[str, Any]):
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "fc_finding",
                 "scan_id": scan_id,
                 "finding": to_jsonable(finding),
                 "timestamp": datetime.now().isoformat(),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket FC 发现推送失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "FC发现"
+        )
 
 
 async def broadcast_fc_llm_thinking(scan_id: str, sink_symbol: str, message: str):
@@ -1572,16 +1636,19 @@ async def broadcast_fc_llm_thinking(scan_id: str, sink_symbol: str, message: str
     """
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            await ws.send_json({
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "fc_llm_thinking",
                 "scan_id": scan_id,
                 "sink_symbol": sink_symbol,
                 "message": message,
                 "timestamp": datetime.now().isoformat(),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket LLM 思考状态推送失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "LLM思考"
+        )
 
 
 # FC 事件队列（用于从同步代码中安全发送事件）
@@ -1687,16 +1754,19 @@ async def broadcast_interaction(interaction):
     scan_id = interaction.scan_id
     if scan_id in app_state.websocket_connections:
         ws = app_state.websocket_connections[scan_id]
-        try:
-            # Starlette WebSocket.send_json 内部直接 json.dumps，
-            # interaction 里可能包含 datetime/path 等对象，需先转为 JSON 兼容类型。
-            await ws.send_json({
+        # Starlette WebSocket.send_json 内部直接 json.dumps，
+        # interaction 里可能包含 datetime/path 等对象，需先转为 JSON 兼容类型。
+        await _safe_ws_send(
+            ws,
+            {
                 "type": "interaction",
                 "scan_id": scan_id,
                 "data": to_jsonable(interaction.to_timeline_event()),
-            })
-        except Exception as e:
-            logger.warning(f"WebSocket 广播交互日志失败: {e}")
+            },
+            scan_id,
+            app_state.websocket_connections,
+            "交互日志"
+        )
 
 
 async def process_interaction_broadcast_queue():
@@ -3261,8 +3331,15 @@ async def analyze_callgraph(request: CallGraphRequest):
 async def list_rules(
     language: Optional[str] = None,
     category: Optional[str] = None,
+    rule_type: Optional[str] = None,
 ):
-    """列出安全规则"""
+    """列出安全规则
+
+    支持过滤参数:
+    - language: 按语言过滤 (python/javascript/php 等)
+    - category: 按类别过滤 (injection/auth/file 等)
+    - rule_type: 按类型过滤 (sink/source/sanitizer/pattern)
+    """
     if not app_state.rule_manager:
         raise HTTPException(status_code=500, detail="规则管理器未初始化")
 
@@ -3272,6 +3349,8 @@ async def list_rules(
         rules = [r for r in rules if language in r.languages]
     if category:
         rules = [r for r in rules if r.category.value == category]
+    if rule_type:
+        rules = [r for r in rules if r.rule_type.value == rule_type]
 
     rule_schemas = []
     for r in rules:
@@ -3283,8 +3362,13 @@ async def list_rules(
             risk_level=r.risk_level.value,
             languages=r.languages,
             patterns=r.patterns,
+            frameworks=r.frameworks,
             description=r.description,
+            example=r.example,
             fix_suggestion=r.fix_suggestion,
+            cwe_ids=r.cwe_ids,
+            owasp_ids=r.owasp_ids,
+            tags=r.tags,
         ))
 
     return APIResponse(
@@ -3315,10 +3399,88 @@ async def get_rule(rule_id: str):
             risk_level=rule.risk_level.value,
             languages=rule.languages,
             patterns=rule.patterns,
+            frameworks=rule.frameworks,
             description=rule.description,
+            example=rule.example,
             fix_suggestion=rule.fix_suggestion,
+            cwe_ids=rule.cwe_ids,
+            owasp_ids=rule.owasp_ids,
+            tags=rule.tags,
         ).model_dump(),
     )
+
+
+@app.get("/api/rules/stats", response_model=APIResponse)
+async def get_rules_stats():
+    """获取规则统计信息
+
+    返回规则按语言、类别、类型、风险等级的分布统计
+    """
+    if not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="规则管理器未初始化")
+
+    rules = app_state.rule_manager.all_rules()
+
+    # 统计各维度分布
+    by_language: Dict[str, int] = {}
+    by_category: Dict[str, int] = {}
+    by_type: Dict[str, int] = {}
+    by_risk_level: Dict[str, int] = {}
+
+    for rule in rules:
+        # 语言统计（一条规则可能支持多语言）
+        for lang in rule.languages:
+            by_language[lang] = by_language.get(lang, 0) + 1
+        # 类别统计
+        cat = rule.category.value
+        by_category[cat] = by_category.get(cat, 0) + 1
+        # 类型统计
+        rt = rule.rule_type.value
+        by_type[rt] = by_type.get(rt, 0) + 1
+        # 风险等级统计
+        rl = rule.risk_level.value
+        by_risk_level[rl] = by_risk_level.get(rl, 0) + 1
+
+    from api.schemas import RuleStatsSchema
+    stats = RuleStatsSchema(
+        total=len(rules),
+        by_language=by_language,
+        by_category=by_category,
+        by_type=by_type,
+        by_risk_level=by_risk_level,
+    )
+
+    return APIResponse(
+        success=True,
+        message=f"共 {len(rules)} 条规则",
+        data=stats.model_dump(),
+    )
+
+
+@app.post("/api/rules/reload", response_model=APIResponse)
+async def reload_rules():
+    """热更新规则
+
+    清空当前规则并重新加载内置规则和自定义规则目录
+    """
+    if not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="规则管理器未初始化")
+
+    try:
+        result = app_state.rule_manager.reload()
+        total = result.get("builtin", 0) + result.get("custom", 0)
+        return APIResponse(
+            success=True,
+            message=f"规则已重新加载：内置 {result.get('builtin', 0)} 条，自定义 {result.get('custom', 0)} 条",
+            data={
+                "total": total,
+                "builtin": result.get("builtin", 0),
+                "custom": result.get("custom", 0),
+            },
+        )
+    except Exception as e:
+        logger.exception("Failed to reload rules")
+        raise HTTPException(status_code=500, detail=f"规则重新加载失败: {str(e)}")
 
 
 # ============ 配置接口 ============
