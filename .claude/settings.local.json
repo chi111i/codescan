@@ -26,7 +26,9 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nfix(indexer): 修复 CodeIndexer 缺失 code_units 属性和方法\n\n- 添加 code_units property 从 vector_store 动态获取代码单元\n- 添加 read_file() 方法支持读取文件内容（含行号范围）\n- 添加 list_files() 方法支持 Glob 模式文件列表\n\n修复 AttributeError: ''CodeIndexer'' object has no attribute ''code_units''\n影响: UnifiedAgent 可以正常访问已索引的代码单元\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit -m \"$(cat <<''EOF''\nperf(frontend): 增加 API 请求超时时间到 5 分钟\n\n- 将 axios timeout 从 60 秒增加到 300 秒\n- 支持复杂 LLM 分析任务不超时\n- 避免长时间任务提前断开连接\n\n修复: timeout of 60000ms exceeded\n影响: 前端可以等待后端完成复杂的代码分析和 Agent 推理\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit -m \"$(cat <<''EOF''\ndocs: 添加 BUG 修复验证测试和详细报告\n\n- 添加 verify_indexer_fix.py 验证 CodeIndexer 修复\n- 添加 test_toolcall_fix.py 验证 ToolCall 修复\n- 添加 INDEXER_BUG_FIX_REPORT.md 详细分析报告\n- 添加 TOOLCALL_BUG_FIX_REPORT.md 详细分析报告\n- 添加 PERFORMANCE_OPTIMIZATION_REPORT.md 性能优化报告\n\n所有测试通过，修复已验证\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
-      "git"
+      "git",
+      "mcp__augment-context-engine__codebase-retrieval",
+      "Skill(collaborating-with-gemini)"
     ]
   }
 }

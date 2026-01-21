@@ -33,6 +33,10 @@ env/
 *.swo
 *~
 
+# Claude Code
+.claude/
+.playwright-mcp/
+
 # Project specific
 .audit_cache/
 .audit_data/
