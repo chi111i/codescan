@@ -12,11 +12,34 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Set
 
-from indexer.models import CodeUnit
+from indexer.models import CodeUnit, CodeSpan
 from .sink_scanner import SinkCallSite, SinkCategory
 from .call_chain import CallChainAnalyzer, CallGraph, CallNode, NodeType
 
 logger = logging.getLogger(__name__)
+
+
+def _get_span_attr(span, attr: str, default: int = 0) -> int:
+    """兼容 CodeSpan 对象和 tuple 格式的 span
+
+    BugFix: 处理 span 可能是 CodeSpan 对象或 tuple 格式的情况
+    """
+    if span is None:
+        return default
+    if isinstance(span, CodeSpan):
+        return getattr(span, attr, default)
+    elif isinstance(span, tuple):
+        # 兼容旧格式 (start_line, end_line) 或 (start_line, end_line, start_col, end_col)
+        if attr == "start_line":
+            return span[0] if len(span) > 0 else default
+        elif attr == "end_line":
+            return span[1] if len(span) > 1 else default
+        elif attr == "start_col":
+            return span[2] if len(span) > 2 else default
+        elif attr == "end_col":
+            return span[3] if len(span) > 3 else default
+    # 尝试直接获取属性
+    return getattr(span, attr, default)
 
 
 @dataclass
@@ -587,13 +610,13 @@ class ChainContextCollector:
                     # 检查该单元是否调用了当前 symbol
                     if unit.calls and symbol in unit.calls:
                         visited.add(unit.id)
-                        # 创建调用链节点
+                        # 创建调用链节点 (BugFix: 使用辅助函数兼容 span 格式)
                         node = ChainNode(
                             symbol=unit.symbol,
                             qualified_name=f"{unit.parent_class}.{unit.symbol}" if unit.parent_class else unit.symbol,
                             file_path=unit.file_path,
-                            line_start=unit.span.start_line,
-                            line_end=unit.span.end_line,
+                            line_start=_get_span_attr(unit.span, "start_line", 1),
+                            line_end=_get_span_attr(unit.span, "end_line", 1),
                             node_type="normal",
                             code=unit.code[:1000] if unit.code else "",
                             calls=unit.calls or [],
@@ -670,12 +693,13 @@ class ChainContextCollector:
     ) -> ChainNode:
         """创建调用链节点"""
         if unit:
+            # BugFix: 使用辅助函数兼容 span 格式
             return ChainNode(
                 symbol=unit.symbol,
                 qualified_name=f"{unit.parent_class}.{unit.symbol}" if unit.parent_class else unit.symbol,
                 file_path=unit.file_path,
-                line_start=unit.span.start_line,
-                line_end=unit.span.end_line,
+                line_start=_get_span_attr(unit.span, "start_line", 1),
+                line_end=_get_span_attr(unit.span, "end_line", 1),
                 node_type=node_type,
                 code=unit.code[:1000] if unit.code else "",
                 calls=unit.calls or [],

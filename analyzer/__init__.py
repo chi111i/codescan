@@ -24,6 +24,7 @@ from .call_chain import (
     CallGraph,
     CallNode,
     CallEdge,
+    CallSite,  # P0-4: 新增调用位置详细信息
     TaintPath,
     NodeType,
 )
@@ -116,6 +117,23 @@ from .fc_adapter import (
     FCToolCall,
     FCToolStatus,
 )
+from .validator import (
+    DeterministicValidator,
+    ValidationResult,
+    ValidationStatus,
+    ValidationIssue,
+)
+from .multi_stage_verifier import (
+    MultiStageVerifier,
+    MultiStageConfig,
+    MultiStageResult,
+    TriageResult,
+    TriageDecision,
+    DeepVerifyResult,
+    VerifyStatus,
+    VerificationStage,
+    PatchSuggestion,
+)
 
 __all__ = [
     # 基础模型
@@ -138,6 +156,7 @@ __all__ = [
     "CallGraph",
     "CallNode",
     "CallEdge",
+    "CallSite",  # P0-4: 调用位置详细信息
     "TaintPath",
     "NodeType",
     # 高危漏洞检测
@@ -216,4 +235,19 @@ __all__ = [
     "FCSecurityTools",
     "FCToolCall",
     "FCToolStatus",
+    # P2-2: 确定性验证器
+    "DeterministicValidator",
+    "ValidationResult",
+    "ValidationStatus",
+    "ValidationIssue",
+    # P2-1: 多阶段 LLM 验证
+    "MultiStageVerifier",
+    "MultiStageConfig",
+    "MultiStageResult",
+    "TriageResult",
+    "TriageDecision",
+    "DeepVerifyResult",
+    "VerifyStatus",
+    "VerificationStage",
+    "PatchSuggestion",
 ]

@@ -33,6 +33,42 @@ class NodeType(Enum):
 
 
 @dataclass
+class CallSite:
+    """P0-4: 调用位置详细信息
+
+    记录函数调用的精确位置和参数信息，用于证据链收集。
+    """
+    line: int                           # 调用所在行号
+    col: int = 0                        # 调用所在列号
+    end_line: Optional[int] = None      # 调用结束行号（多行调用）
+    end_col: Optional[int] = None       # 调用结束列号
+    args_text: str = ""                 # 参数原始文本
+    callee_name: str = ""               # 被调用函数名
+    context_line: str = ""              # 包含调用的整行代码
+    is_method_call: bool = False        # 是否是方法调用 (obj.method())
+    receiver: str = ""                  # 方法调用的接收者 (obj)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "line": self.line,
+            "col": self.col,
+            "end_line": self.end_line,
+            "end_col": self.end_col,
+            "args_text": self.args_text,
+            "callee_name": self.callee_name,
+            "context_line": self.context_line,
+            "is_method_call": self.is_method_call,
+            "receiver": self.receiver,
+        }
+
+    def to_location_string(self) -> str:
+        """生成位置字符串"""
+        if self.end_line and self.end_line != self.line:
+            return f"L{self.line}-{self.end_line}"
+        return f"L{self.line}"
+
+
+@dataclass
 class CallNode:
     """调用图节点"""
     id: str                     # 节点 ID（通常是 CodeUnit.id）
@@ -65,21 +101,28 @@ class CallNode:
 
 @dataclass
 class CallEdge:
-    """调用图边"""
+    """调用图边
+
+    P0-4: 增加 call_site_info 存储详细调用位置信息
+    """
     caller_id: str              # 调用者节点 ID
     callee_id: str              # 被调用者节点 ID
-    call_site: str              # 调用位置（file:line）
+    call_site: str              # 调用位置（file:line）- 保留向后兼容
     call_type: str = "direct"   # 调用类型：direct, indirect, callback
     arguments: List[str] = field(default_factory=list)  # 传递的参数
+    call_site_info: Optional[CallSite] = None  # P0-4: 详细调用位置信息
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "caller_id": self.caller_id,
             "callee_id": self.callee_id,
             "call_site": self.call_site,
             "call_type": self.call_type,
             "arguments": self.arguments,
         }
+        if self.call_site_info:
+            result["call_site_info"] = self.call_site_info.to_dict()
+        return result
 
 
 @dataclass
@@ -547,13 +590,27 @@ class CallChainAnalyzer:
     def _trace_back_to_entry(
         self,
         sink_id: str,
-        max_depth: int = 15
+        max_depth: int = 15,
+        max_paths: int = 100,
     ) -> List[List[str]]:
-        """向上追溯调用链到入口点"""
+        """向上追溯调用链到入口点
+
+        M-6 修复: 添加 max_paths 限制防止路径爆炸
+
+        Args:
+            sink_id: Sink 节点 ID
+            max_depth: 最大搜索深度
+            max_paths: 最大返回路径数量（防止内存问题）
+
+        Returns:
+            路径列表（从入口到 sink）
+        """
         paths = []
         stack = [(sink_id, [sink_id])]
+        # M-6: 添加已访问路径去重，防止重复路径
+        visited_paths: set = set()
 
-        while stack:
+        while stack and len(paths) < max_paths:
             node_id, current_path = stack.pop()
 
             if len(current_path) > max_depth:
@@ -562,7 +619,11 @@ class CallChainAnalyzer:
             node = self.call_graph.get_node(node_id)
             if node and node.node_type == NodeType.ENTRY_POINT:
                 # 找到入口点，反转路径
-                paths.append(list(reversed(current_path)))
+                reversed_path = list(reversed(current_path))
+                path_tuple = tuple(reversed_path)
+                if path_tuple not in visited_paths:
+                    visited_paths.add(path_tuple)
+                    paths.append(reversed_path)
                 continue
 
             # 获取调用者
@@ -571,7 +632,11 @@ class CallChainAnalyzer:
             if not callers:
                 # 没有调用者，可能是顶层函数
                 if len(current_path) > 1:
-                    paths.append(list(reversed(current_path)))
+                    reversed_path = list(reversed(current_path))
+                    path_tuple = tuple(reversed_path)
+                    if path_tuple not in visited_paths:
+                        visited_paths.add(path_tuple)
+                        paths.append(reversed_path)
             else:
                 for caller_id in callers:
                     if caller_id not in current_path:
@@ -718,9 +783,21 @@ class CallChainAnalyzer:
     def get_node_neighbors(
         self,
         node_id: str,
-        depth: int = 2
+        depth: int = 2,
+        max_neighbors: int = 100,
     ) -> Dict[str, Any]:
-        """获取节点的邻居信息（用于 LLM 上下文）"""
+        """获取节点的邻居信息（用于 LLM 上下文）
+
+        M-6 修复: 添加 max_neighbors 限制防止结果集过大
+
+        Args:
+            node_id: 目标节点 ID
+            depth: 最大遍历深度
+            max_neighbors: 每个方向（调用者/被调用者）的最大节点数
+
+        Returns:
+            包含 target、callers、callees 的字典
+        """
         node = self.call_graph.get_node(node_id)
         if not node:
             return {}
@@ -731,14 +808,16 @@ class CallChainAnalyzer:
             "callees": [],
         }
 
-        # 获取调用者
+        # 获取调用者（M-6: 添加数量限制）
         visited_callers = set()
         to_visit = [(node_id, 0)]
-        while to_visit:
+        while to_visit and len(result["callers"]) < max_neighbors:
             current_id, current_depth = to_visit.pop(0)
             if current_depth >= depth:
                 continue
             for caller in self.call_graph.get_callers(current_id):
+                if len(result["callers"]) >= max_neighbors:
+                    break
                 if caller.id not in visited_callers:
                     visited_callers.add(caller.id)
                     result["callers"].append({
@@ -747,14 +826,16 @@ class CallChainAnalyzer:
                     })
                     to_visit.append((caller.id, current_depth + 1))
 
-        # 获取被调用者
+        # 获取被调用者（M-6: 添加数量限制）
         visited_callees = set()
         to_visit = [(node_id, 0)]
-        while to_visit:
+        while to_visit and len(result["callees"]) < max_neighbors:
             current_id, current_depth = to_visit.pop(0)
             if current_depth >= depth:
                 continue
             for callee in self.call_graph.get_callees(current_id):
+                if len(result["callees"]) >= max_neighbors:
+                    break
                 if callee.id not in visited_callees:
                     visited_callees.add(callee.id)
                     result["callees"].append({
