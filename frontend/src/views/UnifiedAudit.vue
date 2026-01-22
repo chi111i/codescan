@@ -484,7 +484,7 @@
                 </div>
                 <details v-if="tc.result" class="mt-1">
                   <summary class="text-gray-500 cursor-pointer hover:text-gray-700">查看结果</summary>
-                  <pre class="mt-1 p-2 bg-white/50 rounded text-xs overflow-x-auto">{{ JSON.stringify(tc.result, null, 2).substring(0, 500) }}</pre>
+                  <pre class="mt-1 p-2 bg-white/50 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto">{{ safeStringify(tc.result) }}</pre>
                 </details>
               </div>
             </div>
@@ -531,18 +531,33 @@
         <!-- 输入区域 -->
         <div class="shrink-0 space-y-3">
           <div class="flex gap-2">
-            <input
-              v-model="chatInput"
-              type="text"
-              class="input-glass flex-1"
-              placeholder="输入你的问题或分析指令..."
-              @keyup.enter="sendMessage"
-              :disabled="isProcessing"
-            />
+            <div class="relative flex-1">
+              <input
+                v-model="chatInput"
+                type="text"
+                class="input-glass w-full pr-10"
+                :class="{ 'opacity-60 cursor-not-allowed': isProcessing }"
+                placeholder="输入你的问题或分析指令..."
+                @keyup.enter="sendMessage"
+                :disabled="isProcessing"
+              />
+              <!-- 清空输入按钮 -->
+              <button
+                v-if="chatInput && !isProcessing"
+                @click="chatInput = ''"
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                title="清空输入"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
             <button
               @click="sendMessage"
               :disabled="!chatInput.trim() || isProcessing"
               class="btn-primary px-6"
+              :class="{ 'opacity-60 cursor-not-allowed': !chatInput.trim() || isProcessing }"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
@@ -1340,6 +1355,28 @@ const escapeHtml = (str) => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// 安全的 JSON 字符串化，限制长度并处理循环引用
+const safeStringify = (obj, maxLength = 1000) => {
+  try {
+    const seen = new WeakSet()
+    const str = JSON.stringify(obj, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular]'
+        }
+        seen.add(value)
+      }
+      return value
+    }, 2)
+    if (str && str.length > maxLength) {
+      return str.substring(0, maxLength) + '\n... (已截断)'
+    }
+    return str || ''
+  } catch (e) {
+    return '[无法序列化]'
+  }
 }
 
 const renderMarkdown = (text) => {

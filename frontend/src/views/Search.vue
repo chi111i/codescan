@@ -35,6 +35,23 @@
       </form>
     </div>
 
+    <!-- 错误提示 -->
+    <div v-if="errorMessage" class="glass-card rounded-2xl p-4 bg-red-50 border-red-200">
+      <div class="flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div class="flex-1">
+          <p class="text-sm text-red-700">{{ errorMessage }}</p>
+        </div>
+        <button @click="errorMessage = ''" class="p-1 rounded hover:bg-red-100">
+          <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <!-- 搜索结果 -->
     <div class="glass-card rounded-2xl p-6" v-if="results.length > 0">
       <div class="flex justify-between items-center mb-6">
@@ -61,8 +78,8 @@
                   {{ unit.unit_type }}
                 </span>
               </div>
-              <h3 class="font-medium text-gray-800">{{ unit.symbol }}</h3>
-              <p class="text-sm text-gray-500">{{ unit.file_path }}:{{ unit.span.start_line }}</p>
+              <h3 class="font-medium text-gray-800">{{ unit.symbol || '未知符号' }}</h3>
+              <p class="text-sm text-gray-500">{{ unit.file_path || '未知路径' }}:{{ getSpanInfo(unit).start_line }}</p>
             </div>
             <div v-if="unit.parent_class" class="text-sm text-gray-500">
               类: {{ unit.parent_class }}
@@ -121,7 +138,7 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span class="text-gray-500">行号</span>
-              <p class="font-medium text-gray-800">{{ selectedUnit.span.start_line }} - {{ selectedUnit.span.end_line }}</p>
+              <p class="font-medium text-gray-800">{{ getSpanInfo(selectedUnit).start_line }} - {{ getSpanInfo(selectedUnit).end_line }}</p>
             </div>
             <div v-if="selectedUnit.parent_class">
               <span class="text-gray-500">所属类</span>
@@ -173,7 +190,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import * as api from '../api'
 
 const query = ref('')
@@ -182,15 +199,40 @@ const results = ref([])
 const isSearching = ref(false)
 const hasSearched = ref(false)
 const selectedUnit = ref(null)
+const errorMessage = ref('')
 
+// 防抖定时器
+let searchDebounceTimer = null
+
+// 安全获取代码行数，防止 undefined/null
 const truncateCode = (code, maxLines = 8) => {
+  if (!code || typeof code !== 'string') return ''
   const lines = code.split('\n')
   if (lines.length <= maxLines) return code
   return lines.slice(0, maxLines).join('\n') + '\n...'
 }
 
+// 安全获取 span 信息
+const getSpanInfo = (unit) => {
+  if (!unit?.span) return { start_line: '?', end_line: '?' }
+  return {
+    start_line: unit.span.start_line ?? '?',
+    end_line: unit.span.end_line ?? '?',
+  }
+}
+
 const showCodeDetail = (unit) => {
   selectedUnit.value = unit
+}
+
+// 防抖搜索
+const debouncedSearch = () => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+  }
+  searchDebounceTimer = setTimeout(() => {
+    search()
+  }, 300)
 }
 
 const search = async () => {
@@ -198,6 +240,7 @@ const search = async () => {
 
   isSearching.value = true
   hasSearched.value = true
+  errorMessage.value = ''
 
   try {
     const result = await api.searchCode({
@@ -207,13 +250,24 @@ const search = async () => {
     })
 
     if (result.success) {
-      results.value = result.data.results
+      results.value = result.data?.results || []
+    } else {
+      errorMessage.value = result.error || '搜索失败'
+      results.value = []
     }
   } catch (error) {
     console.error('Search failed:', error)
+    errorMessage.value = error.message || '搜索请求失败，请检查网络连接'
     results.value = []
   } finally {
     isSearching.value = false
   }
 }
+
+// 监听语言变化，如果已有搜索词则自动重新搜索
+watch(language, () => {
+  if (query.value.trim() && hasSearched.value) {
+    debouncedSearch()
+  }
+})
 </script>

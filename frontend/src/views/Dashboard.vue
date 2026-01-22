@@ -284,8 +284,9 @@ const criticalCount = computed(() => {
   return scanHistory.value.reduce((sum, s) => sum + (s.critical_count || 0), 0)
 })
 
-// 安全评分计算
+// 安全评分计算（添加边界检查）
 const securityScore = computed(() => {
+  if (!scanHistory.value || scanHistory.value.length === 0) return 100
   if (totalFindings.value === 0) return 100
   const critical = criticalCount.value
   const total = totalFindings.value
@@ -369,7 +370,8 @@ const severityStats = computed(() => {
 })
 
 const getPercentage = (count) => {
-  const total = stats.value.totalUnits || 1
+  const total = stats.value?.totalUnits || 1
+  if (total === 0) return 0
   return Math.round((count / total) * 100)
 }
 

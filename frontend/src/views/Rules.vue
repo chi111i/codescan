@@ -45,12 +45,25 @@
           <option value="file">文件操作</option>
           <option value="crypto">加密</option>
         </select>
-        <input
-          v-model="filter.search"
-          type="text"
-          class="input-glass flex-1 min-w-[200px]"
-          placeholder="搜索规则..."
-        />
+        <div class="relative flex-1 min-w-[200px]">
+          <input
+            v-model="filter.search"
+            type="text"
+            class="input-glass w-full pr-8"
+            placeholder="搜索规则..."
+          />
+          <!-- 搜索清空按钮 -->
+          <button
+            v-if="filter.search"
+            @click="filter.search = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+            title="清空搜索"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
     <!-- 规则统计 -->
@@ -350,13 +363,22 @@ const rules = computed(() => appStore.rules)
 
 const filteredRules = computed(() => {
   return rules.value.filter(r => {
-    if (filter.language && !r.languages.includes(filter.language)) return false
+    // 安全检查：确保规则对象和必要属性存在
+    if (!r) return false
+
+    // 语言筛选
+    if (filter.language && (!r.languages || !r.languages.includes(filter.language))) return false
+
+    // 类别筛选
     if (filter.category && r.category !== filter.category) return false
+
+    // 搜索过滤（安全访问）
     if (filter.search) {
       const search = filter.search.toLowerCase()
-      if (!r.name.toLowerCase().includes(search) &&
-          !r.description.toLowerCase().includes(search) &&
-          !r.id.toLowerCase().includes(search)) {
+      const name = (r.name || '').toLowerCase()
+      const description = (r.description || '').toLowerCase()
+      const id = (r.id || '').toLowerCase()
+      if (!name.includes(search) && !description.includes(search) && !id.includes(search)) {
         return false
       }
     }

@@ -18,12 +18,23 @@
           <input
             v-model="searchQuery"
             type="text"
-            class="input-glass pl-10 pr-4 py-2 w-64"
+            class="input-glass pl-10 pr-8 py-2 w-64"
             placeholder="搜索扫描记录..."
           />
           <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
+          <!-- 搜索清空按钮 -->
+          <button
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+            title="清空搜索"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
 
         <!-- 状态筛选 -->
@@ -436,17 +447,19 @@ const filteredScans = computed(() => {
 
   // 状态过滤
   if (statusFilter.value) {
-    result = result.filter(s => s.status === statusFilter.value)
+    result = result.filter(s => s && s.status === statusFilter.value)
   }
 
-  // 搜索过滤
+  // 搜索过滤（安全访问）
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(s =>
-      (s.id && s.id.toLowerCase().includes(query)) ||
-      (s.target_path && s.target_path.toLowerCase().includes(query)) ||
-      (s.language && s.language.toLowerCase().includes(query))
-    )
+    result = result.filter(s => {
+      if (!s) return false
+      const id = (s.id || '').toLowerCase()
+      const targetPath = (s.target_path || '').toLowerCase()
+      const language = (s.language || '').toLowerCase()
+      return id.includes(query) || targetPath.includes(query) || language.includes(query)
+    })
   }
 
   return result
