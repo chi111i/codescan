@@ -157,9 +157,10 @@ const emit = defineEmits(['confirm', 'cancel', 'update:selected'])
 // 状态
 const selectedIds = ref([])
 
-// 按风险分数排序
+// 按风险分数排序（安全访问）
 const sortedChains = computed(() => {
-  return [...props.chains].sort((a, b) => b.risk_score - a.risk_score)
+  if (!props.chains || !Array.isArray(props.chains)) return []
+  return [...props.chains].sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
 })
 
 // 方法
@@ -205,6 +206,7 @@ function getNodeClass(symbol, idx, path) {
 }
 
 function truncateSymbol(symbol) {
+  if (!symbol || typeof symbol !== 'string') return ''
   if (symbol.length > 20) {
     return symbol.substring(0, 17) + '...'
   }

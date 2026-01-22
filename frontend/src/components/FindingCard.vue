@@ -94,8 +94,8 @@
         <div v-if="finding._validation" class="bg-gray-50 rounded-lg p-2 text-xs">
           <div class="font-medium text-gray-700 mb-1">确定性验证</div>
           <div class="text-gray-600">状态: {{ finding._validation.status }}</div>
-          <div v-if="finding._validation.issues && finding._validation.issues.length > 0" class="text-orange-500 mt-1">
-            问题: {{ finding._validation.issues.map(i => i.message).join(', ') }}
+          <div v-if="finding._validation?.issues && finding._validation.issues.length > 0" class="text-orange-500 mt-1">
+            问题: {{ (finding._validation.issues || []).map(i => i?.message || '未知').join(', ') }}
           </div>
         </div>
       </div>

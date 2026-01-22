@@ -43,12 +43,25 @@
                 </span>
               </label>
               <div class="flex gap-3">
-                <input
-                  v-model="config.targetPath"
-                  type="text"
-                  class="input-glass flex-1"
-                  placeholder="输入项目路径，例如: /path/to/project"
-                />
+                <div class="relative flex-1">
+                  <input
+                    v-model="config.targetPath"
+                    type="text"
+                    class="input-glass w-full pr-10"
+                    placeholder="输入项目路径，例如: /path/to/project"
+                  />
+                  <button
+                    v-if="config.targetPath"
+                    type="button"
+                    @click="config.targetPath = ''"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                    title="清空路径"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
                 <button type="button" class="btn-secondary px-4" @click="browsePath">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/>

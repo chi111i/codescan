@@ -52,13 +52,24 @@
       </div>
 
       <!-- 搜索 -->
-      <div class="flex-1 min-w-[200px]">
+      <div class="relative flex-1 min-w-[200px]">
         <input
           v-model="searchQuery"
           type="text"
-          class="input-glass text-sm w-full"
+          class="input-glass text-sm w-full pr-8"
           placeholder="搜索文件路径、函数名..."
         />
+        <!-- 搜索清空按钮 -->
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+          title="清空搜索"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -128,15 +139,15 @@
             </div>
 
             <!-- 匹配模式 -->
-            <div class="mt-2 flex flex-wrap gap-1">
+            <div v-if="site.matched_patterns && site.matched_patterns.length > 0" class="mt-2 flex flex-wrap gap-1">
               <span
-                v-for="pattern in site.matched_patterns.slice(0, 3)"
+                v-for="pattern in (site.matched_patterns || []).slice(0, 3)"
                 :key="pattern"
                 class="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded"
               >
                 {{ pattern }}
               </span>
-              <span v-if="site.matched_patterns.length > 3" class="text-xs text-gray-400">
+              <span v-if="(site.matched_patterns || []).length > 3" class="text-xs text-gray-400">
                 +{{ site.matched_patterns.length - 3 }} more
               </span>
             </div>
@@ -293,14 +304,16 @@ const filteredSites = computed(() => {
     sites = sites.filter(s => s.risk_level === filterRiskLevel.value)
   }
 
-  // 按搜索词过滤
+  // 按搜索词过滤（安全访问）
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    sites = sites.filter(s =>
-      s.file_path.toLowerCase().includes(query) ||
-      s.symbol.toLowerCase().includes(query) ||
-      s.call_snippet.toLowerCase().includes(query)
-    )
+    sites = sites.filter(s => {
+      if (!s) return false
+      const filePath = (s.file_path || '').toLowerCase()
+      const symbol = (s.symbol || '').toLowerCase()
+      const callSnippet = (s.call_snippet || '').toLowerCase()
+      return filePath.includes(query) || symbol.includes(query) || callSnippet.includes(query)
+    })
   }
 
   return sites
