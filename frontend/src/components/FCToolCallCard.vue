@@ -83,9 +83,9 @@ const props = defineProps({
 const showArguments = ref(false)
 const showResult = ref(false)
 
-const isRunning = computed(() => props.toolCall.status === 'running')
-const isSuccess = computed(() => props.toolCall.status === 'success')
-const isFailed = computed(() => props.toolCall.status === 'failed')
+const isRunning = computed(() => props.toolCall?.status === 'running')
+const isSuccess = computed(() => props.toolCall?.status === 'success')
+const isFailed = computed(() => props.toolCall?.status === 'failed')
 
 const statusClass = computed(() => {
   if (isRunning.value) return 'bg-blue-100 text-blue-600'
@@ -95,18 +95,23 @@ const statusClass = computed(() => {
 })
 
 const formattedTime = computed(() => {
-  const ts = props.toolCall.timestamp
+  const ts = props.toolCall?.timestamp
   if (!ts) return ''
-  const date = new Date(ts)
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  try {
+    const date = new Date(ts)
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  } catch {
+    return ''
+  }
 })
 
 const hasArguments = computed(() => {
-  return props.toolCall.arguments && Object.keys(props.toolCall.arguments).length > 0
+  const args = props.toolCall?.arguments
+  return args && typeof args === 'object' && Object.keys(args).length > 0
 })
 
 const hasResult = computed(() => {
-  return props.toolCall.result !== null && props.toolCall.result !== undefined
+  return props.toolCall?.result !== null && props.toolCall?.result !== undefined
 })
 
 const formatJSON = (obj) => {

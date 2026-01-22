@@ -175,14 +175,16 @@ const scrollContainer = ref(null)
 
 // 计算属性
 const filteredInteractions = computed(() => {
+  if (!props.interactions || !Array.isArray(props.interactions)) return []
   if (filterType.value === 'all') {
     return props.interactions
   }
-  return props.interactions.filter(i => i.type === filterType.value)
+  return props.interactions.filter(i => i && i.type === filterType.value)
 })
 
 const tokensUsed = computed(() => {
-  return props.interactions.reduce((sum, i) => sum + (i.tokens_used || 0), 0)
+  if (!props.interactions || !Array.isArray(props.interactions)) return 0
+  return props.interactions.reduce((sum, i) => sum + (i?.tokens_used || 0), 0)
 })
 
 // 方法

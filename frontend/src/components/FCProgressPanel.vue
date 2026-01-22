@@ -142,10 +142,12 @@ const statusText = computed(() => {
 })
 
 const displayedToolCalls = computed(() => {
+  if (!props.toolCalls || !Array.isArray(props.toolCalls)) return []
+  const safeCalls = props.toolCalls.filter(tc => tc != null)
   if (showAll.value) {
-    return [...props.toolCalls].reverse()
+    return [...safeCalls].reverse()
   }
-  return [...props.toolCalls].reverse().slice(0, 5)
+  return [...safeCalls].reverse().slice(0, 5)
 })
 </script>
 
