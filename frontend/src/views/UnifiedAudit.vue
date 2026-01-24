@@ -260,27 +260,50 @@
         <form @submit.prevent="createSession" class="space-y-6">
           <!-- 目标路径 -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">目标代码路径</label>
-            <input
-              v-model="newSessionConfig.targetPath"
-              type="text"
-              class="input-glass w-full"
-              placeholder="例如: /path/to/your/project"
-              required
-            />
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              <span class="flex items-center gap-2">
+                <Folder class="w-4 h-4 text-gray-500" />
+                目标路径
+              </span>
+            </label>
+            <div class="relative">
+              <input
+                v-model="newSessionConfig.targetPath"
+                type="text"
+                class="input-glass w-full pr-10"
+                placeholder="输入项目路径，例如: /path/to/project"
+                required
+              />
+              <button
+                v-if="newSessionConfig.targetPath"
+                type="button"
+                @click="newSessionConfig.targetPath = ''"
+                class="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                title="清空路径"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- 语言选择 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-3">
-              扫描语言
-              <span class="text-xs text-gray-400 font-normal ml-1">(可多选，留空则扫描全部)</span>
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+                扫描语言
+                <span class="text-xs text-gray-400 font-normal">(可多选，留空则扫描全部)</span>
+              </span>
             </label>
             <div class="grid grid-cols-5 gap-2">
               <label
                 v-for="lang in availableLanguages"
                 :key="lang.value"
-                class="lang-chip"
+                class="lang-chip group"
                 :class="{ active: newSessionConfig.languages.includes(lang.value) }"
               >
                 <input
@@ -723,6 +746,7 @@ import {
   List,
   Send,
   CheckCircle,
+  Folder,
 } from '../components/icons'
 
 const route = useRoute()
@@ -1467,21 +1491,26 @@ watch(chatMessages, () => {
 
 <style scoped>
 .lang-chip {
-  @apply flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200;
-  background: rgba(255, 255, 255, 0.4);
-  border: 2px solid transparent;
+  @apply flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/50 border border-gray-200 cursor-pointer transition-all duration-200 text-sm;
 }
 
 .lang-chip:hover {
-  background: rgba(255, 255, 255, 0.6);
+  @apply bg-white/80 border-blue-300;
 }
 
 .lang-chip.active {
-  background: rgba(139, 92, 246, 0.1);
-  border-color: rgb(139, 92, 246);
+  @apply bg-blue-50 border-blue-400 shadow-sm;
 }
 
-/* 使用全局 lang-icon 样式，不在此覆盖 */
+.lang-chip .lang-icon {
+  @apply w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0;
+}
+
+/* C++ 特殊处理 */
+.lang-chip .lang-icon-cpp {
+  font-size: 9px;
+  white-space: nowrap;
+}
 
 .chat-message {
   @apply p-4 rounded-xl;

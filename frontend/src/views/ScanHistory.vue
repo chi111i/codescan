@@ -126,8 +126,8 @@
     <!-- 扫描列表 -->
     <div class="flex-1 overflow-hidden">
       <div class="glass-card rounded-2xl p-4 h-full flex flex-col">
-        <!-- 加载状态 -->
-        <div v-if="isLoading" class="flex-1 flex items-center justify-center">
+        <!-- 加载状态：仅在首次加载（无数据时）显示全屏加载 -->
+        <div v-if="isLoading && scans.length === 0" class="flex-1 flex items-center justify-center">
           <div class="text-center">
             <svg class="w-12 h-12 mx-auto mb-4 text-emerald-500 spinner" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -138,7 +138,7 @@
         </div>
 
         <!-- 空状态 -->
-        <div v-else-if="filteredScans.length === 0" class="flex-1 flex items-center justify-center">
+        <div v-else-if="!isLoading && filteredScans.length === 0" class="flex-1 flex items-center justify-center">
           <div class="text-center">
             <svg class="w-20 h-20 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -210,7 +210,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
                     </svg>
-                    {{ scan.language || 'unknown' }}
+                    {{ getLanguageDisplay(scan) }}
                   </span>
                   <span class="flex items-center gap-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +292,7 @@
     <teleport to="body">
       <transition name="fade">
         <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
-          <div class="modal-content max-w-4xl p-6">
+          <div class="modal-content max-w-6xl w-[90vw] p-6">
             <div class="flex items-center justify-between mb-6">
               <h2 class="text-xl font-bold text-gray-800">扫描详情</h2>
               <button @click="closeDetailModal" class="btn-icon">
@@ -323,7 +323,7 @@
                   </div>
                   <div>
                     <span class="text-gray-500">语言：</span>
-                    <span class="text-gray-800">{{ selectedScanDetail.language || 'unknown' }}</span>
+                    <span class="text-gray-800">{{ getLanguageDisplay(selectedScanDetail) }}</span>
                   </div>
                   <div>
                     <span class="text-gray-500">创建时间：</span>
@@ -362,25 +362,68 @@
               <!-- 发现列表 -->
               <div v-if="selectedScanFindings.length > 0" class="glass-subtle p-4 rounded-xl">
                 <h3 class="font-medium text-gray-700 mb-3">发现列表 ({{ selectedScanFindings.length }})</h3>
-                <div class="max-h-64 overflow-y-auto space-y-2 dark-scroll">
+                <div class="max-h-96 overflow-y-auto space-y-3 dark-scroll">
                   <div
                     v-for="finding in selectedScanFindings"
                     :key="finding.id"
-                    class="p-3 bg-white/50 rounded-lg cursor-pointer hover:bg-white/70 hover:shadow-sm transition-all"
+                    class="p-4 bg-white/50 rounded-lg cursor-pointer hover:bg-white/70 hover:shadow-sm transition-all border border-gray-100"
                     @click="viewFindingDetail(finding)"
                   >
                     <div class="flex items-start justify-between">
-                      <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1">
+                      <div class="flex-1 min-w-0">
+                        <!-- 标题行：严重级别 + 漏洞类型 + 置信度 -->
+                        <div class="flex items-center gap-2 mb-2 flex-wrap">
                           <span :class="getSeverityBadgeClass(finding.severity)" class="severity-badge">
-                            {{ finding.severity }}
+                            {{ getSeverityLabel(finding.severity) }}
                           </span>
-                          <span class="font-medium text-gray-800">{{ finding.issue_type || finding.type }}</span>
+                          <span class="font-medium text-gray-800">
+                            {{ finding.vuln_type || finding.category || finding.title || finding.name || finding.issue_type || finding.type || '未知类型' }}
+                          </span>
+                          <span v-if="finding.confidence" class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                            置信度: {{ Math.round((finding.confidence || 0) * 100) }}%
+                          </span>
                         </div>
-                        <p class="text-sm text-gray-600 line-clamp-2">{{ finding.summary || finding.description }}</p>
-                        <p class="text-xs text-gray-400 mt-1">{{ finding.file_path }}:{{ finding.line_start }}</p>
+
+                        <!-- 摘要/描述 -->
+                        <p v-if="finding.summary || finding.description" class="text-sm text-gray-600 mb-2">
+                          {{ finding.summary || finding.description }}
+                        </p>
+
+                        <!-- 详细信息 -->
+                        <div v-if="finding.details" class="text-sm text-gray-500 mb-2 line-clamp-2">
+                          {{ finding.details }}
+                        </div>
+
+                        <!-- 攻击场景预览 -->
+                        <div v-if="finding.attack_scenario" class="text-xs bg-red-50 text-red-700 px-2 py-1 rounded mb-2 line-clamp-2">
+                          <span class="font-medium">攻击场景：</span>{{ finding.attack_scenario }}
+                        </div>
+
+                        <!-- 修复建议预览 -->
+                        <div v-if="finding.fix_suggestion" class="text-xs bg-green-50 text-green-700 px-2 py-1 rounded mb-2 line-clamp-2">
+                          <span class="font-medium">修复建议：</span>{{ finding.fix_suggestion }}
+                        </div>
+
+                        <!-- 代码位置 + CWE -->
+                        <div class="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                          <span class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            {{ truncatePath(finding.file_path) }}:{{ finding.line_start }}
+                          </span>
+                          <span v-if="finding.symbol" class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                            </svg>
+                            {{ finding.symbol }}
+                          </span>
+                          <span v-if="finding.cwe_ids && finding.cwe_ids.length > 0" class="text-orange-600">
+                            {{ Array.isArray(finding.cwe_ids) ? finding.cwe_ids.join(', ') : finding.cwe_ids }}
+                          </span>
+                        </div>
                       </div>
-                      <svg class="w-5 h-5 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-5 h-5 text-gray-400 shrink-0 ml-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                       </svg>
                     </div>
@@ -422,6 +465,10 @@ const statusFilter = ref('')
 const currentPage = ref(1)
 const pageSize = 20
 const totalCount = ref(0)
+
+// 请求节流控制
+let lastFetchTime = 0
+const FETCH_THROTTLE_MS = 2000 // 2秒内不重复请求
 
 // 弹窗状态
 const showDetailModal = ref(false)
@@ -469,7 +516,14 @@ const filteredScans = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredScans.value.length / pageSize))
 
 // 方法
-const fetchScans = async () => {
+const fetchScans = async (force = false) => {
+  // 节流：2秒内不重复请求（除非强制刷新）
+  const now = Date.now()
+  if (!force && now - lastFetchTime < FETCH_THROTTLE_MS && scans.value.length > 0) {
+    return
+  }
+  lastFetchTime = now
+
   isLoading.value = true
   try {
     const result = await api.listScans()
@@ -518,8 +572,17 @@ const viewScanDetail = async (scan) => {
 
   try {
     const result = await api.getScanFindings(scan.id)
-    if (result && result.findings) {
-      selectedScanFindings.value = result.findings
+    // API 返回格式: { success: true, data: { findings: [...], vuln_findings: [...] } }
+    if (result && result.success && result.data) {
+      // 合并 findings 和 vuln_findings
+      const findings = result.data.findings || []
+      const vulnFindings = result.data.vuln_findings || []
+      selectedScanFindings.value = [...findings, ...vulnFindings]
+    } else if (result && result.findings) {
+      // 兼容旧格式
+      const findings = result.findings || []
+      const vulnFindings = result.vuln_findings || []
+      selectedScanFindings.value = [...findings, ...vulnFindings]
     } else if (Array.isArray(result)) {
       selectedScanFindings.value = result
     }
@@ -607,6 +670,52 @@ const getSeverityBadgeClass = (severity) => {
   return classes[severity?.toLowerCase()] || 'severity-info'
 }
 
+// 获取严重级别标签
+const getSeverityLabel = (severity) => {
+  const labels = {
+    critical: '严重',
+    high: '高危',
+    medium: '中危',
+    low: '低危',
+    info: '信息',
+  }
+  return labels[severity?.toLowerCase()] || severity || '未知'
+}
+
+// 截断路径显示
+const truncatePath = (path) => {
+  if (!path) return ''
+  const parts = path.split(/[/\\]/)
+  if (parts.length <= 2) return path
+  return '.../' + parts.slice(-2).join('/')
+}
+
+// 获取语言显示文本
+const getLanguageDisplay = (scan) => {
+  if (!scan) return '未知'
+  // 优先从 config.languages 数组获取
+  const languages = scan.config?.languages || scan.languages
+  if (languages && Array.isArray(languages) && languages.length > 0) {
+    return languages.join(', ')
+  }
+  // 回退到 language 字段
+  if (scan.language) {
+    return scan.language
+  }
+  // 尝试从目标路径推断语言
+  const targetPath = scan.target_path || ''
+  if (targetPath.includes('.php') || targetPath.toLowerCase().includes('php')) {
+    return 'PHP'
+  }
+  if (targetPath.includes('.py') || targetPath.toLowerCase().includes('python')) {
+    return 'Python'
+  }
+  if (targetPath.includes('.js') || targetPath.toLowerCase().includes('javascript')) {
+    return 'JavaScript'
+  }
+  return '自动检测'
+}
+
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
@@ -655,7 +764,7 @@ watch([statusFilter], () => {
 
 // 生命周期
 onMounted(async () => {
-  await fetchScans()
+  await fetchScans(true) // 首次加载强制请求
   // 检查是否有 scan_id 查询参数，如果有则自动打开详情
   const scanId = route.query.scan_id
   if (scanId) {
@@ -666,9 +775,9 @@ onMounted(async () => {
   }
 })
 
-// keep-alive 激活时重新获取数据
+// keep-alive 激活时重新获取数据（带节流，避免频繁切换时卡顿）
 onActivated(() => {
-  fetchScans()
+  fetchScans() // 使用节流，2秒内不重复请求
 })
 </script>
 

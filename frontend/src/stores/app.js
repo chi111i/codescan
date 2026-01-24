@@ -14,6 +14,7 @@ export const useAppStore = defineStore('app', () => {
   const currentScan = ref(null)
   const scanHistory = ref([])
   const rules = ref([])
+  const recentFindings = ref([])  // 新增：最近发现列表
 
   // ============ 索引进度状态 ============
   const indexProgress = ref(null)
@@ -126,6 +127,22 @@ export const useAppStore = defineStore('app', () => {
         return result
       } catch (error) {
         console.error('Failed to fetch rules:', error)
+        return null
+      }
+    }, forceRefresh)
+  }
+
+  // 获取最近发现（用于仪表盘）
+  const fetchRecentFindings = async (limit = 10, forceRefresh = false) => {
+    return cachedRequest('recentFindings', CACHE_TTL.scanHistory, async () => {
+      try {
+        const result = await api.getRecentFindings(limit)
+        if (result.success) {
+          recentFindings.value = result.data.findings || []
+        }
+        return result
+      } catch (error) {
+        console.error('Failed to fetch recent findings:', error)
         return null
       }
     }, forceRefresh)
@@ -271,6 +288,7 @@ export const useAppStore = defineStore('app', () => {
     currentScan,
     scanHistory,
     rules,
+    recentFindings,
     indexProgress,
 
     // 方法
@@ -278,6 +296,7 @@ export const useAppStore = defineStore('app', () => {
     fetchStats,
     fetchScanHistory,
     fetchRules,
+    fetchRecentFindings,
     startScan,
     fetchScanResult,
     invalidateCache,

@@ -144,7 +144,7 @@
                     {{ getSeverityLabel(finding.severity) }}
                   </span>
                   <span class="text-sm font-medium text-gray-900 truncate">
-                    {{ finding.issue_type || finding.type || '未知类型' }}
+                    {{ finding.vuln_type || finding.category || finding.title || finding.name || finding.issue_type || finding.type || '未知类型' }}
                   </span>
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-500">
@@ -334,6 +334,7 @@ const appStore = useAppStore()
 const loading = ref(false)
 const stats = computed(() => appStore.stats)
 const scanHistory = computed(() => appStore.scanHistory)
+const recentFindings = computed(() => appStore.recentFindings)
 const rulesCount = ref(0)
 
 // 索引对话框状态
@@ -469,25 +470,6 @@ const severityStats = computed(() => {
       barClass: 'bg-blue-500',
     },
   ]
-})
-
-// 最近发现数据（从扫描历史中提取）
-const recentFindings = computed(() => {
-  const findings = []
-  for (const scan of scanHistory.value) {
-    if (scan.findings && Array.isArray(scan.findings)) {
-      for (const f of scan.findings) {
-        findings.push({
-          ...f,
-          scan_id: scan.scan_id,
-          created_at: f.created_at || scan.started_at,
-        })
-      }
-    }
-  }
-  return findings
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 5)
 })
 
 // 规则类别统计
@@ -717,6 +699,7 @@ const refreshData = async () => {
       appStore.fetchStats(),
       appStore.fetchScanHistory(),
       appStore.fetchRules(),
+      appStore.fetchRecentFindings(5),  // 获取最近5个发现
     ])
     rulesCount.value = appStore.rules.length
   } finally {

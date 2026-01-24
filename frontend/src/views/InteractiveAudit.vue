@@ -53,12 +53,19 @@
 
           <!-- 语言选择 -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-3">扫描语言（可选）</label>
-            <div class="flex flex-wrap gap-2">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+                扫描语言（可选）
+              </span>
+            </label>
+            <div class="flex flex-wrap gap-3">
               <label
                 v-for="lang in availableLanguages"
                 :key="lang.value"
-                class="lang-chip"
+                class="lang-chip group"
                 :class="{ active: newSessionConfig.languages.includes(lang.value) }"
               >
                 <input
@@ -69,6 +76,9 @@
                 />
                 <span class="lang-icon" :class="lang.iconClass">{{ lang.icon }}</span>
                 <span>{{ lang.label }}</span>
+                <svg v-if="newSessionConfig.languages.includes(lang.value)" class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
               </label>
             </div>
           </div>
@@ -1400,7 +1410,7 @@ watch(chatMessages, () => {
 
 <style scoped>
 .lang-chip {
-  @apply flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200;
+  @apply flex items-center gap-2 px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200;
   background: rgba(255, 255, 255, 0.4);
   border: 2px solid transparent;
 }
@@ -1412,10 +1422,6 @@ watch(chatMessages, () => {
 .lang-chip.active {
   background: rgba(59, 130, 246, 0.1);
   border-color: rgb(59, 130, 246);
-}
-
-.lang-icon {
-  @apply w-7 h-7 rounded flex items-center justify-center text-white text-xs font-bold;
 }
 
 .chain-item.selected,

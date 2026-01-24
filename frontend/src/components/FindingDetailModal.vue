@@ -2,7 +2,7 @@
   <teleport to="body">
     <transition name="fade">
       <div v-if="visible" class="modal-overlay" @click.self="close">
-        <div class="modal-content max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="modal-content max-w-6xl w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
           <!-- Header -->
           <div class="flex items-center justify-between p-6 border-b border-gray-200/50 shrink-0">
             <div class="flex items-center gap-3">

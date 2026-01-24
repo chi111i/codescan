@@ -115,8 +115,8 @@
     <!-- 会话列表 -->
     <div class="flex-1 overflow-hidden">
       <div class="glass-card rounded-2xl p-4 h-full flex flex-col">
-        <!-- 加载状态 -->
-        <div v-if="isLoading" class="flex-1 flex items-center justify-center">
+        <!-- 加载状态：仅在首次加载（无数据时）显示全屏加载 -->
+        <div v-if="isLoading && sessions.length === 0" class="flex-1 flex items-center justify-center">
           <div class="text-center">
             <svg class="w-12 h-12 mx-auto mb-4 text-violet-500 spinner" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -127,7 +127,7 @@
         </div>
 
         <!-- 空状态 -->
-        <div v-else-if="filteredSessions.length === 0" class="flex-1 flex items-center justify-center">
+        <div v-else-if="!isLoading && filteredSessions.length === 0" class="flex-1 flex items-center justify-center">
           <div class="text-center">
             <svg class="w-20 h-20 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -278,6 +278,10 @@ const currentPage = ref(1)
 const pageSize = 20
 const totalCount = ref(0)
 
+// 请求节流控制
+let lastFetchTime = 0
+const FETCH_THROTTLE_MS = 2000 // 2秒内不重复请求
+
 // 统计
 const stats = computed(() => {
   const total = totalCount.value
@@ -307,7 +311,14 @@ const filteredSessions = computed(() => {
 const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
 
 // 方法
-const fetchSessions = async () => {
+const fetchSessions = async (force = false) => {
+  // 节流：2秒内不重复请求（除非强制刷新）
+  const now = Date.now()
+  if (!force && now - lastFetchTime < FETCH_THROTTLE_MS && sessions.value.length > 0) {
+    return
+  }
+  lastFetchTime = now
+
   isLoading.value = true
   try {
     const params = {
@@ -437,17 +448,17 @@ const formatNumber = (num) => {
 
 // 监听筛选条件变化
 watch([statusFilter, currentPage], () => {
-  fetchSessions()
+  fetchSessions(true) // 筛选变化时强制刷新
 })
 
 // 生命周期
 onMounted(() => {
-  fetchSessions()
+  fetchSessions(true) // 首次加载强制请求
 })
 
-// keep-alive 激活时重新获取数据
+// keep-alive 激活时重新获取数据（带节流，避免频繁切换时卡顿）
 onActivated(() => {
-  fetchSessions()
+  fetchSessions() // 使用节流，2秒内不重复请求
 })
 </script>
 

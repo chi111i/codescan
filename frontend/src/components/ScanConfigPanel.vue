@@ -33,7 +33,9 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-3">
         <span class="flex items-center gap-2">
-          <Code class="w-4 h-4 text-gray-500" />
+          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+          </svg>
           扫描语言
           <span class="text-xs text-gray-400 font-normal">(可多选，留空则扫描全部)</span>
         </span>
