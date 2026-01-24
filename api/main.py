@@ -2028,6 +2028,99 @@ async def get_scan_result(scan_id: str):
     raise HTTPException(status_code=404, detail="扫描任务不存在")
 
 
+@app.delete("/api/scan/{scan_id}", response_model=APIResponse)
+async def delete_scan(scan_id: str):
+    """删除扫描任务
+
+    删除指定的扫描任务及其相关数据：
+    - 如果任务正在运行，先取消后台任务
+    - 从内存中移除任务状态
+    - 从数据库中删除扫描记录和发现记录
+    - 从数据库中删除交互日志
+    """
+    deleted_from = []
+
+    # 1. 取消正在运行的后台任务
+    if scan_id in app_state.background_tasks:
+        task = app_state.background_tasks[scan_id]
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        del app_state.background_tasks[scan_id]
+        deleted_from.append("background_tasks")
+        logger.info(f"已取消扫描任务 {scan_id} 的后台任务")
+
+    # 2. 从内存中移除任务状态
+    if scan_id in app_state.scan_tasks:
+        del app_state.scan_tasks[scan_id]
+        deleted_from.append("memory")
+        logger.info(f"已从内存中移除扫描任务 {scan_id}")
+
+    # 3. 关闭相关的 WebSocket 连接
+    if scan_id in app_state.websocket_connections:
+        try:
+            ws = app_state.websocket_connections[scan_id]
+            await ws.close()
+        except Exception:
+            pass
+        del app_state.websocket_connections[scan_id]
+        deleted_from.append("websocket")
+
+    # 4. 从数据库中删除发现记录
+    if app_state.finding_repo:
+        try:
+            deleted_findings = await asyncio.to_thread(
+                app_state.finding_repo.delete_by_scan_id, scan_id
+            )
+            if deleted_findings > 0:
+                deleted_from.append(f"findings({deleted_findings})")
+                logger.info(f"已删除扫描任务 {scan_id} 的 {deleted_findings} 条发现记录")
+        except Exception as e:
+            logger.warning(f"删除发现记录失败: {e}")
+
+    # 5. 从数据库中删除交互日志
+    if app_state.interaction_repo:
+        try:
+            deleted_interactions = await asyncio.to_thread(
+                app_state.interaction_repo.delete_by_scan_id, scan_id
+            )
+            if deleted_interactions > 0:
+                deleted_from.append(f"interactions({deleted_interactions})")
+                logger.info(f"已删除扫描任务 {scan_id} 的 {deleted_interactions} 条交互记录")
+        except Exception as e:
+            logger.warning(f"删除交互记录失败: {e}")
+
+    # 6. 从数据库中删除扫描任务记录
+    if app_state.scan_repo:
+        try:
+            deleted = await asyncio.to_thread(
+                app_state.scan_repo.delete, scan_id
+            )
+            if deleted:
+                deleted_from.append("database")
+                logger.info(f"已从数据库中删除扫描任务 {scan_id}")
+        except Exception as e:
+            logger.warning(f"删除扫描任务记录失败: {e}")
+
+    if not deleted_from:
+        raise HTTPException(status_code=404, detail=f"扫描任务不存在: {scan_id}")
+
+    # 使统计缓存失效
+    app_state.invalidate_stats_cache()
+
+    return APIResponse(
+        success=True,
+        message=f"扫描任务 {scan_id} 已删除",
+        data={
+            "scan_id": scan_id,
+            "deleted_from": deleted_from,
+        },
+    )
+
+
 @app.get("/api/scan/{scan_id}/findings", response_model=APIResponse)
 async def get_scan_findings(
     scan_id: str,
@@ -2065,6 +2158,7 @@ async def get_scan_findings(
         db_findings = await asyncio.to_thread(
             app_state.finding_repo.get_by_scan_id,
             scan_id,
+            None,      # finding_type - 不过滤类型
             severity,
             category,
             limit,
@@ -2072,9 +2166,12 @@ async def get_scan_findings(
         )
         scan_exists = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id) if app_state.scan_repo else None
         if db_findings or scan_exists:
-            # 分离 security 和 vuln 类型
+            # 分离 security 和 vuln 类型（taint 类型归入 vuln_findings）
             findings = [f.to_dict() for f in db_findings if f.finding_type == "security"]
-            vuln_findings = [f.to_dict() for f in db_findings if f.finding_type == "vuln"]
+            vuln_findings = [f.to_dict() for f in db_findings if f.finding_type in ("vuln", "taint")]
+            # 如果都没匹配上，全部放入 findings（兼容旧数据）
+            if not findings and not vuln_findings and db_findings:
+                findings = [f.to_dict() for f in db_findings]
             total = await asyncio.to_thread(app_state.finding_repo.count, scan_id)
 
             return APIResponse(
@@ -2090,6 +2187,54 @@ async def get_scan_findings(
             )
 
     raise HTTPException(status_code=404, detail="扫描任务不存在")
+
+
+@app.get("/api/findings/recent", response_model=APIResponse)
+async def get_recent_findings(
+    limit: int = 10,
+    severity: Optional[str] = None,
+):
+    """获取所有扫描任务的最近发现（用于仪表盘展示）"""
+    findings = []
+
+    # 从内存中的任务获取最新发现
+    for scan_id, task in app_state.scan_tasks.items():
+        all_findings = list(task.findings) + list(task.vuln_findings)
+        for f in all_findings:
+            f_dict = f.model_dump() if hasattr(f, 'model_dump') else (f if isinstance(f, dict) else {})
+            f_dict['scan_id'] = scan_id
+            if not f_dict.get('created_at'):
+                f_dict['created_at'] = task.started_at.isoformat() if task.started_at else None
+            # 过滤严重性
+            if severity and f_dict.get('severity') != severity:
+                continue
+            findings.append(f_dict)
+
+    # 从数据库获取
+    if app_state.finding_repo:
+        db_findings = await asyncio.to_thread(
+            app_state.finding_repo.get_recent_all,
+            limit * 2,  # 多取一些用于合并去重
+            severity,
+        )
+        for f in db_findings:
+            f_dict = f.to_dict()
+            # 避免重复
+            if not any(existing.get('id') == f_dict.get('id') for existing in findings):
+                findings.append(f_dict)
+
+    # 按创建时间排序并限制数量
+    findings.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+    findings = findings[:limit]
+
+    return APIResponse(
+        success=True,
+        message=f"共 {len(findings)} 个最近发现",
+        data={
+            "findings": findings,
+            "total": len(findings),
+        },
+    )
 
 
 @app.get("/api/scans", response_model=APIResponse)
