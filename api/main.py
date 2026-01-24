@@ -1,6 +1,33 @@
 """FastAPI 主应用 - 代码安全审计 API"""
 
 import sys
+import os
+
+# ============ 早期 UTF-8 编码设置 ============
+# 必须在任何其他模块导入之前设置，确保中文日志正确显示
+os.environ['PYTHONUNBUFFERED'] = '1'
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+if sys.platform == 'win32':
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleOutputCP(65001)  # UTF-8 code page
+    except Exception:
+        pass
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', line_buffering=True)
+    except Exception:
+        pass
+
+# ============ 其他导入 ============
 import uuid
 import asyncio
 import logging
@@ -3365,6 +3392,7 @@ async def list_rules(
             frameworks=r.frameworks,
             description=r.description,
             example=r.example,
+            attack_scenario=r.attack_scenario,
             fix_suggestion=r.fix_suggestion,
             cwe_ids=r.cwe_ids,
             owasp_ids=r.owasp_ids,
@@ -3402,6 +3430,7 @@ async def get_rule(rule_id: str):
             frameworks=rule.frameworks,
             description=rule.description,
             example=rule.example,
+            attack_scenario=rule.attack_scenario,
             fix_suggestion=rule.fix_suggestion,
             cwe_ids=rule.cwe_ids,
             owasp_ids=rule.owasp_ids,

@@ -272,6 +272,7 @@ class RuleSchema(BaseModel):
     frameworks: List[str] = Field(default_factory=list)
     description: str
     example: str = ""
+    attack_scenario: str = ""  # 攻击场景描述
     fix_suggestion: str
     cwe_ids: List[str] = Field(default_factory=list)
     owasp_ids: List[str] = Field(default_factory=list)
