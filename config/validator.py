@@ -153,7 +153,11 @@ class ScanConfigValidator(BaseModel):
     @classmethod
     def validate_languages(cls, v: List[str]) -> List[str]:
         """验证语言列表"""
-        allowed_languages = ["python", "javascript", "typescript", "php", "java", "go", "ruby"]
+        # 支持的编程语言（15种）
+        allowed_languages = [
+            "python", "javascript", "typescript", "php", "java", "go", "ruby",
+            "c", "cpp", "csharp", "rust", "kotlin", "scala", "swift", "dart"
+        ]
         for lang in v:
             if lang not in allowed_languages:
                 logger.warning(f"语言 {lang} 可能不被完全支持，允许的值: {allowed_languages}")

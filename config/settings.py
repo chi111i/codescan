@@ -91,9 +91,30 @@ class VectorStoreConfig:
 class ScanConfig:
     """扫描配置"""
     target_path: str = "."
-    languages: List[str] = field(default_factory=lambda: ["python", "javascript", "php"])
+    # 支持的编程语言（15种）
+    languages: List[str] = field(default_factory=lambda: [
+        "python", "javascript", "typescript", "php", "java", "go", "ruby"
+    ])
     include_patterns: List[str] = field(default_factory=lambda: [
-        "**/*.py", "**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.php"
+        # 核心语言
+        "**/*.py",                          # Python
+        "**/*.js", "**/*.jsx", "**/*.mjs",  # JavaScript
+        "**/*.ts", "**/*.tsx",              # TypeScript
+        "**/*.php",                         # PHP
+        "**/*.java",                        # Java
+        "**/*.go",                          # Go
+        "**/*.rb", "**/*.erb",              # Ruby
+        # 系统语言
+        "**/*.c", "**/*.h",                 # C
+        "**/*.cpp", "**/*.hpp", "**/*.cc",  # C++
+        "**/*.cs",                          # C#
+        "**/*.rs",                          # Rust
+        # JVM 语言
+        "**/*.kt", "**/*.kts",              # Kotlin
+        "**/*.scala", "**/*.sc",            # Scala
+        # 其他
+        "**/*.swift",                       # Swift
+        "**/*.dart",                        # Dart
     ])
     exclude_patterns: List[str] = field(default_factory=lambda: [
         "**/node_modules/**",
@@ -143,7 +164,9 @@ class RulesConfig:
     custom_rules_dir: Optional[str] = None
     enabled_categories: List[str] = field(default_factory=lambda: [
         "auth", "access-control", "business-logic",
-        "injection", "deserialization", "file", "crypto"
+        "injection", "deserialization", "file", "crypto",
+        "ssrf", "xss", "xxe", "file-upload",
+        "supply-chain", "cloud-native", "api-security"
     ])
     risk_threshold: str = "low"  # low, medium, high, critical
     min_confidence: float = 0.5  # 最小置信度过滤
