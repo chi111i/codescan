@@ -1,0 +1,769 @@
+# =============================================================================
+# CodeScan Extended Language Rules - 扩展语言安全规则库
+# =============================================================================
+# 版本: 1.0.0
+# 创建: 2025-01-23
+# 描述: Ruby, C#/.NET, Rust, Kotlin 等语言的安全规则
+# =============================================================================
+
+_metadata:
+  version: "1.0.0"
+  last_updated: "2025-01-23"
+  description: |
+    扩展语言安全规则库，覆盖:
+    - Ruby/Rails
+    - C#/.NET
+    - 未来可扩展: Rust, Kotlin, Swift
+
+rules:
+  # ===========================================================================
+  # Ruby 语言规则
+  # ===========================================================================
+
+  # --- Ruby RCE ---
+  - id: ruby-rce-eval
+    name: Ruby 代码执行 - eval
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [ruby]
+    patterns:
+      - "eval("
+      - "instance_eval"
+      - "class_eval"
+      - "module_eval"
+      - "Kernel.eval"
+    description: |
+      Ruby eval 系列方法可执行任意 Ruby 代码，
+      用户输入进入这些方法会导致 RCE。
+    example: |
+      # 漏洞代码示例
+      get '/calc' do
+        expr = params[:expr]
+        result = eval(expr)  # 危险：执行用户输入
+        result.to_s
+      end
+
+      # 攻击载荷: ?expr=`id`
+    attack_scenario: |
+      攻击者通过反引号或 system() 调用执行系统命令，
+      完全控制服务器。
+    fix_suggestion: |
+      1. 避免对用户输入使用 eval
+      2. 使用白名单映射实现动态功能
+      3. 如需计算表达式，使用安全的表达式解析器
+    cwe_ids: ["CWE-94", "CWE-95"]
+    owasp_ids: ["A03:2021"]
+    tags: [ruby, rce, eval, critical]
+
+  - id: ruby-rce-system
+    name: Ruby 命令执行 - system/exec
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [ruby]
+    patterns:
+      - "system("
+      - "exec("
+      - "`"
+      - "%x["
+      - "Kernel.system"
+      - "Open3.capture"
+      - "IO.popen"
+    description: |
+      Ruby 命令执行方法，参数用户可控时导致命令注入。
+    example: |
+      # 漏洞代码示例
+      get '/ping' do
+        host = params[:host]
+        result = `ping -c 1 #{host}`  # 危险：反引号命令执行
+        result
+      end
+
+      # 攻击载荷: ?host=127.0.0.1;cat /etc/passwd
+    fix_suggestion: |
+      1. 使用 Open3.capture3 配合参数数组
+      2. 使用 Shellwords.escape 转义
+
+      # 安全示例
+      require 'open3'
+      require 'shellwords'
+
+      stdout, stderr, status = Open3.capture3('ping', '-c', '1', host)
+    cwe_ids: ["CWE-78"]
+    owasp_ids: ["A03:2021"]
+    tags: [ruby, rce, command_injection, critical]
+
+  - id: ruby-rce-send
+    name: Ruby 动态方法调用 - send
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [ruby]
+    patterns:
+      - ".send("
+      - ".public_send("
+      - "__send__"
+    description: |
+      Ruby send 方法可动态调用任意方法，
+      方法名用户可控时可能调用危险方法。
+    example: |
+      # 漏洞代码示例
+      method_name = params[:action]
+      object.send(method_name)  # 危险：可调用任意方法
+
+      # 攻击者可调用 system, exec 等危险方法
+    fix_suggestion: |
+      1. 使用白名单验证方法名
+      2. 使用 public_send 限制为公开方法
+
+      # 安全示例
+      ALLOWED_METHODS = %w[show edit update]
+      if ALLOWED_METHODS.include?(method_name)
+        object.public_send(method_name)
+      end
+    cwe_ids: ["CWE-94"]
+    tags: [ruby, rce, dynamic-method]
+
+  # --- Ruby SQL 注入 ---
+  - id: ruby-sqli-activerecord
+    name: Ruby SQL 注入 - ActiveRecord
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [ruby]
+    patterns:
+      - ".where("
+      - ".find_by_sql("
+      - ".execute("
+      - ".select("
+      - ".order("
+      - ".group("
+      - ".having("
+      - ".joins("
+    frameworks: [rails, activerecord]
+    description: |
+      ActiveRecord 查询方法如果使用字符串拼接，
+      将导致 SQL 注入。
+    example: |
+      # 漏洞代码示例
+      User.where("name = '#{params[:name]}'")  # 危险
+      User.find_by_sql("SELECT * FROM users WHERE id = #{params[:id]}")
+
+      # 攻击载荷: name=' OR '1'='1
+    fix_suggestion: |
+      1. 使用 Hash 条件: User.where(name: params[:name])
+      2. 使用占位符: User.where("name = ?", params[:name])
+      3. 使用命名占位符: User.where("name = :name", name: params[:name])
+
+      # 安全示例
+      User.where(name: params[:name])
+    cwe_ids: ["CWE-89"]
+    owasp_ids: ["A03:2021"]
+    tags: [ruby, rails, sqli, activerecord]
+
+  # --- Ruby 反序列化 ---
+  - id: ruby-deserialize-marshal
+    name: Ruby 反序列化 - Marshal
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [ruby]
+    patterns:
+      - "Marshal.load"
+      - "Marshal.restore"
+    description: |
+      Ruby Marshal 可序列化任意对象，
+      反序列化不可信数据会导致 RCE。
+    example: |
+      # 漏洞代码示例
+      data = Base64.decode64(params[:data])
+      obj = Marshal.load(data)  # 危险：RCE
+
+      # 恶意 payload 可通过 Gadget 链执行代码
+    fix_suggestion: |
+      1. 永远不要反序列化不可信数据
+      2. 使用 JSON 替代 Marshal
+      3. 如必须使用，验证数据来源和签名
+    cwe_ids: ["CWE-502"]
+    owasp_ids: ["A08:2021"]
+    tags: [ruby, deserialization, marshal, critical]
+
+  - id: ruby-deserialize-yaml
+    name: Ruby 反序列化 - YAML
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [ruby]
+    patterns:
+      - "YAML.load"
+      - "Psych.load"
+      - "YAML.unsafe_load"
+    description: |
+      Ruby YAML.load 可实例化任意对象，
+      反序列化不可信 YAML 会导致 RCE。
+    example: |
+      # 漏洞代码示例
+      config = YAML.load(params[:config])  # 危险
+
+      # 恶意 YAML
+      # --- !ruby/object:Gem::Installer
+      # i: x
+    fix_suggestion: |
+      使用 YAML.safe_load 替代 YAML.load
+
+      # 安全示例
+      config = YAML.safe_load(params[:config], permitted_classes: [Symbol])
+    cwe_ids: ["CWE-502"]
+    tags: [ruby, deserialization, yaml, critical]
+
+  # --- Ruby 文件操作 ---
+  - id: ruby-file-read
+    name: Ruby 任意文件读取
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [ruby]
+    patterns:
+      - "File.read"
+      - "File.open"
+      - "IO.read"
+      - "IO.binread"
+      - "File.binread"
+    description: |
+      Ruby 文件读取操作，路径用户可控时存在路径遍历风险。
+    example: |
+      # 漏洞代码示例
+      get '/download' do
+        filename = params[:file]
+        send_file File.join('uploads', filename)  # 危险
+
+        # 攻击: ?file=../../../etc/passwd
+      end
+    fix_suggestion: |
+      1. 使用 File.expand_path 规范化并验证
+      2. 使用白名单限制可访问文件
+
+      # 安全示例
+      filename = params[:file]
+      safe_path = File.expand_path(filename, 'uploads')
+      unless safe_path.start_with?(File.expand_path('uploads'))
+        halt 403, 'Access denied'
+      end
+    cwe_ids: ["CWE-22"]
+    tags: [ruby, file, path-traversal]
+
+  # --- Ruby SSTI ---
+  - id: ruby-ssti-erb
+    name: Ruby 模板注入 - ERB
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [ruby]
+    patterns:
+      - "ERB.new"
+      - "render inline:"
+      - "render text:"
+    frameworks: [rails]
+    description: |
+      ERB 模板如果内容来自用户输入，
+      攻击者可执行任意 Ruby 代码。
+    example: |
+      # 漏洞代码示例
+      template = params[:template]
+      ERB.new(template).result(binding)  # 危险：RCE
+
+      # 攻击载荷: <%= `id` %>
+    fix_suggestion: |
+      1. 永远不要将用户输入作为模板内容
+      2. 用户输入应作为变量传递给模板
+    cwe_ids: ["CWE-94"]
+    tags: [ruby, ssti, erb, critical]
+
+  # --- Ruby SSRF ---
+  - id: ruby-ssrf-http
+    name: Ruby SSRF - HTTP 请求
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [ruby]
+    patterns:
+      - "Net::HTTP"
+      - "open-uri"
+      - "URI.open"
+      - "RestClient"
+      - "HTTParty"
+      - "Faraday"
+    description: |
+      Ruby HTTP 客户端库，URL 用户可控时存在 SSRF 风险。
+    example: |
+      # 漏洞代码示例
+      require 'open-uri'
+      url = params[:url]
+      content = URI.open(url).read  # 危险：SSRF
+    fix_suggestion: |
+      1. 验证 URL 协议和目标地址
+      2. 禁止访问内网地址
+      3. 使用 URL 白名单
+    cwe_ids: ["CWE-918"]
+    tags: [ruby, ssrf]
+
+  # --- Rails 特定 ---
+  - id: rails-mass-assignment
+    name: Rails 批量赋值漏洞
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [ruby]
+    patterns:
+      - ".new(params"
+      - ".create(params"
+      - ".update(params"
+      - ".update_attributes"
+      - "attr_accessible"
+      - "attr_protected"
+    frameworks: [rails]
+    description: |
+      Rails 批量赋值可能允许攻击者修改敏感字段，
+      如 is_admin、role 等。
+    example: |
+      # 漏洞代码示例 (Rails 3 及之前)
+      User.new(params[:user])  # 危险：可能包含 is_admin
+
+      # Rails 4+ 需要使用 Strong Parameters
+    fix_suggestion: |
+      使用 Strong Parameters 明确允许的字段
+
+      # 安全示例
+      def user_params
+        params.require(:user).permit(:name, :email, :password)
+      end
+
+      User.new(user_params)
+    cwe_ids: ["CWE-915"]
+    tags: [rails, mass-assignment]
+
+  - id: rails-redirect-open
+    name: Rails 开放重定向
+    rule_type: sink
+    category: other
+    risk_level: medium
+    languages: [ruby]
+    patterns:
+      - "redirect_to"
+      - "redirect_back"
+    frameworks: [rails]
+    description: |
+      Rails redirect_to 如果 URL 来自用户输入，
+      可能导致开放重定向漏洞。
+    example: |
+      # 漏洞代码示例
+      redirect_to params[:return_url]  # 危险
+
+      # 攻击: ?return_url=https://evil.com
+    fix_suggestion: |
+      1. 使用白名单验证重定向目标
+      2. 只允许相对路径
+      3. 验证主机名
+
+      # 安全示例
+      url = params[:return_url]
+      if url.start_with?('/')
+        redirect_to url
+      else
+        redirect_to root_path
+      end
+    cwe_ids: ["CWE-601"]
+    tags: [rails, redirect, phishing]
+
+  # ===========================================================================
+  # C#/.NET 语言规则
+  # ===========================================================================
+
+  # --- C# RCE ---
+  - id: csharp-rce-process
+    name: C# 命令执行 - Process
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [csharp]
+    patterns:
+      - "Process.Start"
+      - "ProcessStartInfo"
+      - "new Process()"
+      - "cmd.exe"
+      - "powershell"
+    description: |
+      C# Process 类用于启动外部进程，
+      参数用户可控时导致命令注入。
+    example: |
+      # 漏洞代码示例
+      string filename = Request.QueryString["file"];
+      Process.Start("notepad.exe", filename);  // 可能被利用
+
+      # 更危险的情况
+      Process.Start("cmd.exe", "/c " + userInput);  // RCE
+    attack_scenario: |
+      攻击者通过命令拼接执行任意命令，
+      或利用路径注入启动恶意程序。
+    fix_suggestion: |
+      1. 避免直接使用用户输入作为命令参数
+      2. 使用白名单验证允许的命令
+      3. 使用 ProcessStartInfo 并设置 UseShellExecute = false
+    cwe_ids: ["CWE-78"]
+    owasp_ids: ["A03:2021"]
+    tags: [csharp, rce, process, critical]
+
+  # --- C# SQL 注入 ---
+  - id: csharp-sqli-ado
+    name: C# SQL 注入 - ADO.NET
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [csharp]
+    patterns:
+      - "SqlCommand"
+      - "ExecuteReader"
+      - "ExecuteNonQuery"
+      - "ExecuteScalar"
+      - "SqlDataAdapter"
+      - "OleDbCommand"
+    description: |
+      ADO.NET 数据库操作，使用字符串拼接构造 SQL 将导致注入。
+    example: |
+      # 漏洞代码示例
+      string query = "SELECT * FROM Users WHERE Id = " + userId;
+      SqlCommand cmd = new SqlCommand(query, connection);
+      SqlDataReader reader = cmd.ExecuteReader();
+    fix_suggestion: |
+      使用参数化查询
+
+      # 安全示例
+      string query = "SELECT * FROM Users WHERE Id = @userId";
+      SqlCommand cmd = new SqlCommand(query, connection);
+      cmd.Parameters.AddWithValue("@userId", userId);
+      SqlDataReader reader = cmd.ExecuteReader();
+    cwe_ids: ["CWE-89"]
+    owasp_ids: ["A03:2021"]
+    tags: [csharp, sqli, adonet, critical]
+
+  - id: csharp-sqli-ef-raw
+    name: C# SQL 注入 - Entity Framework Raw
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "FromSqlRaw"
+      - "ExecuteSqlRaw"
+      - "FromSql"
+      - "Database.ExecuteSqlCommand"
+    frameworks: [efcore, entityframework]
+    description: |
+      Entity Framework 的原始 SQL 方法，
+      字符串拼接将导致 SQL 注入。
+    example: |
+      # 漏洞代码示例
+      var users = context.Users
+          .FromSqlRaw($"SELECT * FROM Users WHERE Name = '{name}'")
+          .ToList();
+    fix_suggestion: |
+      使用 FromSqlInterpolated 或参数化
+
+      # 安全示例
+      var users = context.Users
+          .FromSqlInterpolated($"SELECT * FROM Users WHERE Name = {name}")
+          .ToList();
+
+      // 或使用 FromSqlRaw 配合参数
+      var users = context.Users
+          .FromSqlRaw("SELECT * FROM Users WHERE Name = {0}", name)
+          .ToList();
+    cwe_ids: ["CWE-89"]
+    tags: [csharp, sqli, entityframework]
+
+  # --- C# 反序列化 ---
+  - id: csharp-deserialize-binaryformatter
+    name: C# 反序列化 - BinaryFormatter
+    rule_type: sink
+    category: deserialization
+    risk_level: critical
+    languages: [csharp]
+    patterns:
+      - "BinaryFormatter"
+      - "Deserialize("
+      - "ObjectStateFormatter"
+      - "NetDataContractSerializer"
+      - "SoapFormatter"
+      - "LosFormatter"
+    description: |
+      BinaryFormatter 等 .NET 反序列化器极其危险，
+      反序列化不可信数据几乎必然导致 RCE。
+    example: |
+      # 漏洞代码示例
+      BinaryFormatter formatter = new BinaryFormatter();
+      object obj = formatter.Deserialize(stream);  // RCE
+
+      # .NET 已将 BinaryFormatter 标记为过时
+    attack_scenario: |
+      攻击者构造恶意序列化数据（如 ysoserial.net 生成的 payload），
+      在反序列化时执行任意代码。
+    fix_suggestion: |
+      1. 永远不要使用 BinaryFormatter 处理不可信数据
+      2. 使用 JSON.NET 或 System.Text.Json
+      3. BinaryFormatter 已被微软标记为危险，应完全避免
+
+      # 安全示例
+      var obj = JsonConvert.DeserializeObject<MyClass>(jsonString);
+    cwe_ids: ["CWE-502"]
+    owasp_ids: ["A08:2021"]
+    tags: [csharp, deserialization, binaryformatter, critical]
+
+  - id: csharp-deserialize-json
+    name: C# JSON 反序列化类型处理
+    rule_type: pattern
+    category: deserialization
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "TypeNameHandling"
+      - "TypeNameHandling.All"
+      - "TypeNameHandling.Auto"
+      - "TypeNameHandling.Objects"
+    frameworks: [newtonsoft, json.net]
+    description: |
+      JSON.NET 的 TypeNameHandling 设置可能导致反序列化漏洞，
+      允许攻击者指定要实例化的类型。
+    example: |
+      # 漏洞代码示例
+      var settings = new JsonSerializerSettings {
+          TypeNameHandling = TypeNameHandling.All  // 危险
+      };
+      var obj = JsonConvert.DeserializeObject(json, settings);
+    fix_suggestion: |
+      1. 使用 TypeNameHandling.None（默认值）
+      2. 如必须使用类型信息，使用自定义 SerializationBinder 白名单
+
+      # 安全示例
+      var settings = new JsonSerializerSettings {
+          TypeNameHandling = TypeNameHandling.None
+      };
+    cwe_ids: ["CWE-502"]
+    tags: [csharp, deserialization, json.net]
+
+  # --- C# XXE ---
+  - id: csharp-xxe-xmlreader
+    name: C# XXE - XML 解析
+    rule_type: sink
+    category: xxe
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "XmlReader"
+      - "XmlDocument"
+      - "XDocument"
+      - "XmlTextReader"
+      - "XPathDocument"
+    description: |
+      C# XML 解析器默认可能允许外部实体，
+      解析不可信 XML 可能导致 XXE 攻击。
+    example: |
+      # 漏洞代码示例 (旧版本 .NET)
+      XmlDocument doc = new XmlDocument();
+      doc.Load(userInput);  // 可能存在 XXE
+    fix_suggestion: |
+      # 安全配置
+      XmlReaderSettings settings = new XmlReaderSettings();
+      settings.DtdProcessing = DtdProcessing.Prohibit;
+      settings.XmlResolver = null;
+
+      using (XmlReader reader = XmlReader.Create(stream, settings)) {
+          // 安全解析
+      }
+    cwe_ids: ["CWE-611"]
+    owasp_ids: ["A05:2021"]
+    tags: [csharp, xxe, xml]
+
+  # --- C# SSRF ---
+  - id: csharp-ssrf-httpclient
+    name: C# SSRF - HttpClient
+    rule_type: sink
+    category: ssrf
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "HttpClient"
+      - "WebClient"
+      - "WebRequest"
+      - "HttpWebRequest"
+      - "GetAsync"
+      - "PostAsync"
+      - "GetStringAsync"
+    description: |
+      C# HTTP 客户端类，URL 用户可控时存在 SSRF 风险。
+    example: |
+      # 漏洞代码示例
+      string url = Request.QueryString["url"];
+      using (HttpClient client = new HttpClient()) {
+          var response = await client.GetAsync(url);  // SSRF
+      }
+    fix_suggestion: |
+      1. 验证 URL 协议和目标地址
+      2. 使用 URL 白名单
+      3. 禁止访问内网地址
+    cwe_ids: ["CWE-918"]
+    tags: [csharp, ssrf, httpclient]
+
+  # --- C# 路径遍历 ---
+  - id: csharp-path-traversal
+    name: C# 路径遍历
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "File.ReadAllText"
+      - "File.WriteAllText"
+      - "File.Open"
+      - "FileStream"
+      - "StreamReader"
+      - "StreamWriter"
+      - "Path.Combine"
+    description: |
+      C# 文件操作，路径包含用户输入时存在路径遍历风险。
+    example: |
+      # 漏洞代码示例
+      string filename = Request.QueryString["file"];
+      string content = File.ReadAllText(Path.Combine("uploads", filename));
+
+      # 攻击: ?file=../../../web.config
+    fix_suggestion: |
+      1. 使用 Path.GetFullPath 规范化并验证
+      2. 确保路径在允许目录内
+
+      # 安全示例
+      string basePath = Path.GetFullPath("uploads");
+      string fullPath = Path.GetFullPath(Path.Combine("uploads", filename));
+      if (!fullPath.StartsWith(basePath)) {
+          throw new SecurityException("Access denied");
+      }
+    cwe_ids: ["CWE-22"]
+    tags: [csharp, path-traversal, file]
+
+  # --- C# LDAP 注入 ---
+  - id: csharp-ldap-injection
+    name: C# LDAP 注入
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "DirectorySearcher"
+      - "DirectoryEntry"
+      - "SearchFilter"
+      - "FindAll()"
+      - "FindOne()"
+    description: |
+      C# LDAP 查询，过滤器包含用户输入时存在 LDAP 注入风险。
+    example: |
+      # 漏洞代码示例
+      string username = Request.QueryString["user"];
+      DirectorySearcher searcher = new DirectorySearcher();
+      searcher.Filter = $"(uid={username})";  // 危险
+    fix_suggestion: |
+      1. 转义 LDAP 特殊字符: * ( ) \ NUL
+      2. 使用参数化 LDAP 查询（如可用）
+
+      # 转义示例
+      string SafeLdapFilter(string input) {
+          return input
+              .Replace("\\", "\\5c")
+              .Replace("*", "\\2a")
+              .Replace("(", "\\28")
+              .Replace(")", "\\29")
+              .Replace("\0", "\\00");
+      }
+    cwe_ids: ["CWE-90"]
+    tags: [csharp, ldap, injection]
+
+  # --- ASP.NET 特定 ---
+  - id: aspnet-viewstate-tampering
+    name: ASP.NET ViewState 篡改
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "ViewState"
+      - "EnableViewStateMac"
+      - "ViewStateEncryptionMode"
+    frameworks: [aspnet, webforms]
+    description: |
+      ASP.NET ViewState 如果未启用 MAC 验证，
+      攻击者可篡改 ViewState 数据，可能导致 RCE。
+    fix_suggestion: |
+      1. 确保 EnableViewStateMac = true（.NET 4.5.2+ 默认启用）
+      2. 使用强 machineKey 配置
+      3. 考虑迁移到 ASP.NET Core
+    cwe_ids: ["CWE-472", "CWE-502"]
+    tags: [aspnet, viewstate, webforms]
+
+  - id: aspnet-request-validation-disabled
+    name: ASP.NET 请求验证禁用
+    rule_type: pattern
+    category: xss
+    risk_level: medium
+    languages: [csharp]
+    patterns:
+      - "ValidateRequest=\"false\""
+      - "ValidateInput(false)"
+      - "[ValidateInput(false)]"
+      - "requestValidationMode"
+    frameworks: [aspnet]
+    description: |
+      禁用 ASP.NET 请求验证会允许潜在的 XSS 攻击向量。
+    fix_suggestion: |
+      1. 保持请求验证启用
+      2. 如必须禁用，确保手动进行输入验证和输出编码
+      3. 使用 AntiXSS 库
+    cwe_ids: ["CWE-79"]
+    tags: [aspnet, xss, validation]
+
+  - id: aspnet-core-cors-permissive
+    name: ASP.NET Core CORS 配置过于宽松
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [csharp]
+    patterns:
+      - "AllowAnyOrigin"
+      - "AllowAnyMethod"
+      - "AllowAnyHeader"
+      - "AllowCredentials"
+      - "WithOrigins"
+    frameworks: [aspnetcore]
+    description: |
+      ASP.NET Core CORS 配置使用 AllowAnyOrigin 且同时允许凭证是危险的。
+    example: |
+      # 漏洞配置
+      services.AddCors(options => {
+          options.AddPolicy("AllowAll", builder => {
+              builder.AllowAnyOrigin()
+                     .AllowAnyMethod()
+                     .AllowAnyHeader()
+                     .AllowCredentials();  // 与 AllowAnyOrigin 冲突
+          });
+      });
+    fix_suggestion: |
+      1. 明确指定允许的来源
+      2. 不要同时使用 AllowAnyOrigin 和 AllowCredentials
+
+      # 安全配置
+      services.AddCors(options => {
+          options.AddPolicy("Secure", builder => {
+              builder.WithOrigins("https://trusted.com")
+                     .AllowCredentials();
+          });
+      });
+    cwe_ids: ["CWE-942"]
+    tags: [aspnetcore, cors]

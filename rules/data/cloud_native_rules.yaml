@@ -1,0 +1,571 @@
+# =============================================================================
+# CodeScan Cloud Native Security Rules - 云原生安全规则库
+# =============================================================================
+# 版本: 1.0.0
+# 创建: 2025-01-23
+# 描述: Docker, Kubernetes, Terraform, Helm 配置安全规则
+# =============================================================================
+
+_metadata:
+  version: "1.0.0"
+  last_updated: "2025-01-23"
+  description: |
+    云原生安全规则库，检测:
+    - Docker 镜像和容器安全配置
+    - Kubernetes 资源安全配置
+    - Terraform 基础设施安全配置
+    - Helm Chart 安全配置
+
+rules:
+  # ===========================================================================
+  # Docker 安全规则
+  # ===========================================================================
+
+  - id: docker-privileged-container
+    name: Docker 特权容器
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [dockerfile, yaml]
+    patterns:
+      - "privileged: true"
+      - "--privileged"
+      - "privileged=true"
+    description: |
+      特权容器拥有宿主机的全部权限，
+      攻击者逃逸容器后可完全控制宿主机。
+    example: |
+      # docker-compose.yml - 危险
+      services:
+        app:
+          privileged: true  # 危险：特权模式
+
+      # 或命令行
+      docker run --privileged myimage
+    attack_scenario: |
+      攻击者利用容器漏洞逃逸后，
+      因特权模式可直接访问宿主机设备和文件系统。
+    fix_suggestion: |
+      1. 移除 privileged: true
+      2. 仅添加必要的 capabilities
+      3. 使用 seccomp/AppArmor 限制
+
+      # 安全配置
+      services:
+        app:
+          cap_add:
+            - NET_BIND_SERVICE  # 仅添加需要的能力
+          cap_drop:
+            - ALL
+    cwe_ids: ["CWE-250", "CWE-269"]
+    tags: [docker, privileged, container-escape, critical]
+
+  - id: docker-root-user
+    name: Docker 容器以 root 运行
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [dockerfile, yaml]
+    patterns:
+      - "USER root"
+      - "user: root"
+      - "user: 0"
+      - "runAsUser: 0"
+    description: |
+      容器以 root 用户运行增加了攻击面，
+      容器逃逸后攻击者以 root 权限操作宿主机。
+    example: |
+      # Dockerfile - 危险
+      FROM ubuntu
+      # 未指定 USER，默认为 root 运行
+
+      # 或显式指定
+      USER root
+      CMD ["./app"]
+    fix_suggestion: |
+      1. 创建非 root 用户运行应用
+      2. 使用 rootless 容器
+
+      # Dockerfile 安全示例
+      FROM ubuntu
+      RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+      USER appuser
+      CMD ["./app"]
+    cwe_ids: ["CWE-250"]
+    tags: [docker, root, least-privilege]
+
+  - id: docker-secrets-exposed
+    name: Docker 镜像中的密钥泄露
+    rule_type: pattern
+    category: crypto
+    risk_level: critical
+    languages: [dockerfile]
+    patterns:
+      - "ENV.*PASSWORD"
+      - "ENV.*SECRET"
+      - "ENV.*API_KEY"
+      - "ENV.*TOKEN"
+      - "ARG.*PASSWORD"
+      - "COPY.*credentials"
+      - "COPY.*.pem"
+      - "COPY.*.key"
+    description: |
+      在 Dockerfile 中硬编码密钥或通过 ENV/ARG 传递，
+      会导致密钥泄露到镜像层中。
+    example: |
+      # Dockerfile - 危险
+      ENV DATABASE_PASSWORD=mysecret123
+      ARG API_KEY=sk-xxx
+      COPY credentials.json /app/
+    fix_suggestion: |
+      1. 使用 Docker Secrets（Swarm）或外部密钥管理
+      2. 运行时通过环境变量注入
+      3. 使用 .dockerignore 排除敏感文件
+
+      # 运行时注入
+      docker run -e DATABASE_PASSWORD=$DB_PASS myimage
+    cwe_ids: ["CWE-798", "CWE-312"]
+    tags: [docker, secrets, credentials, critical]
+
+  - id: docker-latest-tag
+    name: Docker 使用 latest 标签
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [dockerfile, yaml]
+    patterns:
+      - ":latest"
+      - "image: nginx"
+      - "FROM ubuntu"
+    description: |
+      使用 latest 标签或无标签可能导致:
+      1. 构建不可重复
+      2. 意外引入漏洞或破坏性变更
+    example: |
+      # Dockerfile - 不推荐
+      FROM node:latest
+      FROM python  # 隐式 latest
+    fix_suggestion: |
+      使用具体版本标签
+
+      # 推荐
+      FROM node:18.19.0-alpine
+      FROM python:3.11-slim
+    cwe_ids: ["CWE-829"]
+    tags: [docker, versioning, supply-chain]
+
+  - id: docker-add-remote
+    name: Docker ADD 远程文件
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [dockerfile]
+    patterns:
+      - "ADD http"
+      - "ADD https"
+      - "ADD ftp"
+    description: |
+      Dockerfile ADD 指令下载远程文件不验证完整性，
+      可能引入被篡改的恶意文件。
+    example: |
+      # Dockerfile - 危险
+      ADD https://example.com/app.tar.gz /app/
+    fix_suggestion: |
+      1. 使用 RUN 配合 curl/wget 并验证校验和
+      2. 或使用 COPY 从本地复制已验证的文件
+
+      # 安全示例
+      RUN curl -fsSL https://example.com/app.tar.gz -o app.tar.gz \
+          && echo "sha256hash  app.tar.gz" | sha256sum -c - \
+          && tar xzf app.tar.gz
+    cwe_ids: ["CWE-494"]
+    tags: [docker, add, integrity]
+
+  - id: docker-expose-sensitive-ports
+    name: Docker 暴露敏感端口
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [dockerfile, yaml]
+    patterns:
+      - "EXPOSE 22"
+      - "EXPOSE 3306"
+      - "EXPOSE 5432"
+      - "EXPOSE 27017"
+      - "EXPOSE 6379"
+      - "ports:"
+    description: |
+      暴露数据库、SSH 等敏感端口可能导致未授权访问。
+    fix_suggestion: |
+      1. 仅暴露必要的应用端口
+      2. 数据库等服务使用内部网络
+      3. 使用 Docker 网络隔离
+    cwe_ids: ["CWE-284"]
+    tags: [docker, ports, network]
+
+  # ===========================================================================
+  # Kubernetes 安全规则
+  # ===========================================================================
+
+  - id: k8s-privileged-pod
+    name: Kubernetes 特权 Pod
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [yaml]
+    patterns:
+      - "privileged: true"
+      - "allowPrivilegeEscalation: true"
+    description: |
+      Kubernetes Pod 配置特权模式，
+      攻击者可利用此逃逸容器控制节点。
+    example: |
+      # pod.yaml - 危险
+      apiVersion: v1
+      kind: Pod
+      spec:
+        containers:
+        - name: app
+          securityContext:
+            privileged: true
+    fix_suggestion: |
+      spec:
+        containers:
+        - name: app
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+    cwe_ids: ["CWE-250"]
+    tags: [kubernetes, privileged, pod-security]
+
+  - id: k8s-hostpath-mount
+    name: Kubernetes 主机路径挂载
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [yaml]
+    patterns:
+      - "hostPath:"
+      - "path: /"
+      - "path: /etc"
+      - "path: /var/run/docker.sock"
+    description: |
+      挂载宿主机路径可能导致:
+      1. 敏感文件泄露
+      2. 容器逃逸
+      3. 挂载 docker.sock 可完全控制 Docker
+    example: |
+      # 危险配置
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock  # 极其危险
+    fix_suggestion: |
+      1. 避免使用 hostPath
+      2. 如必须使用，限制为只读且特定目录
+      3. 永远不要挂载 docker.sock
+
+      # 如必须挂载，使用只读
+      volumes:
+      - name: config
+        hostPath:
+          path: /etc/myapp
+          type: DirectoryOrCreate
+      volumeMounts:
+      - name: config
+        mountPath: /config
+        readOnly: true
+    cwe_ids: ["CWE-250", "CWE-269"]
+    tags: [kubernetes, hostpath, container-escape]
+
+  - id: k8s-secrets-plaintext
+    name: Kubernetes Secret 明文存储
+    rule_type: pattern
+    category: crypto
+    risk_level: high
+    languages: [yaml]
+    patterns:
+      - "kind: Secret"
+      - "stringData:"
+      - "data:"
+    description: |
+      Kubernetes Secrets 默认仅 base64 编码（非加密），
+      可能在 etcd 或 YAML 中泄露。
+    fix_suggestion: |
+      1. 启用 etcd 加密
+      2. 使用外部密钥管理 (Vault, AWS Secrets Manager)
+      3. 使用 Sealed Secrets 或 SOPS
+      4. 不要将 Secret YAML 提交到版本控制
+    cwe_ids: ["CWE-312", "CWE-319"]
+    tags: [kubernetes, secrets, encryption]
+
+  - id: k8s-no-resource-limits
+    name: Kubernetes 资源限制缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [yaml]
+    patterns:
+      - "resources:"
+      - "limits:"
+      - "requests:"
+    description: |
+      Pod 缺少资源限制可能导致:
+      1. 单个 Pod 耗尽节点资源
+      2. DoS 攻击
+      3. 调度问题
+    example: |
+      # 缺少资源限制
+      containers:
+      - name: app
+        image: myapp
+        # 无 resources 配置
+    fix_suggestion: |
+      containers:
+      - name: app
+        image: myapp
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+    cwe_ids: ["CWE-400", "CWE-770"]
+    tags: [kubernetes, resources, dos]
+
+  - id: k8s-default-namespace
+    name: Kubernetes 使用 default 命名空间
+    rule_type: pattern
+    category: access-control
+    risk_level: low
+    languages: [yaml]
+    patterns:
+      - "namespace: default"
+    description: |
+      使用 default 命名空间不利于资源隔离和 RBAC 管理。
+    fix_suggestion: |
+      为应用创建专用命名空间
+
+      kubectl create namespace myapp
+      # 在 YAML 中指定
+      metadata:
+        namespace: myapp
+    cwe_ids: ["CWE-269"]
+    tags: [kubernetes, namespace, isolation]
+
+  - id: k8s-rbac-cluster-admin
+    name: Kubernetes ClusterAdmin 权限过大
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [yaml]
+    patterns:
+      - "cluster-admin"
+      - "ClusterRoleBinding"
+      - "ClusterRole"
+    description: |
+      过度使用 cluster-admin 权限违反最小权限原则。
+    fix_suggestion: |
+      1. 创建具有最小必要权限的自定义 Role
+      2. 使用 RoleBinding 而非 ClusterRoleBinding
+      3. 定期审计 RBAC 配置
+    cwe_ids: ["CWE-250", "CWE-269"]
+    tags: [kubernetes, rbac, least-privilege]
+
+  # ===========================================================================
+  # Terraform 安全规则
+  # ===========================================================================
+
+  - id: tf-s3-public-access
+    name: Terraform S3 公开访问
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [hcl, terraform]
+    patterns:
+      - 'acl.*"public'
+      - "block_public_acls.*false"
+      - "block_public_policy.*false"
+      - "ignore_public_acls.*false"
+      - "restrict_public_buckets.*false"
+    description: |
+      S3 存储桶配置公开访问可能导致敏感数据泄露。
+    example: |
+      # 危险配置
+      resource "aws_s3_bucket" "data" {
+        bucket = "my-data-bucket"
+        acl    = "public-read"  # 危险
+      }
+    fix_suggestion: |
+      resource "aws_s3_bucket_public_access_block" "data" {
+        bucket = aws_s3_bucket.data.id
+
+        block_public_acls       = true
+        block_public_policy     = true
+        ignore_public_acls      = true
+        restrict_public_buckets = true
+      }
+    cwe_ids: ["CWE-284", "CWE-732"]
+    tags: [terraform, aws, s3, public-access, critical]
+
+  - id: tf-security-group-open
+    name: Terraform 安全组规则过于宽松
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [hcl, terraform]
+    patterns:
+      - 'cidr_blocks.*"0.0.0.0/0"'
+      - "from_port.*0"
+      - "to_port.*65535"
+      - 'protocol.*"-1"'
+    description: |
+      安全组允许所有 IP 访问所有端口，等于没有防火墙。
+    example: |
+      # 危险配置
+      resource "aws_security_group_rule" "allow_all" {
+        type        = "ingress"
+        from_port   = 0
+        to_port     = 65535
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]  # 危险：允许所有
+      }
+    fix_suggestion: |
+      1. 限制来源 IP 范围
+      2. 仅开放必要端口
+      3. 使用安全组引用而非 CIDR
+
+      # 安全配置
+      resource "aws_security_group_rule" "web" {
+        type        = "ingress"
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["10.0.0.0/8"]  # 限制来源
+      }
+    cwe_ids: ["CWE-284", "CWE-269"]
+    tags: [terraform, aws, security-group, critical]
+
+  - id: tf-hardcoded-credentials
+    name: Terraform 硬编码凭证
+    rule_type: pattern
+    category: crypto
+    risk_level: critical
+    languages: [hcl, terraform]
+    patterns:
+      - "access_key"
+      - "secret_key"
+      - "password"
+      - "private_key"
+      - "api_key"
+    description: |
+      Terraform 配置中硬编码凭证会导致密钥泄露。
+    example: |
+      # 危险配置
+      provider "aws" {
+        access_key = "AKIAIOSFODNN7EXAMPLE"
+        secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      }
+    fix_suggestion: |
+      1. 使用环境变量
+      2. 使用 AWS IAM Role
+      3. 使用 Vault 或 AWS Secrets Manager
+
+      # 安全配置
+      provider "aws" {
+        # 使用环境变量或 IAM Role，无需硬编码
+      }
+
+      # 或使用变量
+      variable "db_password" {
+        sensitive = true
+      }
+    cwe_ids: ["CWE-798", "CWE-312"]
+    tags: [terraform, credentials, secrets, critical]
+
+  - id: tf-rds-public
+    name: Terraform RDS 公开访问
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [hcl, terraform]
+    patterns:
+      - "publicly_accessible.*true"
+    description: |
+      RDS 数据库实例配置公开访问，可从互联网直接连接。
+    example: |
+      # 危险配置
+      resource "aws_db_instance" "main" {
+        publicly_accessible = true  # 危险
+      }
+    fix_suggestion: |
+      resource "aws_db_instance" "main" {
+        publicly_accessible = false
+        # 配置在私有子网中
+      }
+    cwe_ids: ["CWE-284"]
+    tags: [terraform, aws, rds, public-access]
+
+  - id: tf-unencrypted-storage
+    name: Terraform 未加密存储
+    rule_type: pattern
+    category: crypto
+    risk_level: high
+    languages: [hcl, terraform]
+    patterns:
+      - "encrypted.*false"
+      - "storage_encrypted.*false"
+      - "kms_key_id"
+    description: |
+      存储资源（EBS、S3、RDS）未启用加密。
+    fix_suggestion: |
+      # S3
+      resource "aws_s3_bucket" "data" {
+        # 使用服务端加密
+      }
+      resource "aws_s3_bucket_server_side_encryption_configuration" "data" {
+        bucket = aws_s3_bucket.data.id
+        rule {
+          apply_server_side_encryption_by_default {
+            sse_algorithm = "aws:kms"
+          }
+        }
+      }
+
+      # RDS
+      resource "aws_db_instance" "main" {
+        storage_encrypted = true
+        kms_key_id        = aws_kms_key.db.arn
+      }
+    cwe_ids: ["CWE-311", "CWE-312"]
+    tags: [terraform, encryption, storage]
+
+  - id: tf-logging-disabled
+    name: Terraform 日志记录禁用
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [hcl, terraform]
+    patterns:
+      - "enable_logging.*false"
+      - "logging"
+      - "access_logs"
+      - "cloudwatch_logs"
+    description: |
+      关键服务未启用日志记录，影响安全审计和事件响应。
+    fix_suggestion: |
+      为关键服务启用日志:
+      - S3 访问日志
+      - CloudTrail
+      - VPC Flow Logs
+      - ELB 访问日志
+    cwe_ids: ["CWE-778"]
+    tags: [terraform, logging, audit]

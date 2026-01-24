@@ -1,0 +1,777 @@
+# =============================================================================
+# CodeScan Framework Security Rules - 框架特定安全规则库
+# =============================================================================
+# 版本: 1.0.0
+# 创建: 2025-01-23
+# 描述: 针对主流 Web 框架的深度安全规则
+# =============================================================================
+
+_metadata:
+  version: "1.0.0"
+  last_updated: "2025-01-23"
+  description: |
+    框架特定安全规则库，覆盖:
+    - Python: Flask, Django, FastAPI
+    - JavaScript: Express, NestJS, Next.js
+    - 框架配置安全、中间件安全、ORM 安全等
+
+rules:
+  # ===========================================================================
+  # Flask 框架规则
+  # ===========================================================================
+
+  - id: flask-debug-mode
+    name: Flask 调试模式启用
+    rule_type: pattern
+    category: other
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "debug=True"
+      - "DEBUG = True"
+      - "app.debug = True"
+      - "FLASK_DEBUG=1"
+    frameworks: [flask]
+    description: |
+      Flask 调试模式在生产环境启用会导致:
+      1. 详细错误信息泄露（含源代码）
+      2. 交互式调试器可执行任意代码
+      3. 自动重载可能暴露敏感操作
+    example: |
+      # 漏洞代码示例
+      app = Flask(__name__)
+      app.run(debug=True)  # 生产环境危险！
+
+      # 或通过环境变量
+      # FLASK_DEBUG=1 flask run
+    attack_scenario: |
+      攻击者触发应用错误后，通过 Werkzeug 调试器
+      输入 PIN 码（可通过信息泄露获取）执行任意代码。
+    fix_suggestion: |
+      1. 生产环境设置 debug=False
+      2. 使用环境变量区分环境: os.getenv('FLASK_ENV') != 'development'
+      3. 使用 WSGI 服务器（gunicorn/uwsgi）而非 app.run()
+    cwe_ids: ["CWE-489", "CWE-215"]
+    owasp_ids: ["A05:2021"]
+    tags: [flask, debug, configuration]
+
+  - id: flask-secret-key-weak
+    name: Flask 弱密钥配置
+    rule_type: pattern
+    category: crypto
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "SECRET_KEY = "
+      - "secret_key="
+      - "app.secret_key"
+    frameworks: [flask]
+    description: |
+      Flask 的 SECRET_KEY 用于签名 session cookie，
+      弱密钥或硬编码密钥会导致 session 伪造。
+    example: |
+      # 漏洞代码示例
+      app.secret_key = 'dev'  # 弱密钥
+      app.secret_key = 'supersecret'  # 硬编码
+
+      # 攻击者可伪造 session
+    fix_suggestion: |
+      1. 使用足够长度的随机密钥（至少 32 字节）
+      2. 从环境变量读取: app.secret_key = os.environ['SECRET_KEY']
+      3. 使用 secrets.token_hex(32) 生成
+    cwe_ids: ["CWE-798", "CWE-330"]
+    tags: [flask, secret, session]
+
+  - id: flask-cors-permissive
+    name: Flask CORS 配置过于宽松
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "CORS(app)"
+      - 'origins="*"'
+      - "origins=['*']"
+      - "supports_credentials=True"
+    frameworks: [flask]
+    description: |
+      CORS 配置允许所有来源或同时启用凭证会导致:
+      1. 跨站请求可携带 Cookie
+      2. CSRF 攻击风险增加
+    example: |
+      # 漏洞代码示例
+      from flask_cors import CORS
+      CORS(app, origins="*", supports_credentials=True)
+    fix_suggestion: |
+      1. 明确指定允许的来源列表
+      2. 不要同时使用 origins="*" 和 supports_credentials=True
+
+      # 安全示例
+      CORS(app, origins=["https://trusted.com"], supports_credentials=True)
+    cwe_ids: ["CWE-942", "CWE-346"]
+    tags: [flask, cors, csrf]
+
+  - id: flask-session-cookie-insecure
+    name: Flask Session Cookie 不安全配置
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "SESSION_COOKIE_SECURE = False"
+      - "SESSION_COOKIE_HTTPONLY = False"
+      - "SESSION_COOKIE_SAMESITE"
+    frameworks: [flask]
+    description: |
+      Session Cookie 安全配置问题可能导致:
+      1. Cookie 在 HTTP 明文传输（SECURE=False）
+      2. JavaScript 可读取 Cookie（HTTPONLY=False）
+      3. CSRF 攻击（SAMESITE 配置不当）
+    fix_suggestion: |
+      app.config['SESSION_COOKIE_SECURE'] = True
+      app.config['SESSION_COOKIE_HTTPONLY'] = True
+      app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    cwe_ids: ["CWE-614", "CWE-1004"]
+    tags: [flask, session, cookie]
+
+  # ===========================================================================
+  # Django 框架规则
+  # ===========================================================================
+
+  - id: django-debug-true
+    name: Django DEBUG 模式启用
+    rule_type: pattern
+    category: other
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "DEBUG = True"
+      - "DEBUG=True"
+    frameworks: [django]
+    description: |
+      Django DEBUG=True 在生产环境会导致:
+      1. 详细错误页面泄露源代码和配置
+      2. 敏感信息（数据库配置、环境变量）暴露
+      3. SQL 查询日志可见
+    example: |
+      # settings.py
+      DEBUG = True  # 生产环境危险！
+    fix_suggestion: |
+      1. 生产环境设置 DEBUG = False
+      2. 使用环境变量: DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+      3. 配置 ALLOWED_HOSTS
+    cwe_ids: ["CWE-489", "CWE-215"]
+    owasp_ids: ["A05:2021"]
+    tags: [django, debug, configuration]
+
+  - id: django-secret-key-exposed
+    name: Django SECRET_KEY 暴露
+    rule_type: pattern
+    category: crypto
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "SECRET_KEY = '"
+      - 'SECRET_KEY = "'
+      - "SECRET_KEY="
+    frameworks: [django]
+    description: |
+      Django SECRET_KEY 用于:
+      1. 签名 session/cookie
+      2. 密码重置令牌
+      3. CSRF 令牌
+      泄露会导致以上所有机制被绕过。
+    example: |
+      # settings.py - 危险
+      SECRET_KEY = 'django-insecure-abc123...'
+    fix_suggestion: |
+      1. 从环境变量读取: SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
+      2. 使用 django-environ 库管理配置
+      3. 生成强密钥: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+    cwe_ids: ["CWE-798", "CWE-321"]
+    tags: [django, secret, session]
+
+  - id: django-csrf-exempt
+    name: Django CSRF 保护禁用
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "@csrf_exempt"
+      - "csrf_exempt("
+      - "CsrfViewMiddleware"
+    frameworks: [django]
+    description: |
+      禁用 CSRF 保护会使应用受到跨站请求伪造攻击，
+      攻击者可诱导用户执行未授权操作。
+    example: |
+      # 漏洞代码示例
+      from django.views.decorators.csrf import csrf_exempt
+
+      @csrf_exempt  # 危险：禁用 CSRF 保护
+      def transfer_money(request):
+          # 转账操作...
+    fix_suggestion: |
+      1. 不要轻易使用 @csrf_exempt
+      2. API 端点使用 Token 认证替代 CSRF
+      3. 如必须禁用，确保有其他防护措施
+    cwe_ids: ["CWE-352"]
+    owasp_ids: ["A01:2021"]
+    tags: [django, csrf]
+
+  - id: django-orm-extra-raw
+    name: Django ORM 不安全查询
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [python]
+    patterns:
+      - ".extra("
+      - ".raw("
+      - "RawSQL("
+      - "__raw"
+    frameworks: [django]
+    description: |
+      Django ORM 的 extra()、raw()、RawSQL 允许原始 SQL，
+      如果参数来自用户输入，会导致 SQL 注入。
+    example: |
+      # 漏洞代码示例
+      User.objects.raw(f"SELECT * FROM auth_user WHERE username = '{username}'")
+
+      # 使用 extra (已废弃但仍可用)
+      User.objects.extra(where=[f"username = '{username}'"])
+    fix_suggestion: |
+      1. 使用 ORM 查询: User.objects.filter(username=username)
+      2. 如必须用 raw(), 使用参数: User.objects.raw("SELECT * FROM auth_user WHERE username = %s", [username])
+      3. 避免使用已废弃的 extra()
+    cwe_ids: ["CWE-89"]
+    tags: [django, sqli, orm]
+
+  - id: django-mass-assignment
+    name: Django 批量赋值漏洞
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "**request.POST"
+      - "**request.data"
+      - ".update(**"
+      - ".create(**"
+    frameworks: [django]
+    description: |
+      直接使用 request.POST/data 创建或更新对象可能导致
+      批量赋值漏洞，攻击者可修改不应修改的字段（如 is_admin）。
+    example: |
+      # 漏洞代码示例
+      User.objects.create(**request.POST)  # 危险！
+      user.update(**request.data)  # 危险！
+
+      # 攻击者可提交: is_admin=true&is_staff=true
+    fix_suggestion: |
+      1. 使用 Form 或 Serializer 明确允许的字段
+      2. 手动指定允许更新的字段
+
+      # 安全示例
+      User.objects.create(
+          username=request.POST.get('username'),
+          email=request.POST.get('email')
+      )
+    cwe_ids: ["CWE-915"]
+    tags: [django, mass-assignment]
+
+  # ===========================================================================
+  # FastAPI 框架规则
+  # ===========================================================================
+
+  - id: fastapi-cors-permissive
+    name: FastAPI CORS 配置过于宽松
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [python]
+    patterns:
+      - 'allow_origins=["*"]'
+      - "allow_origins=['*']"
+      - "allow_credentials=True"
+      - "CORSMiddleware"
+    frameworks: [fastapi]
+    description: |
+      FastAPI CORS 配置允许所有来源且启用凭证是危险的组合。
+    example: |
+      # 漏洞代码示例
+      from fastapi.middleware.cors import CORSMiddleware
+
+      app.add_middleware(
+          CORSMiddleware,
+          allow_origins=["*"],
+          allow_credentials=True,  # 与 * 组合危险
+      )
+    fix_suggestion: |
+      1. 明确指定允许的来源
+      2. 不要同时使用 allow_origins=["*"] 和 allow_credentials=True
+
+      # 安全示例
+      app.add_middleware(
+          CORSMiddleware,
+          allow_origins=["https://trusted.com"],
+          allow_credentials=True,
+      )
+    cwe_ids: ["CWE-942"]
+    tags: [fastapi, cors]
+
+  - id: fastapi-sql-raw-query
+    name: FastAPI 原始 SQL 查询
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - "text("
+      - ".execute("
+      - "execute_raw"
+      - "$queryRaw"
+    frameworks: [fastapi, sqlalchemy]
+    description: |
+      FastAPI 配合 SQLAlchemy 时使用原始 SQL 可能导致注入。
+    example: |
+      # 漏洞代码示例
+      from sqlalchemy import text
+
+      @app.get("/users/{user_id}")
+      async def get_user(user_id: str, db: Session = Depends(get_db)):
+          # 危险：字符串拼接
+          result = db.execute(text(f"SELECT * FROM users WHERE id = {user_id}"))
+          return result.fetchone()
+    fix_suggestion: |
+      1. 使用参数化查询
+      2. 使用 ORM 查询
+
+      # 安全示例
+      result = db.execute(
+          text("SELECT * FROM users WHERE id = :user_id"),
+          {"user_id": user_id}
+      )
+    cwe_ids: ["CWE-89"]
+    tags: [fastapi, sqli, sqlalchemy]
+
+  - id: fastapi-path-traversal
+    name: FastAPI 文件路径遍历
+    rule_type: sink
+    category: file
+    risk_level: high
+    languages: [python]
+    patterns:
+      - FileResponse
+      - StreamingResponse
+      - "aiofiles.open"
+    frameworks: [fastapi]
+    description: |
+      FastAPI 文件响应如果路径来自用户输入，可能导致任意文件读取。
+    example: |
+      # 漏洞代码示例
+      from fastapi.responses import FileResponse
+
+      @app.get("/download/{filename}")
+      async def download(filename: str):
+          # 危险：用户可控路径
+          return FileResponse(f"/uploads/{filename}")
+
+      # 攻击载荷: /download/../../../etc/passwd
+    fix_suggestion: |
+      1. 验证文件名不包含路径分隔符
+      2. 使用 os.path.realpath 规范化后验证
+
+      # 安全示例
+      import os
+
+      @app.get("/download/{filename}")
+      async def download(filename: str):
+          if ".." in filename or "/" in filename:
+              raise HTTPException(400, "Invalid filename")
+          filepath = os.path.realpath(f"/uploads/{filename}")
+          if not filepath.startswith("/uploads/"):
+              raise HTTPException(403, "Access denied")
+          return FileResponse(filepath)
+    cwe_ids: ["CWE-22"]
+    tags: [fastapi, path-traversal, file]
+
+  - id: fastapi-jwt-weak-algorithm
+    name: FastAPI JWT 弱算法
+    rule_type: pattern
+    category: auth
+    risk_level: critical
+    languages: [python]
+    patterns:
+      - 'algorithms=["none"]'
+      - "algorithms=['none']"
+      - 'algorithm="HS256"'
+      - "verify=False"
+    frameworks: [fastapi]
+    description: |
+      FastAPI JWT 认证常见问题:
+      1. 允许 none 算法（无签名）
+      2. 使用弱密钥的 HS256
+      3. 不验证签名
+    example: |
+      # 漏洞代码示例
+      import jwt
+
+      # 危险：允许 none 算法
+      payload = jwt.decode(token, options={"verify_signature": False})
+
+      # 危险：弱密钥
+      SECRET = "secret"  # 太短
+      jwt.encode(payload, SECRET, algorithm="HS256")
+    fix_suggestion: |
+      1. 明确指定允许的算法列表（排除 none）
+      2. 使用足够长的密钥（HS256 至少 32 字节）
+      3. 考虑使用 RS256（非对称加密）
+
+      # 安全示例
+      SECRET = os.environ["JWT_SECRET"]  # 至少 32 字节
+      payload = jwt.decode(token, SECRET, algorithms=["HS256"])
+    cwe_ids: ["CWE-327", "CWE-345"]
+    tags: [fastapi, jwt, auth]
+
+  - id: fastapi-dependency-injection-bypass
+    name: FastAPI 依赖注入绕过
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [python]
+    patterns:
+      - "Depends("
+      - "Security("
+      - "get_current_user"
+    frameworks: [fastapi]
+    description: |
+      FastAPI 依赖注入用于认证授权，需要确保:
+      1. 所有需要保护的端点都添加了依赖
+      2. 依赖函数正确验证了用户
+    example: |
+      # 可能遗漏的情况
+      @app.get("/admin/users")  # 忘记添加 Depends(get_current_admin)
+      async def list_users():
+          return users
+
+      # 正确做法
+      @app.get("/admin/users")
+      async def list_users(admin: User = Depends(get_current_admin)):
+          return users
+    fix_suggestion: |
+      1. 使用 APIRouter 统一添加依赖
+      2. 代码审查确保所有端点都有适当保护
+
+      # 推荐：路由级统一添加
+      admin_router = APIRouter(
+          prefix="/admin",
+          dependencies=[Depends(require_admin)]
+      )
+    cwe_ids: ["CWE-862", "CWE-285"]
+    tags: [fastapi, auth, dependency-injection]
+
+  # ===========================================================================
+  # Express.js 框架规则
+  # ===========================================================================
+
+  - id: express-helmet-missing
+    name: Express 安全头配置缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - "app.use(helmet"
+      - "helmet()"
+      - "require('helmet')"
+      - "import helmet"
+    frameworks: [express]
+    description: |
+      Express 应用应使用 helmet 中间件设置安全响应头，
+      包括 X-Content-Type-Options、X-Frame-Options 等。
+    example: |
+      // 推荐配置
+      const helmet = require('helmet');
+      app.use(helmet());
+    fix_suggestion: |
+      1. 安装 helmet: npm install helmet
+      2. 添加到应用: app.use(helmet())
+      3. 根据需要自定义配置
+    cwe_ids: ["CWE-693"]
+    tags: [express, headers, security]
+
+  - id: express-session-insecure
+    name: Express Session 不安全配置
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - "express-session"
+      - "cookie: {"
+      - "secure: false"
+      - "httpOnly: false"
+    frameworks: [express]
+    description: |
+      Express session 配置不当可能导致 session 劫持。
+    example: |
+      // 漏洞配置
+      app.use(session({
+          secret: 'keyboard cat',  // 弱密钥
+          cookie: {
+              secure: false,  // 允许 HTTP
+              httpOnly: false  // 允许 JS 访问
+          }
+      }));
+    fix_suggestion: |
+      app.use(session({
+          secret: process.env.SESSION_SECRET,
+          cookie: {
+              secure: true,
+              httpOnly: true,
+              sameSite: 'strict'
+          },
+          resave: false,
+          saveUninitialized: false
+      }));
+    cwe_ids: ["CWE-614", "CWE-1004"]
+    tags: [express, session, cookie]
+
+  - id: express-nosql-injection
+    name: Express NoSQL 注入
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - ".find("
+      - ".findOne("
+      - ".findOneAndUpdate("
+      - "$where"
+      - "$regex"
+    frameworks: [express, mongodb, mongoose]
+    description: |
+      Express + MongoDB 应用中，直接使用用户输入构造查询
+      可能导致 NoSQL 注入。
+    example: |
+      // 漏洞代码示例
+      app.post('/login', async (req, res) => {
+          const user = await User.findOne({
+              username: req.body.username,
+              password: req.body.password  // 可注入对象
+          });
+      });
+
+      // 攻击载荷: {"username": "admin", "password": {"$ne": ""}}
+    fix_suggestion: |
+      1. 验证输入类型（确保不是对象）
+      2. 使用 mongo-sanitize 库
+
+      // 安全示例
+      const sanitize = require('mongo-sanitize');
+
+      app.post('/login', async (req, res) => {
+          const user = await User.findOne({
+              username: sanitize(req.body.username),
+              password: sanitize(req.body.password)
+          });
+      });
+    cwe_ids: ["CWE-943"]
+    tags: [express, mongodb, nosql-injection]
+
+  # ===========================================================================
+  # NestJS 框架规则
+  # ===========================================================================
+
+  - id: nestjs-guard-missing
+    name: NestJS Guard 缺失
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [typescript]
+    patterns:
+      - "@UseGuards("
+      - "CanActivate"
+      - "AuthGuard"
+      - "@Public()"
+    frameworks: [nestjs]
+    description: |
+      NestJS 控制器或方法缺少 Guard 保护，可能导致未授权访问。
+    example: |
+      // 需要检查的情况
+      @Controller('admin')
+      export class AdminController {
+          @Get('users')  // 缺少 @UseGuards
+          getUsers() {
+              return this.userService.findAll();
+          }
+      }
+    fix_suggestion: |
+      1. 使用 @UseGuards 保护敏感端点
+      2. 全局设置默认 Guard，用 @Public() 标记公开端点
+
+      // 推荐配置
+      @Controller('admin')
+      @UseGuards(JwtAuthGuard, RolesGuard)
+      export class AdminController {
+          @Get('users')
+          @Roles('admin')
+          getUsers() {
+              return this.userService.findAll();
+          }
+      }
+    cwe_ids: ["CWE-862"]
+    tags: [nestjs, auth, guard]
+
+  - id: nestjs-validation-pipe-missing
+    name: NestJS 验证管道缺失
+    rule_type: pattern
+    category: injection
+    risk_level: medium
+    languages: [typescript]
+    patterns:
+      - "ValidationPipe"
+      - "@IsString()"
+      - "@IsNumber()"
+      - "class-validator"
+    frameworks: [nestjs]
+    description: |
+      NestJS 未使用 ValidationPipe 可能导致类型混淆和注入攻击。
+    example: |
+      // 危险：未验证的 DTO
+      @Post('users')
+      createUser(@Body() createUserDto: CreateUserDto) {
+          // createUserDto 可能包含意外字段
+      }
+    fix_suggestion: |
+      1. 全局启用 ValidationPipe
+      2. 使用 class-validator 装饰器
+
+      // main.ts
+      app.useGlobalPipes(new ValidationPipe({
+          whitelist: true,  // 过滤未定义字段
+          forbidNonWhitelisted: true,  // 拒绝未定义字段
+          transform: true
+      }));
+    cwe_ids: ["CWE-20"]
+    tags: [nestjs, validation, injection]
+
+  # ===========================================================================
+  # Next.js 框架规则
+  # ===========================================================================
+
+  - id: nextjs-api-auth-missing
+    name: Next.js API Route 认证缺失
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - "pages/api/"
+      - "app/api/"
+      - "export default function handler"
+      - "export async function GET"
+    frameworks: [nextjs]
+    description: |
+      Next.js API Routes 可能缺少认证检查，导致未授权访问。
+    example: |
+      // pages/api/admin/users.ts - 危险
+      export default async function handler(req, res) {
+          // 缺少认证检查
+          const users = await db.user.findMany();
+          res.json(users);
+      }
+    fix_suggestion: |
+      1. 在每个 API Route 添加认证检查
+      2. 使用中间件统一处理
+
+      // 安全示例
+      import { getServerSession } from 'next-auth';
+
+      export default async function handler(req, res) {
+          const session = await getServerSession(req, res, authOptions);
+          if (!session?.user?.isAdmin) {
+              return res.status(403).json({ error: 'Forbidden' });
+          }
+          const users = await db.user.findMany();
+          res.json(users);
+      }
+    cwe_ids: ["CWE-862"]
+    tags: [nextjs, api, auth]
+
+  - id: nextjs-ssr-data-leak
+    name: Next.js SSR 数据泄露
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - "getServerSideProps"
+      - "getStaticProps"
+      - "getInitialProps"
+    frameworks: [nextjs]
+    description: |
+      Next.js 服务端渲染函数可能将敏感数据传递给客户端。
+    example: |
+      // 危险：传递完整用户对象
+      export async function getServerSideProps(context) {
+          const user = await db.user.findUnique({
+              where: { id: context.params.id }
+          });
+          return {
+              props: { user }  // 可能包含密码哈希等敏感字段
+          };
+      }
+    fix_suggestion: |
+      1. 只返回必要的字段
+      2. 使用 DTO/序列化器过滤敏感数据
+
+      // 安全示例
+      export async function getServerSideProps(context) {
+          const user = await db.user.findUnique({
+              where: { id: context.params.id },
+              select: { id: true, name: true, email: true }  // 明确选择字段
+          });
+          return { props: { user } };
+      }
+    cwe_ids: ["CWE-200", "CWE-213"]
+    tags: [nextjs, ssr, data-exposure]
+
+  - id: nextjs-dangerouslySetInnerHTML
+    name: Next.js XSS 风险
+    rule_type: sink
+    category: xss
+    risk_level: high
+    languages: [javascript, typescript]
+    patterns:
+      - "dangerouslySetInnerHTML"
+      - "__html:"
+    frameworks: [nextjs, react]
+    description: |
+      dangerouslySetInnerHTML 直接渲染 HTML，如果内容来自用户输入，
+      会导致 XSS 漏洞。
+    example: |
+      // 漏洞代码示例
+      function Comment({ content }) {
+          return (
+              <div dangerouslySetInnerHTML={{ __html: content }} />
+          );
+      }
+    fix_suggestion: |
+      1. 避免使用 dangerouslySetInnerHTML
+      2. 如必须使用，使用 DOMPurify 清理
+
+      // 安全示例
+      import DOMPurify from 'dompurify';
+
+      function Comment({ content }) {
+          return (
+              <div dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(content)
+              }} />
+          );
+      }
+    cwe_ids: ["CWE-79"]
+    tags: [nextjs, react, xss]

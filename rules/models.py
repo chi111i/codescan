@@ -64,6 +64,10 @@ class RuleCategory(Enum):
     FILE_UPLOAD = "file-upload"  # 文件上传
     XSS = "xss"  # 跨站脚本
     XXE = "xxe"  # XML外部实体
+    # 新增类别
+    SUPPLY_CHAIN = "supply-chain"  # 供应链安全
+    CLOUD_NATIVE = "cloud-native"  # 云原生安全 (Docker/K8s/Terraform)
+    API_SECURITY = "api-security"  # API 安全 (REST/GraphQL/WebSocket)
     OTHER = "other"
 
 
@@ -92,6 +96,7 @@ class SecurityRule:
     # 描述信息
     description: str = ""
     example: str = ""  # 示例代码
+    attack_scenario: str = ""  # 攻击场景描述
     fix_suggestion: str = ""  # 修复建议
 
     # 关联信息
@@ -215,6 +220,7 @@ class SecurityRule:
             "frameworks": self.frameworks,
             "description": self.description,
             "example": self.example,
+            "attack_scenario": self.attack_scenario,
             "fix_suggestion": self.fix_suggestion,
             "cwe_ids": self.cwe_ids,
             "owasp_ids": self.owasp_ids,
@@ -236,6 +242,7 @@ class SecurityRule:
             frameworks=data.get("frameworks", []),
             description=data.get("description", ""),
             example=data.get("example", ""),
+            attack_scenario=data.get("attack_scenario", ""),
             fix_suggestion=data.get("fix_suggestion", ""),
             cwe_ids=data.get("cwe_ids", []),
             owasp_ids=data.get("owasp_ids", []),

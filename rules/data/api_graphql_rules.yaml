@@ -1,0 +1,656 @@
+# =============================================================================
+# CodeScan API & GraphQL Security Rules - API 和 GraphQL 安全规则库
+# =============================================================================
+# 版本: 1.0.0
+# 创建: 2025-01-23
+# 描述: API 安全、GraphQL 安全、WebSocket 安全规则
+# =============================================================================
+
+_metadata:
+  version: "1.0.0"
+  last_updated: "2025-01-23"
+  description: |
+    API 和 GraphQL 安全规则库，覆盖:
+    - GraphQL 特定漏洞（内省、深度攻击、批量查询等）
+    - REST API 安全（认证、授权、频率限制等）
+    - WebSocket 安全
+
+rules:
+  # ===========================================================================
+  # GraphQL 安全规则
+  # ===========================================================================
+
+  - id: graphql-introspection-enabled
+    name: GraphQL 内省查询启用
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript, python, go, java]
+    patterns:
+      - "__schema"
+      - "__type"
+      - "introspection"
+      - "introspectionQuery"
+      - "getIntrospectionQuery"
+    description: |
+      GraphQL 内省查询允许客户端发现完整的 API 结构，
+      在生产环境应禁用以防止信息泄露。
+    example: |
+      # 攻击者查询示例
+      query {
+        __schema {
+          types { name fields { name } }
+        }
+      }
+
+      # 泄露所有类型、字段、参数信息
+    attack_scenario: |
+      攻击者通过内省查询获取完整 API 结构，
+      发现敏感字段和隐藏功能，制定针对性攻击。
+    fix_suggestion: |
+      # Apollo Server
+      const server = new ApolloServer({
+        introspection: process.env.NODE_ENV !== 'production',
+      });
+
+      # Graphene (Python)
+      schema = graphene.Schema(query=Query, auto_camelcase=False)
+      # 使用中间件禁用内省
+    cwe_ids: ["CWE-200"]
+    owasp_ids: ["A01:2021"]
+    tags: [graphql, introspection, information-disclosure]
+
+  - id: graphql-depth-limit-missing
+    name: GraphQL 查询深度无限制
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [javascript, typescript, python]
+    patterns:
+      - "depthLimit"
+      - "graphql-depth-limit"
+      - "maxDepth"
+      - "queryDepth"
+    description: |
+      GraphQL 查询深度无限制可导致 DoS 攻击，
+      攻击者构造深度嵌套查询消耗服务器资源。
+    example: |
+      # 恶意深度嵌套查询
+      query {
+        user {
+          friends {
+            friends {
+              friends {
+                friends {
+                  # 无限嵌套...
+                }
+              }
+            }
+          }
+        }
+      }
+    attack_scenario: |
+      攻击者发送深度嵌套查询，每层指数级增加数据库查询，
+      导致服务器资源耗尽。
+    fix_suggestion: |
+      # 使用 graphql-depth-limit
+      const depthLimit = require('graphql-depth-limit');
+
+      const server = new ApolloServer({
+        validationRules: [depthLimit(5)]
+      });
+    cwe_ids: ["CWE-400", "CWE-770"]
+    tags: [graphql, dos, depth-limit]
+
+  - id: graphql-batch-attack
+    name: GraphQL 批量查询攻击
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript, python]
+    patterns:
+      - "batching"
+      - "queryBatching"
+      - "allowBatchedHttpRequests"
+      - "batch"
+    description: |
+      GraphQL 批量查询允许单请求执行多个操作，
+      可被滥用进行暴力破解或 DoS 攻击。
+    example: |
+      # 批量暴力破解示例
+      [
+        {"query": "mutation { login(user:\"admin\", pass:\"pass1\") }"},
+        {"query": "mutation { login(user:\"admin\", pass:\"pass2\") }"},
+        {"query": "mutation { login(user:\"admin\", pass:\"pass3\") }"},
+        # 单请求尝试多个密码
+      ]
+    fix_suggestion: |
+      1. 禁用批量查询或限制批量大小
+      2. 对敏感操作实施频率限制
+
+      # Apollo Server
+      const server = new ApolloServer({
+        allowBatchedHttpRequests: false
+      });
+    cwe_ids: ["CWE-307", "CWE-400"]
+    tags: [graphql, batch, brute-force]
+
+  - id: graphql-cost-analysis-missing
+    name: GraphQL 查询成本分析缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript]
+    patterns:
+      - "graphql-cost-analysis"
+      - "graphql-query-complexity"
+      - "costAnalysis"
+      - "queryComplexity"
+    description: |
+      缺少查询成本分析，无法限制复杂查询导致的资源消耗。
+    fix_suggestion: |
+      # 使用 graphql-cost-analysis
+      const costAnalysis = require('graphql-cost-analysis').default;
+
+      const server = new ApolloServer({
+        validationRules: [
+          costAnalysis({
+            maximumCost: 1000,
+            defaultCost: 1
+          })
+        ]
+      });
+    cwe_ids: ["CWE-400"]
+    tags: [graphql, dos, cost-analysis]
+
+  - id: graphql-injection
+    name: GraphQL 注入
+    rule_type: sink
+    category: injection
+    risk_level: critical
+    languages: [javascript, typescript, python]
+    patterns:
+      - "graphql("
+      - "execute("
+      - "graphqlSync("
+      - "${"
+      - "f-string"
+    description: |
+      动态构造 GraphQL 查询字符串存在注入风险，
+      攻击者可修改查询结构或访问未授权数据。
+    example: |
+      # 漏洞代码示例 (JavaScript)
+      const query = `
+        query {
+          user(id: "${userId}") {  // 危险：字符串插值
+            name
+            email
+          }
+        }
+      `;
+
+      # 攻击载荷: userId = '") { secretData } user(id: "1'
+    attack_scenario: |
+      攻击者注入 GraphQL 语法片段，修改查询结构，
+      访问敏感字段或执行未授权操作。
+    fix_suggestion: |
+      1. 使用 GraphQL 变量而非字符串拼接
+      2. 验证用户输入格式
+
+      # 安全示例
+      const query = `
+        query GetUser($id: ID!) {
+          user(id: $id) {
+            name
+            email
+          }
+        }
+      `;
+      graphql(schema, query, null, null, { id: userId });
+    cwe_ids: ["CWE-943", "CWE-89"]
+    owasp_ids: ["A03:2021"]
+    tags: [graphql, injection, critical]
+
+  - id: graphql-authorization-bypass
+    name: GraphQL 授权绕过
+    rule_type: pattern
+    category: access-control
+    risk_level: critical
+    languages: [javascript, typescript, python]
+    patterns:
+      - "resolver"
+      - "@auth"
+      - "@authorized"
+      - "context.user"
+      - "info.parentType"
+    description: |
+      GraphQL Resolver 层缺少授权检查，
+      攻击者可访问未授权的数据或执行敏感操作。
+    example: |
+      # 漏洞代码示例
+      const resolvers = {
+        Query: {
+          users: () => {
+            // 缺少权限检查，任何人都能查询所有用户
+            return db.users.findMany();
+          }
+        }
+      };
+    fix_suggestion: |
+      # 在 Resolver 中检查权限
+      const resolvers = {
+        Query: {
+          users: (_, __, context) => {
+            if (!context.user?.isAdmin) {
+              throw new ForbiddenError('Admin only');
+            }
+            return db.users.findMany();
+          }
+        }
+      };
+
+      # 或使用 graphql-shield
+      const permissions = shield({
+        Query: {
+          users: isAdmin
+        }
+      });
+    cwe_ids: ["CWE-862", "CWE-285"]
+    owasp_ids: ["A01:2021"]
+    tags: [graphql, authorization, critical]
+
+  - id: graphql-sensitive-field-exposure
+    name: GraphQL 敏感字段暴露
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [javascript, typescript, python]
+    patterns:
+      - "password"
+      - "secret"
+      - "token"
+      - "apiKey"
+      - "creditCard"
+    description: |
+      GraphQL Schema 可能暴露敏感字段，
+      如密码哈希、API 密钥、信用卡号等。
+    example: |
+      # 危险的 Schema 定义
+      type User {
+        id: ID!
+        email: String!
+        passwordHash: String!  # 不应暴露
+        apiKey: String!        # 不应暴露
+      }
+    fix_suggestion: |
+      1. 从 Schema 中移除敏感字段
+      2. 使用字段级别权限控制
+      3. 实现数据脱敏
+
+      # 安全的 Schema
+      type User {
+        id: ID!
+        email: String!
+        # passwordHash 和 apiKey 不在 Schema 中
+      }
+    cwe_ids: ["CWE-200", "CWE-359"]
+    tags: [graphql, data-exposure]
+
+  # ===========================================================================
+  # REST API 安全规则
+  # ===========================================================================
+
+  - id: api-rate-limit-missing
+    name: API 频率限制缺失
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [javascript, typescript, python, go, java]
+    patterns:
+      - "rateLimit"
+      - "rateLimiter"
+      - "throttle"
+      - "express-rate-limit"
+      - "slowapi"
+    description: |
+      API 缺少频率限制可导致:
+      1. 暴力破解攻击
+      2. DoS 攻击
+      3. 资源滥用
+    example: |
+      # 应添加频率限制
+      # Express
+      const rateLimit = require('express-rate-limit');
+      app.use(rateLimit({
+          windowMs: 15 * 60 * 1000,
+          max: 100
+      }));
+
+      # FastAPI
+      from slowapi import Limiter
+      limiter = Limiter(key_func=get_remote_address)
+    fix_suggestion: |
+      1. 全局设置默认限制
+      2. 敏感端点（登录、注册）使用更严格限制
+      3. 实现分层限制（IP、用户、API Key）
+    cwe_ids: ["CWE-770", "CWE-307"]
+    owasp_ids: ["A04:2021"]
+    tags: [api, rate-limit, dos]
+
+  - id: api-authentication-weak
+    name: API 认证方式薄弱
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [javascript, typescript, python, java]
+    patterns:
+      - "BasicAuth"
+      - "basic-auth"
+      - "Authorization: Basic"
+      - "btoa("
+      - "base64.b64encode"
+    description: |
+      Basic Auth 将凭证以 Base64 编码传输，
+      在非 HTTPS 环境下极易被窃取。
+    example: |
+      # 危险用法
+      headers = {
+          'Authorization': f'Basic {base64.b64encode(f"{user}:{pass}")}'
+      }
+    fix_suggestion: |
+      1. 使用 Bearer Token（JWT）替代 Basic Auth
+      2. 如必须使用 Basic Auth，确保仅通过 HTTPS
+      3. 考虑使用 API Key 或 OAuth 2.0
+    cwe_ids: ["CWE-522", "CWE-311"]
+    tags: [api, auth, basic-auth]
+
+  - id: api-cors-wildcard
+    name: API CORS 通配符配置
+    rule_type: pattern
+    category: other
+    risk_level: high
+    languages: [javascript, typescript, python, java, go]
+    patterns:
+      - "Access-Control-Allow-Origin: *"
+      - 'origin: "*"'
+      - "origins=['*']"
+      - "AllowAllOrigins"
+    description: |
+      CORS 使用通配符允许任何来源访问 API，
+      可能导致敏感数据泄露给恶意网站。
+    example: |
+      # 危险配置
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    fix_suggestion: |
+      1. 明确指定允许的来源列表
+      2. 验证 Origin 头后动态设置
+
+      # 安全配置
+      const allowedOrigins = ['https://app.example.com'];
+      if (allowedOrigins.includes(req.headers.origin)) {
+          res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+      }
+    cwe_ids: ["CWE-942", "CWE-346"]
+    tags: [api, cors]
+
+  - id: api-response-headers-missing
+    name: API 响应安全头缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript, python, java]
+    patterns:
+      - "X-Content-Type-Options"
+      - "X-Frame-Options"
+      - "Content-Security-Policy"
+      - "Strict-Transport-Security"
+    description: |
+      API 响应缺少安全头可能导致:
+      1. MIME 嗅探攻击
+      2. 点击劫持
+      3. XSS 攻击
+    fix_suggestion: |
+      # 推荐的安全响应头
+      X-Content-Type-Options: nosniff
+      X-Frame-Options: DENY
+      Content-Security-Policy: default-src 'self'
+      Strict-Transport-Security: max-age=31536000; includeSubDomains
+      X-XSS-Protection: 1; mode=block
+    cwe_ids: ["CWE-693", "CWE-1021"]
+    tags: [api, headers, security]
+
+  - id: api-error-disclosure
+    name: API 错误信息泄露
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript, python, java]
+    patterns:
+      - "stack"
+      - "stackTrace"
+      - "traceback"
+      - "SQLException"
+      - "Exception"
+    description: |
+      API 返回详细错误信息可能泄露:
+      1. 技术栈信息
+      2. 文件路径
+      3. 数据库结构
+      4. 内部逻辑
+    example: |
+      # 危险：返回完整堆栈
+      return res.status(500).json({
+          error: err.message,
+          stack: err.stack  // 泄露敏感信息
+      });
+    fix_suggestion: |
+      1. 生产环境只返回通用错误消息
+      2. 详细错误记录到服务器日志
+
+      # 安全示例
+      if (process.env.NODE_ENV === 'production') {
+          return res.status(500).json({ error: 'Internal server error' });
+      }
+    cwe_ids: ["CWE-209", "CWE-200"]
+    owasp_ids: ["A05:2021"]
+    tags: [api, error, disclosure]
+
+  - id: api-mass-assignment
+    name: API 批量赋值漏洞
+    rule_type: pattern
+    category: access-control
+    risk_level: high
+    languages: [javascript, typescript, python]
+    patterns:
+      - "...req.body"
+      - "Object.assign"
+      - "**request.data"
+      - "_.merge"
+    description: |
+      API 直接使用请求体创建/更新对象可能导致
+      攻击者修改不应修改的字段。
+    example: |
+      # 漏洞代码
+      app.post('/users', (req, res) => {
+          const user = await User.create(req.body);  // 危险
+          // 攻击者可提交 { role: 'admin', isVerified: true }
+      });
+    fix_suggestion: |
+      1. 明确指定允许的字段
+      2. 使用 DTO/Schema 验证
+
+      # 安全示例
+      app.post('/users', (req, res) => {
+          const { username, email, password } = req.body;
+          const user = await User.create({ username, email, password });
+      });
+    cwe_ids: ["CWE-915"]
+    tags: [api, mass-assignment]
+
+  - id: api-pagination-missing
+    name: API 分页限制缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript, python, java]
+    patterns:
+      - ".findAll()"
+      - ".find({})"
+      - "SELECT *"
+      - ".all()"
+      - "limit"
+      - "offset"
+    description: |
+      API 查询未限制返回数量可能导致:
+      1. 性能问题
+      2. 大量数据泄露
+      3. DoS 攻击
+    fix_suggestion: |
+      1. 强制分页，设置默认和最大 limit
+      2. 使用游标分页提高性能
+
+      # 示例
+      const limit = Math.min(req.query.limit || 20, 100);
+      const offset = req.query.offset || 0;
+      const users = await User.findAll({ limit, offset });
+    cwe_ids: ["CWE-400", "CWE-1284"]
+    tags: [api, pagination, performance]
+
+  # ===========================================================================
+  # WebSocket 安全规则
+  # ===========================================================================
+
+  - id: ws-origin-validation-missing
+    name: WebSocket Origin 验证缺失
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [javascript, typescript, python]
+    patterns:
+      - "WebSocket"
+      - "socket.io"
+      - "ws("
+      - "WebSocketServer"
+      - "on('connection'"
+    description: |
+      WebSocket 未验证 Origin 头，
+      可能受到跨站 WebSocket 劫持攻击。
+    example: |
+      # 漏洞代码
+      const wss = new WebSocket.Server({ port: 8080 });
+      wss.on('connection', (ws) => {
+          // 未验证来源，任何网站都能连接
+      });
+    fix_suggestion: |
+      # 验证 Origin
+      const wss = new WebSocket.Server({
+          verifyClient: (info) => {
+              const origin = info.origin;
+              return allowedOrigins.includes(origin);
+          }
+      });
+    cwe_ids: ["CWE-346", "CWE-352"]
+    tags: [websocket, origin, csrf]
+
+  - id: ws-authentication-missing
+    name: WebSocket 认证缺失
+    rule_type: pattern
+    category: auth
+    risk_level: high
+    languages: [javascript, typescript, python]
+    patterns:
+      - "on('connection'"
+      - "io.on('connection'"
+      - "socket.on"
+    description: |
+      WebSocket 连接未进行身份验证，
+      可能导致未授权访问实时功能。
+    example: |
+      # 漏洞代码
+      io.on('connection', (socket) => {
+          // 未验证用户身份
+          socket.on('admin_action', (data) => {
+              // 执行敏感操作
+          });
+      });
+    fix_suggestion: |
+      # 使用中间件验证
+      io.use((socket, next) => {
+          const token = socket.handshake.auth.token;
+          try {
+              const user = verifyToken(token);
+              socket.user = user;
+              next();
+          } catch (err) {
+              next(new Error('Authentication error'));
+          }
+      });
+    cwe_ids: ["CWE-862", "CWE-287"]
+    tags: [websocket, auth]
+
+  - id: ws-message-injection
+    name: WebSocket 消息注入
+    rule_type: sink
+    category: injection
+    risk_level: high
+    languages: [javascript, typescript, python]
+    patterns:
+      - "on('message'"
+      - "onmessage"
+      - "socket.on"
+      - "JSON.parse"
+    description: |
+      WebSocket 消息未验证直接使用可能导致注入攻击。
+    example: |
+      # 漏洞代码
+      socket.on('message', (data) => {
+          const msg = JSON.parse(data);
+          // 未验证消息结构和内容
+          db.execute(`SELECT * FROM ${msg.table}`);  // SQL 注入
+      });
+    fix_suggestion: |
+      1. 验证消息结构和类型
+      2. 使用白名单验证操作
+
+      # 安全示例
+      socket.on('message', (data) => {
+          const msg = validateMessage(data);  // 使用 schema 验证
+          if (!allowedActions.includes(msg.action)) {
+              return socket.send(JSON.stringify({ error: 'Invalid action' }));
+          }
+          // 处理消息
+      });
+    cwe_ids: ["CWE-20", "CWE-89"]
+    tags: [websocket, injection]
+
+  - id: ws-rate-limit-missing
+    name: WebSocket 频率限制缺失
+    rule_type: pattern
+    category: other
+    risk_level: medium
+    languages: [javascript, typescript, python]
+    patterns:
+      - "socket.on"
+      - "on('message'"
+      - "rateLimit"
+    description: |
+      WebSocket 连接缺少消息频率限制，
+      可能被滥用进行 DoS 攻击或垃圾消息洪水。
+    fix_suggestion: |
+      # 实现消息频率限制
+      const messageCount = new Map();
+
+      socket.on('message', (data) => {
+          const count = messageCount.get(socket.id) || 0;
+          if (count > 100) {  // 每分钟最多 100 条
+              socket.close();
+              return;
+          }
+          messageCount.set(socket.id, count + 1);
+          // 处理消息
+      });
+
+      // 每分钟重置计数
+      setInterval(() => messageCount.clear(), 60000);
+    cwe_ids: ["CWE-770", "CWE-400"]
+    tags: [websocket, rate-limit, dos]
