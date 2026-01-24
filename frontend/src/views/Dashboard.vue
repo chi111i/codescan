@@ -8,15 +8,11 @@
       </div>
       <div class="flex items-center gap-3">
         <button @click="refreshData" :disabled="loading" class="btn-secondary flex items-center gap-2">
-          <svg :class="{ 'spinner': loading }" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
+          <RefreshCw :class="{ 'animate-spin': loading }" class="w-4 h-4" />
           {{ loading ? '刷新中...' : '刷新' }}
         </button>
         <router-link to="/audit" class="btn-primary flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-          </svg>
+          <Sparkles class="w-4 h-4" />
           开始审计
         </router-link>
       </div>
@@ -54,74 +50,176 @@
 
     <!-- 安全状态概览 -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- 安全评分 - 简化版 -->
+      <!-- 漏洞统计卡片 -->
       <div class="content-card">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-base font-medium text-gray-900">安全评分</h2>
-          <span class="score-badge" :class="scoreTagClass">{{ scoreLabel }}</span>
+          <h2 class="text-base font-medium text-gray-900">漏洞统计</h2>
+          <router-link
+            v-if="totalFindings > 0"
+            to="/scan-history"
+            class="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          >
+            查看全部
+            <ChevronRight class="w-3 h-3" />
+          </router-link>
         </div>
-        <div class="flex items-center gap-6">
-          <div class="score-ring">
-            <svg class="w-20 h-20 transform -rotate-90">
-              <circle cx="40" cy="40" r="32" fill="none" stroke="#e5e7eb" stroke-width="6"/>
-              <circle
-                cx="40" cy="40" r="32"
-                fill="none"
-                :stroke="scoreColor"
-                stroke-width="6"
-                stroke-linecap="round"
-                :stroke-dasharray="`${securityScore * 2.01} 201`"
-                class="transition-all duration-700"
-              />
-            </svg>
-            <span class="score-text" :class="scoreTextClass">{{ securityScore }}</span>
+
+        <!-- 总数展示 -->
+        <div class="text-center py-4 mb-4">
+          <div class="text-4xl font-bold" :class="totalFindings > 0 ? 'text-orange-600' : 'text-gray-900'">
+            {{ totalFindings }}
           </div>
-          <div class="flex-1 space-y-2">
-            <div v-for="item in severityStats" :key="item.level" class="severity-bar">
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-gray-600">{{ item.label }}</span>
-                <span :class="item.textClass">{{ item.count }}</span>
+          <div class="text-sm text-gray-500 mt-1">已发现问题</div>
+        </div>
+
+        <!-- 严重级别统计 -->
+        <div class="space-y-3">
+          <div v-for="item in severityStats" :key="item.level" class="severity-stat-item">
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full" :class="item.dotClass"></span>
+                <span class="text-sm text-gray-600">{{ item.label }}</span>
               </div>
-              <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-500" :class="item.barClass" :style="{ width: `${item.percentage}%` }"></div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold" :class="item.textClass">{{ item.count }}</span>
+                <span class="text-xs text-gray-400 w-8 text-right">{{ item.percentage }}%</span>
               </div>
             </div>
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                :class="item.barClass"
+                :style="{ width: `${item.percentage}%` }"
+              ></div>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="totalFindings === 0" class="text-center py-6">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-green-50 flex items-center justify-center">
+              <ShieldCheck class="w-6 h-6 text-green-500" />
+            </div>
+            <p class="text-sm text-gray-500">暂无安全问题</p>
+            <p class="text-xs text-gray-400 mt-1">代码安全状况良好</p>
           </div>
         </div>
       </div>
 
-      <!-- 语言分布 -->
+      <!-- 最近发现卡片 -->
       <div class="content-card">
-        <h2 class="text-base font-medium text-gray-900 mb-4">语言分布</h2>
-        <div class="space-y-3">
-          <div v-for="(count, lang) in stats.languages" :key="lang" class="flex items-center gap-3">
-            <div class="w-2 h-2 rounded-full" :class="getLangDotColor(lang)"></div>
-            <span class="text-sm text-gray-700 capitalize flex-1">{{ lang }}</span>
-            <span class="text-sm font-medium text-gray-900">{{ count }}</span>
-            <span class="text-xs text-gray-400">{{ getPercentage(count) }}%</span>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-medium text-gray-900">最近发现</h2>
+          <router-link
+            v-if="recentFindings.length > 0"
+            to="/scan-history"
+            class="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          >
+            查看全部
+            <ChevronRight class="w-3 h-3" />
+          </router-link>
+        </div>
+
+        <!-- 发现列表 -->
+        <div v-if="recentFindings.length > 0" class="space-y-2">
+          <div
+            v-for="finding in recentFindings"
+            :key="finding.id"
+            class="finding-item group"
+            @click="viewFinding(finding)"
+          >
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <!-- 严重级别指示器 -->
+              <span
+                class="flex-shrink-0 w-1.5 h-8 rounded-full"
+                :class="getSeverityBarClass(finding.severity)"
+              ></span>
+
+              <!-- 内容区 -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <span
+                    class="text-xs font-medium px-1.5 py-0.5 rounded"
+                    :class="getSeverityBadgeClass(finding.severity)"
+                  >
+                    {{ getSeverityLabel(finding.severity) }}
+                  </span>
+                  <span class="text-sm font-medium text-gray-900 truncate">
+                    {{ finding.issue_type || finding.type || '未知类型' }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                  <span class="truncate max-w-[140px]" :title="finding.file_path">
+                    {{ truncatePath(finding.file_path) }}
+                  </span>
+                  <span class="text-gray-300">|</span>
+                  <span class="flex-shrink-0">{{ formatRelativeTime(finding.created_at) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 箭头指示 -->
+            <ChevronRight class="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
           </div>
-          <div v-if="Object.keys(stats.languages || {}).length === 0" class="text-center py-6 text-gray-400 text-sm">
-            暂无索引数据
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="text-center py-8">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gray-50 flex items-center justify-center">
+            <ClipboardCheck class="w-7 h-7 text-gray-300" />
           </div>
+          <p class="text-sm text-gray-500">暂无安全发现</p>
+          <p class="text-xs text-gray-400 mt-1">开始扫描以检测潜在漏洞</p>
+          <router-link
+            to="/audit"
+            class="inline-flex items-center gap-1.5 mt-3 text-xs text-blue-600 hover:text-blue-700"
+          >
+            <Search class="w-3.5 h-3.5" />
+            开始审计
+          </router-link>
         </div>
       </div>
 
-      <!-- 索引项目入口 -->
+      <!-- 安全规则卡片 -->
       <div class="content-card flex flex-col">
-        <h2 class="text-base font-medium text-gray-900 mb-4">快速开始</h2>
-        <div class="flex-1 flex flex-col justify-center space-y-3">
-          <button @click="showIndexDialog = true" class="quick-action-btn">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-            </svg>
-            <span>索引项目</span>
-          </button>
-          <router-link to="/audit" class="quick-action-btn">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
-            <span>智能审计</span>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-medium text-gray-900">安全规则</h2>
+          <router-link
+            to="/rules"
+            class="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          >
+            管理规则
+            <ChevronRight class="w-3 h-3" />
           </router-link>
+        </div>
+
+        <!-- 总数展示 -->
+        <div class="text-center py-4 mb-4">
+          <div class="text-4xl font-bold text-green-600">{{ rulesCount }}</div>
+          <div class="text-sm text-gray-500 mt-1">条检测规则</div>
+        </div>
+
+        <!-- 类别标签 -->
+        <div class="flex-1">
+          <div v-if="ruleCategories.length > 0" class="flex flex-wrap gap-2">
+            <router-link
+              v-for="category in ruleCategories"
+              :key="category.name"
+              :to="`/rules?category=${category.name}`"
+              class="rule-category-tag"
+              :class="getCategoryColorClass(category.name)"
+            >
+              <span class="font-medium">{{ category.label }}</span>
+              <span class="opacity-75">{{ category.count }}</span>
+            </router-link>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-else class="text-center py-6">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-50 flex items-center justify-center">
+              <ClipboardList class="w-6 h-6 text-gray-300" />
+            </div>
+            <p class="text-sm text-gray-500">暂无规则数据</p>
+          </div>
         </div>
       </div>
     </div>
@@ -144,18 +242,10 @@
         >
           <div class="flex items-center gap-3 min-w-0">
             <div class="status-icon" :class="getStatusBgColor(scan.status)">
-              <svg v-if="scan.status === 'completed'" class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-              <svg v-else-if="scan.status === 'analyzing' || scan.status === 'indexing'" class="w-4 h-4 text-blue-600 spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-              <svg v-else-if="scan.status === 'failed'" class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              <svg v-else class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
+              <Check v-if="scan.status === 'completed'" class="w-4 h-4 text-green-600" />
+              <RefreshCw v-else-if="scan.status === 'analyzing' || scan.status === 'indexing'" class="w-4 h-4 text-blue-600 animate-spin" />
+              <X v-else-if="scan.status === 'failed'" class="w-4 h-4 text-red-600" />
+              <Clock v-else class="w-4 h-4 text-gray-400" />
             </div>
             <div class="min-w-0">
               <div class="text-sm font-medium text-gray-900 truncate">{{ getFileName(scan.target_path) }}</div>
@@ -169,9 +259,7 @@
             <div class="text-sm font-medium text-gray-700">
               {{ scan.findings_count + scan.vuln_count }} <span class="text-gray-400 font-normal">问题</span>
             </div>
-            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
+            <ChevronRight class="w-4 h-4 text-gray-400" />
           </div>
         </div>
 
@@ -225,6 +313,20 @@ import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import IndexProgressBar from '../components/IndexProgressBar.vue'
+
+// 使用 Lucide 图标
+import {
+  RefreshCw,
+  Sparkles,
+  ChevronRight,
+  ShieldCheck,
+  ClipboardCheck,
+  ClipboardList,
+  Search,
+  Check,
+  X,
+  Clock,
+} from '../components/icons'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -335,39 +437,179 @@ const severityStats = computed(() => {
       label: '严重',
       count: critical,
       percentage: Math.round((critical / total) * 100),
-      bgClass: 'bg-red-50 hover:bg-red-100',
+      dotClass: 'bg-red-500',
       textClass: 'text-red-600',
-      barClass: 'bg-gradient-to-r from-red-500 to-red-400',
+      barClass: 'bg-red-500',
     },
     {
       level: 'high',
       label: '高危',
       count: high,
       percentage: Math.round((high / total) * 100),
-      bgClass: 'bg-orange-50 hover:bg-orange-100',
+      dotClass: 'bg-orange-500',
       textClass: 'text-orange-600',
-      barClass: 'bg-gradient-to-r from-orange-500 to-orange-400',
+      barClass: 'bg-orange-500',
     },
     {
       level: 'medium',
       label: '中危',
       count: medium,
       percentage: Math.round((medium / total) * 100),
-      bgClass: 'bg-yellow-50 hover:bg-yellow-100',
+      dotClass: 'bg-yellow-500',
       textClass: 'text-yellow-600',
-      barClass: 'bg-gradient-to-r from-yellow-500 to-yellow-400',
+      barClass: 'bg-yellow-500',
     },
     {
       level: 'low',
       label: '低危',
       count: low,
       percentage: Math.round((low / total) * 100),
-      bgClass: 'bg-blue-50 hover:bg-blue-100',
+      dotClass: 'bg-blue-500',
       textClass: 'text-blue-600',
-      barClass: 'bg-gradient-to-r from-blue-500 to-blue-400',
+      barClass: 'bg-blue-500',
     },
   ]
 })
+
+// 最近发现数据（从扫描历史中提取）
+const recentFindings = computed(() => {
+  const findings = []
+  for (const scan of scanHistory.value) {
+    if (scan.findings && Array.isArray(scan.findings)) {
+      for (const f of scan.findings) {
+        findings.push({
+          ...f,
+          scan_id: scan.scan_id,
+          created_at: f.created_at || scan.started_at,
+        })
+      }
+    }
+  }
+  return findings
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 5)
+})
+
+// 规则类别统计
+const ruleCategories = computed(() => {
+  if (!appStore.rules || appStore.rules.length === 0) return []
+
+  const categoryMap = {}
+  appStore.rules.forEach(rule => {
+    const cat = rule.category || 'other'
+    if (!categoryMap[cat]) {
+      categoryMap[cat] = { name: cat, count: 0 }
+    }
+    categoryMap[cat].count++
+  })
+
+  // 类别标签映射
+  const labelMap = {
+    rce: 'RCE',
+    command_injection: 'RCE',
+    sql_injection: 'SQLi',
+    sqli: 'SQLi',
+    ssrf: 'SSRF',
+    file_read: 'File',
+    file_write: 'File',
+    file_upload: 'File',
+    path_traversal: 'File',
+    auth: 'Auth',
+    authentication: 'Auth',
+    authorization: 'Auth',
+    xss: 'XSS',
+    crypto: 'Crypto',
+    deserialization: 'Deser',
+    xxe: 'XXE',
+    other: '其他',
+  }
+
+  return Object.values(categoryMap)
+    .map(cat => ({
+      ...cat,
+      label: labelMap[cat.name] || cat.name.toUpperCase(),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+})
+
+// 严重级别样式映射
+const getSeverityBarClass = (severity) => {
+  const classes = {
+    critical: 'bg-red-500',
+    high: 'bg-orange-500',
+    medium: 'bg-yellow-500',
+    low: 'bg-blue-500',
+  }
+  return classes[severity] || 'bg-gray-400'
+}
+
+const getSeverityBadgeClass = (severity) => {
+  const classes = {
+    critical: 'bg-red-50 text-red-700',
+    high: 'bg-orange-50 text-orange-700',
+    medium: 'bg-yellow-50 text-yellow-700',
+    low: 'bg-blue-50 text-blue-700',
+  }
+  return classes[severity] || 'bg-gray-50 text-gray-700'
+}
+
+const getSeverityLabel = (severity) => {
+  const labels = {
+    critical: '严重',
+    high: '高危',
+    medium: '中危',
+    low: '低危',
+  }
+  return labels[severity] || severity
+}
+
+// 路径截断
+const truncatePath = (path) => {
+  if (!path) return ''
+  const parts = path.split(/[/\\]/)
+  if (parts.length <= 2) return path
+  return '.../' + parts.slice(-2).join('/')
+}
+
+// 相对时间格式化
+const formatRelativeTime = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return '刚刚'
+  if (diffMins < 60) return `${diffMins}分钟前`
+  if (diffHours < 24) return `${diffHours}小时前`
+  if (diffDays < 7) return `${diffDays}天前`
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+// 查看发现详情
+const viewFinding = (finding) => {
+  router.push({ path: '/scan-history', query: { scan_id: finding.scan_id, finding: finding.id } })
+}
+
+// 类别颜色映射
+const getCategoryColorClass = (category) => {
+  const colorMap = {
+    rce: 'bg-red-50 text-red-700 hover:bg-red-100',
+    command_injection: 'bg-red-50 text-red-700 hover:bg-red-100',
+    sql_injection: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
+    sqli: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
+    ssrf: 'bg-purple-50 text-purple-700 hover:bg-purple-100',
+    file_read: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100',
+    file_write: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100',
+    auth: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+    xss: 'bg-green-50 text-green-700 hover:bg-green-100',
+    crypto: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100',
+  }
+  return colorMap[category] || 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+}
 
 const getPercentage = (count) => {
   const total = stats.value?.totalUnits || 1
@@ -515,22 +757,14 @@ onActivated(async () => {
   @apply bg-white rounded-xl border border-gray-200 p-5;
 }
 
-/* 安全评分环 */
-.score-ring {
-  @apply relative flex items-center justify-center;
+/* 发现列表项 */
+.finding-item {
+  @apply flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors;
 }
 
-.score-text {
-  @apply absolute text-2xl font-bold;
-}
-
-.score-badge {
-  @apply text-xs px-2 py-0.5 rounded-full font-medium;
-}
-
-/* 快速操作按钮 */
-.quick-action-btn {
-  @apply flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition text-sm font-medium;
+/* 规则类别标签 */
+.rule-category-tag {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors;
 }
 
 /* 扫描列表项 */
@@ -540,5 +774,15 @@ onActivated(async () => {
 
 .status-icon {
   @apply w-8 h-8 rounded-lg flex items-center justify-center;
+}
+
+/* 旋转动画 */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

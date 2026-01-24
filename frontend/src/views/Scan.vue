@@ -758,33 +758,19 @@ const fcState = reactive({
   status: 'idle', // idle, analyzing, completed, failed
 })
 
-const availableLanguages = [
-  { value: 'python', label: 'Python', icon: 'Py', iconClass: 'bg-blue-500' },
-  { value: 'javascript', label: 'JavaScript', icon: 'JS', iconClass: 'bg-yellow-500' },
-  { value: 'typescript', label: 'TypeScript', icon: 'TS', iconClass: 'bg-blue-600' },
-  { value: 'php', label: 'PHP', icon: 'PHP', iconClass: 'bg-purple-500' },
-]
+// 导入常量配置
+import {
+  AVAILABLE_LANGUAGES,
+  VULN_TYPES,
+  SCAN_STEPS,
+  DEFAULT_VULN_TYPES,
+  getStatusColor,
+  LIMITS,
+} from '@/constants'
 
-const vulnTypes = [
-  { value: 'rce', label: 'RCE', colorClass: 'bg-red-500' },
-  { value: 'command_injection', label: '命令注入', colorClass: 'bg-red-400' },
-  { value: 'sql_injection', label: 'SQL 注入', colorClass: 'bg-orange-500' },
-  { value: 'file_read', label: '文件读取', colorClass: 'bg-orange-400' },
-  { value: 'file_write', label: '文件写入', colorClass: 'bg-orange-400' },
-  { value: 'ssrf', label: 'SSRF', colorClass: 'bg-yellow-500' },
-  { value: 'ssti', label: 'SSTI', colorClass: 'bg-purple-500' },
-  { value: 'deserialization', label: '反序列化', colorClass: 'bg-purple-400' },
-  { value: 'auth_bypass', label: '认证绕过', colorClass: 'bg-pink-500' },
-  { value: 'idor', label: 'IDOR', colorClass: 'bg-pink-400' },
-  { value: 'logic_flaw', label: '逻辑漏洞', colorClass: 'bg-indigo-500' },
-]
-
-const scanSteps = [
-  { key: 'indexing', label: '索引' },
-  { key: 'analyzing', label: '分析' },
-  { key: 'detecting', label: '检测' },
-  { key: 'completed', label: '完成' },
-]
+const availableLanguages = AVAILABLE_LANGUAGES
+const vulnTypes = VULN_TYPES
+const scanSteps = SCAN_STEPS
 
 const config = reactive({
   targetPath: '',
@@ -807,18 +793,6 @@ const isScanning = ref(false)
 const currentScan = ref(null)
 let ws = null
 let pollInterval = null
-
-const getStatusColor = (status) => {
-  const colors = {
-    completed: 'bg-green-500',
-    analyzing: 'bg-blue-500',
-    indexing: 'bg-yellow-500',
-    detecting: 'bg-purple-500',
-    pending: 'bg-gray-400',
-    failed: 'bg-red-500',
-  }
-  return colors[status] || 'bg-gray-400'
-}
 
 const getProgressColor = (status) => {
   const colors = {
@@ -1080,7 +1054,7 @@ const startScan = async () => {
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data)
           if (data.type === 'progress') {
-            currentScan.value = { ...currentScan.value, ...data }
+            currentScan.value = { ...(currentScan.value || {}), ...data }
             if (data.log) {
               addLog(data.log, data.log_level || 'info')
             }
@@ -1232,7 +1206,7 @@ const restoreRunningScan = async () => {
               ws.onmessage = (event) => {
                 const data = JSON.parse(event.data)
                 if (data.type === 'progress') {
-                  currentScan.value = { ...currentScan.value, ...data }
+                  currentScan.value = { ...(currentScan.value || {}), ...data }
                   if (data.log) {
                     addLog(data.log, data.log_level || 'info')
                   }
@@ -1434,7 +1408,7 @@ const analyzeSelectedSinks = async (sinkIds) => {
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data)
           if (data.type === 'progress') {
-            currentScan.value = { ...currentScan.value, ...data }
+            currentScan.value = { ...(currentScan.value || {}), ...data }
             if (data.log) {
               addLog(data.log, data.log_level || 'info')
             }
@@ -1647,10 +1621,6 @@ onUnmounted(() => {
 .lang-chip.active {
   background: rgba(59, 130, 246, 0.1);
   border-color: rgb(59, 130, 246);
-}
-
-.lang-icon {
-  @apply w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold;
 }
 
 .vuln-chip {

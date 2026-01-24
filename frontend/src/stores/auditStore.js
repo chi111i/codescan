@@ -1,21 +1,23 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed, triggerRef } from 'vue'
 import * as api from '../api'
 
 export const useAuditStore = defineStore('audit', () => {
   // ============ 会话状态 ============
   const currentSession = ref(null)
-  const existingSessions = ref([])
+  // 使用 shallowRef 减少大型数组的响应式开销
+  const existingSessions = shallowRef([])
   const isCreatingSession = ref(false)
 
   // ============ 聊天状态 ============
-  const chatMessages = ref([])
+  // 使用 shallowRef - 聊天消息通常整体替换或追加
+  const chatMessages = shallowRef([])
   const isProcessing = ref(false)
   const currentProcessingStep = ref('')
 
   // ============ 工具状态 ============
-  const availableTools = ref([])
-  const toolCallHistory = ref([])
+  const availableTools = shallowRef([])
+  const toolCallHistory = shallowRef([])
 
   // ============ 统计 ============
   const sessionStats = ref({})
@@ -27,7 +29,13 @@ export const useAuditStore = defineStore('audit', () => {
   const WS_MAX_RECONNECT_ATTEMPTS = 5
   const WS_RECONNECT_DELAY = 3000
 
-  // 标记是否为“主动关闭”（用于避免页面切换时触发自动重连）
+  // ============ 心跳检测 ============
+  let wsHeartbeatTimer = null
+  let wsLastPongTime = 0
+  const WS_HEARTBEAT_INTERVAL = 30000  // 30秒发送一次心跳
+  const WS_HEARTBEAT_TIMEOUT = 10000   // 10秒内未收到响应则认为断连
+
+  // 标记是否为"主动关闭"（用于避免页面切换时触发自动重连）
   // 说明：浏览器 WebSocket 的 close 事件有时会返回非 1000（例如 1006），
   // 如果不区分主动关闭，会导致切页后仍在后台不断重连、解析消息，进而造成卡顿。
   // 这里通过给具体 ws 实例挂载 __manualClose 标记来避免竞态。
@@ -50,12 +58,13 @@ export const useAuditStore = defineStore('audit', () => {
   let quickScanWs = null
 
   // ============ LLM 调用过程状态 (实时展示) ============
-  const llmCallHistory = ref([])  // LLM 调用历史 [{call_id, status, content_preview, tool_calls, ...}]
+  // 使用 shallowRef 减少大型数组的响应式追踪开销
+  const llmCallHistory = shallowRef([])  // LLM 调用历史 [{call_id, status, content_preview, tool_calls, ...}]
   const currentLlmCall = ref(null)  // 当前正在进行的 LLM 调用
   const isLlmThinking = ref(false)  // LLM 是否正在思考
 
   // ============ 实时发现状态 ============
-  const realtimeFindings = ref([])  // 实时发现的漏洞列表
+  const realtimeFindings = shallowRef([])  // 实时发现的漏洞列表
   const analysisProgress = ref(null)  // 分析进度 {current, total, current_site}
 
   // ============ Function Calling 状态 ============
@@ -107,6 +116,80 @@ export const useAuditStore = defineStore('audit', () => {
         existing.error = error
       }
     }
+  }
+
+  // ============ ShallowRef 更新辅助函数 ============
+  // shallowRef 只追踪 .value 的引用变化，push/splice 等操作需要手动触发更新
+
+  /**
+   * 向 shallowRef 数组追加元素并触发更新
+   */
+  const pushToShallowRef = (shallowRefArray, ...items) => {
+    shallowRefArray.value.push(...items)
+    triggerRef(shallowRefArray)
+  }
+
+  /**
+   * 替换 shallowRef 数组内容
+   */
+  const replaceShallowRef = (shallowRefArray, newArray) => {
+    shallowRefArray.value = newArray
+    // 赋值操作已经触发更新，不需要 triggerRef
+  }
+
+  /**
+   * 添加聊天消息（带限制）
+   */
+  const addChatMessage = (message) => {
+    const MAX_MESSAGES = 500
+    if (chatMessages.value.length >= MAX_MESSAGES) {
+      chatMessages.value = chatMessages.value.slice(-MAX_MESSAGES + 1)
+    }
+    chatMessages.value.push(message)
+    triggerRef(chatMessages)
+  }
+
+  /**
+   * 添加工具调用历史（带限制）
+   */
+  const addToolCallHistory = (...toolCalls) => {
+    const MAX_TOOL_CALLS = 200
+    if (toolCallHistory.value.length >= MAX_TOOL_CALLS) {
+      toolCallHistory.value = toolCallHistory.value.slice(-MAX_TOOL_CALLS + toolCalls.length)
+    }
+    toolCallHistory.value.push(...toolCalls)
+    triggerRef(toolCallHistory)
+  }
+
+  /**
+   * 添加实时发现（带限制和去重）
+   */
+  const addRealtimeFinding = (finding) => {
+    const MAX_FINDINGS = 100
+    // 去重检查
+    const exists = realtimeFindings.value.some(f =>
+      f.id === finding.id ||
+      (f.file_path === finding.file_path && f.line_start === finding.line_start)
+    )
+    if (!exists) {
+      if (realtimeFindings.value.length >= MAX_FINDINGS) {
+        realtimeFindings.value = realtimeFindings.value.slice(-MAX_FINDINGS + 1)
+      }
+      realtimeFindings.value.push(finding)
+      triggerRef(realtimeFindings)
+    }
+  }
+
+  /**
+   * 添加 LLM 调用历史
+   */
+  const addLlmCallHistory = (call) => {
+    const MAX_LLM_CALLS = 100
+    if (llmCallHistory.value.length >= MAX_LLM_CALLS) {
+      llmCallHistory.value = llmCallHistory.value.slice(-MAX_LLM_CALLS + 1)
+    }
+    llmCallHistory.value.push(call)
+    triggerRef(llmCallHistory)
   }
 
   // 生成唯一的工具调用 ID
@@ -279,17 +362,35 @@ export const useAuditStore = defineStore('audit', () => {
     }
   }
 
+  // 会话加载的 AbortController
+  let sessionLoadAbortController = null
+
   const loadSession = async (sessionId) => {
+    // 取消之前的加载请求
+    if (sessionLoadAbortController) {
+      sessionLoadAbortController.abort()
+    }
+    sessionLoadAbortController = new AbortController()
+    const signal = sessionLoadAbortController.signal
+
     try {
-      const result = await api.getUnifiedSession(sessionId)
+      const result = await api.getUnifiedSession(sessionId, { signal })
+      if (signal.aborted) return null  // 检查是否已被取消
+
       if (result.success) {
         currentSession.value = result.data
-        await loadSessionData(sessionId)
-        connectWebSocket(sessionId)
+        await loadSessionData(sessionId, signal)
+        if (!signal.aborted) {
+          connectWebSocket(sessionId)
+        }
         return result.data
       }
       return null
     } catch (error) {
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        console.log('[loadSession] 请求已取消')
+        return null
+      }
       console.error('加载会话失败:', error)
       throw error
     }
@@ -305,7 +406,7 @@ export const useAuditStore = defineStore('audit', () => {
     }
   }
 
-  const loadSessionData = async (sessionId) => {
+  const loadSessionData = async (sessionId, signal = null) => {
     try {
       // M-8 修复: 使用 Promise.allSettled 防止单个请求失败导致全部失败
       const results = await Promise.allSettled([
@@ -408,7 +509,7 @@ export const useAuditStore = defineStore('audit', () => {
     cancelPendingRequest()
 
     // 添加用户消息
-    chatMessages.value.push({
+    addChatMessage({
       role: 'user',
       content: message,
       timestamp: new Date(),
@@ -439,7 +540,7 @@ export const useAuditStore = defineStore('audit', () => {
 
       if (result.success && result.data.message) {
         const msg = result.data.message
-        chatMessages.value.push({
+        addChatMessage({
           role: 'assistant',
           content: msg.content,
           tool_calls: msg.tool_calls || [],
@@ -447,7 +548,7 @@ export const useAuditStore = defineStore('audit', () => {
         })
 
         if (msg.tool_calls && msg.tool_calls.length > 0) {
-          toolCallHistory.value.push(...msg.tool_calls)
+          addToolCallHistory(...msg.tool_calls)
         }
 
         sessionStats.value.total_llm_calls = (sessionStats.value.total_llm_calls || 0) + 1
@@ -461,7 +562,7 @@ export const useAuditStore = defineStore('audit', () => {
         return null
       }
       console.error('对话失败:', error)
-      chatMessages.value.push({
+      addChatMessage({
         role: 'assistant',
         content: '处理失败: ' + (error.response?.data?.detail || error.message),
         timestamp: new Date(),
@@ -527,9 +628,14 @@ export const useAuditStore = defineStore('audit', () => {
   // ============ WebSocket 方法 ============
 
   const connectWebSocket = (sessionId) => {
+    // 清除重连和心跳定时器
     if (wsReconnectTimer) {
       clearTimeout(wsReconnectTimer)
       wsReconnectTimer = null
+    }
+    if (wsHeartbeatTimer) {
+      clearInterval(wsHeartbeatTimer)
+      wsHeartbeatTimer = null
     }
 
     try {
@@ -556,11 +662,42 @@ export const useAuditStore = defineStore('audit', () => {
       wsInstance.onopen = () => {
         console.log('Agent WebSocket connected')
         wsReconnectAttempts = 0
+        wsLastPongTime = Date.now()
+
+        // 启动心跳检测
+        wsHeartbeatTimer = setInterval(() => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) {
+            return
+          }
+          // 检查上次响应时间
+          const now = Date.now()
+          if (wsLastPongTime && now - wsLastPongTime > WS_HEARTBEAT_INTERVAL + WS_HEARTBEAT_TIMEOUT) {
+            console.warn('[WebSocket] 心跳超时，尝试重连...')
+            ws.__manualClose = true
+            ws.close(4000, 'Heartbeat timeout')
+            if (currentSession.value) {
+              connectWebSocket(currentSession.value.session_id)
+            }
+            return
+          }
+          // 发送心跳（如果后端支持）
+          try {
+            ws.send(JSON.stringify({ type: 'ping', timestamp: now }))
+          } catch (e) {
+            // 发送失败，可能连接已断开
+          }
+        }, WS_HEARTBEAT_INTERVAL)
       }
 
       wsInstance.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          // 更新心跳时间（任何消息都视为活跃）
+          wsLastPongTime = Date.now()
+          // 处理 pong 响应（静默处理）
+          if (data.type === 'pong') {
+            return
+          }
           handleWebSocketMessage(data)
         } catch (e) {
           console.error('WebSocket message parse error:', e)
@@ -573,6 +710,11 @@ export const useAuditStore = defineStore('audit', () => {
 
       wsInstance.onclose = (event) => {
         console.log('WebSocket disconnected, code:', event.code)
+        // 清除心跳定时器
+        if (wsHeartbeatTimer) {
+          clearInterval(wsHeartbeatTimer)
+          wsHeartbeatTimer = null
+        }
         // 主动关闭时，清理 ws 引用并返回，不进行重连
         if (wsInstance.__manualClose) {
           // 只有当这个实例是当前的 ws 时才清理
@@ -585,9 +727,11 @@ export const useAuditStore = defineStore('audit', () => {
         const isCurrentSession = currentSession.value && currentSession.value.session_id === sessionId
         if (isCurrentSession && event.code !== 1000 && wsReconnectAttempts < WS_MAX_RECONNECT_ATTEMPTS) {
           wsReconnectAttempts++
+          const delay = WS_RECONNECT_DELAY * Math.pow(1.5, wsReconnectAttempts - 1)  // 指数退避
+          console.log(`[WebSocket] 将在 ${delay}ms 后尝试重连 (第 ${wsReconnectAttempts} 次)`)
           wsReconnectTimer = setTimeout(() => {
             connectWebSocket(sessionId)
-          }, WS_RECONNECT_DELAY)
+          }, delay)
         }
       }
     } catch (error) {
@@ -602,6 +746,12 @@ export const useAuditStore = defineStore('audit', () => {
       wsReconnectTimer = null
     }
     wsReconnectAttempts = 0
+
+    // 清除心跳定时器
+    if (wsHeartbeatTimer) {
+      clearInterval(wsHeartbeatTimer)
+      wsHeartbeatTimer = null
+    }
 
     // 清除消息缓冲定时器（防止页面切换后仍尝试更新状态）
     if (messageBufferTimer) {
@@ -645,8 +795,9 @@ export const useAuditStore = defineStore('audit', () => {
     const lastMsg = chatMessages.value[chatMessages.value.length - 1]
     if (lastMsg && lastMsg.role === 'assistant' && lastMsg._streaming) {
       lastMsg.content += messageBuffer
+      triggerRef(chatMessages)  // 手动触发更新
     } else {
-      chatMessages.value.push({
+      addChatMessage({
         role: 'assistant',
         content: messageBuffer,
         tool_calls: [],
@@ -668,7 +819,7 @@ export const useAuditStore = defineStore('audit', () => {
         break
       case 'tool_call_end':
         if (data.data) {
-          toolCallHistory.value.push(data.data)
+          addToolCallHistory(data.data)
         }
         break
       case 'message_chunk':
@@ -697,8 +848,9 @@ export const useAuditStore = defineStore('audit', () => {
             lastMsg.content = data.data.content
             lastMsg.tool_calls = data.data.tool_calls || []
             delete lastMsg._streaming
+            triggerRef(chatMessages)  // 手动触发更新
           } else {
-            chatMessages.value.push({
+            addChatMessage({
               role: 'assistant',
               content: data.data.content,
               tool_calls: data.data.tool_calls || [],

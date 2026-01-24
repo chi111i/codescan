@@ -1564,3 +1564,96 @@ body {
     margin: 16px;
   }
 }
+
+/* ========================================
+   编程语言图标系统 - 简洁纯色风格
+   ======================================== */
+
+/* 基础语言图标样式 */
+.lang-icon {
+  @apply w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold;
+  transition: all 0.2s ease;
+}
+
+.lang-chip:hover .lang-icon {
+  transform: scale(1.05);
+}
+
+/* Python - 蓝色 */
+.lang-icon-python {
+  background: #3776AB;
+}
+
+/* JavaScript - 金黄色 */
+.lang-icon-javascript {
+  background: #F7DF1E;
+  color: #1C1C1E;
+}
+
+/* TypeScript - 深蓝色 */
+.lang-icon-typescript {
+  background: #3178C6;
+}
+
+/* PHP - 紫蓝色 */
+.lang-icon-php {
+  background: #777BB4;
+  font-size: 10px;
+}
+
+/* Java - 橙色 */
+.lang-icon-java {
+  background: #E76F00;
+}
+
+/* Go - 青色 */
+.lang-icon-go {
+  background: #00ADD8;
+}
+
+/* Ruby - 红色 */
+.lang-icon-ruby {
+  background: #CC342D;
+}
+
+/* C - 深蓝灰色 */
+.lang-icon-c {
+  background: #555555;
+}
+
+/* C++ - 蓝色 */
+.lang-icon-cpp {
+  background: #00599C;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* C# - 紫色 */
+.lang-icon-csharp {
+  background: #68217A;
+}
+
+/* Rust - 橙红色 */
+.lang-icon-rust {
+  background: #CE422B;
+}
+
+/* Kotlin - 紫色 */
+.lang-icon-kotlin {
+  background: #7F52FF;
+}
+
+/* Scala - 红色 */
+.lang-icon-scala {
+  background: #DC322F;
+}
+
+/* Swift - 橙色 */
+.lang-icon-swift {
+  background: #FA7343;
+}
+
+/* Dart - 青蓝色 */
+.lang-icon-dart {
+  background: #0175C2;
+}

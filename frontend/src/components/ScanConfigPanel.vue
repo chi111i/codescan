@@ -4,9 +4,7 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-2">
         <span class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-          </svg>
+          <Folder class="w-4 h-4 text-gray-500" />
           目标路径
         </span>
       </label>
@@ -25,9 +23,7 @@
             class="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
             title="清空路径"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
+            <X class="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -37,13 +33,12 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-3">
         <span class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-          </svg>
+          <Code class="w-4 h-4 text-gray-500" />
           扫描语言
+          <span class="text-xs text-gray-400 font-normal">(可多选，留空则扫描全部)</span>
         </span>
       </label>
-      <div class="flex flex-wrap gap-3">
+      <div class="grid grid-cols-5 gap-2">
         <label
           v-for="lang in availableLanguages"
           :key="lang.value"
@@ -57,11 +52,17 @@
             class="hidden"
           />
           <span class="lang-icon" :class="lang.iconClass">{{ lang.icon }}</span>
-          <span>{{ lang.label }}</span>
-          <svg v-if="config.languages.includes(lang.value)" class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
+          <span class="truncate">{{ lang.label }}</span>
         </label>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button type="button" @click="selectAllLanguages" class="text-xs text-blue-600 hover:text-blue-700">
+          全选
+        </button>
+        <span class="text-gray-300">|</span>
+        <button type="button" @click="clearLanguages" class="text-xs text-gray-500 hover:text-gray-700">
+          清空
+        </button>
       </div>
     </div>
 
@@ -69,9 +70,7 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-3">
         <span class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
+          <AlertTriangle class="w-4 h-4 text-gray-500" />
           漏洞类型
         </span>
       </label>
@@ -107,9 +106,7 @@
     <div class="space-y-4">
       <div class="flex items-center justify-between">
         <label class="text-sm font-medium text-gray-700 flex items-center gap-2">
-          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
-          </svg>
+          <SlidersHorizontal class="w-4 h-4 text-gray-500" />
           高级选项
         </label>
         <button
@@ -126,9 +123,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.useLLM" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.useLLM }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">LLM 深度分析</span>
@@ -139,9 +134,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.scanLogic" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.scanLogic }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">业务逻辑扫描</span>
@@ -152,9 +145,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.useChainAnalysis" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.useChainAnalysis }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">链级分析（推荐）</span>
@@ -165,9 +156,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.skipIndex" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.skipIndex }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">跳过向量索引</span>
@@ -179,9 +168,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.enableTriage" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.enableTriage }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">Triage 快筛</span>
@@ -192,9 +179,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.enableDeepVerify" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.enableDeepVerify }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">深度验证</span>
@@ -205,9 +190,7 @@
           <label class="option-card">
             <input type="checkbox" v-model="config.enableDeterministicValidation" class="hidden" />
             <div class="option-checkbox" :class="{ checked: config.enableDeterministicValidation }">
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-              </svg>
+              <Check class="w-3 h-3" />
             </div>
             <div>
               <span class="text-sm font-medium text-gray-800">确定性验证</span>
@@ -252,13 +235,8 @@
         :disabled="isScanning || !config.targetPath"
         @click="handleStartScan"
       >
-        <svg v-if="isScanning" class="w-5 h-5 spinner" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
+        <Loader2 v-if="isScanning" class="w-5 h-5 animate-spin" />
+        <Search v-else class="w-5 h-5" />
         <span>{{ isScanning ? '扫描中...' : '开始扫描' }}</span>
       </button>
     </div>
@@ -267,6 +245,19 @@
 
 <script setup>
 import { ref, reactive, defineEmits, defineProps } from 'vue'
+
+// 使用 Lucide 图标
+import {
+  Folder,
+  X,
+  Code,
+  AlertTriangle,
+  SlidersHorizontal,
+  Search,
+  Loader2,
+  CheckCircle,
+  Check,
+} from './icons'
 
 const props = defineProps({
   isScanning: {
@@ -296,12 +287,10 @@ const config = reactive({
   enableDeterministicValidation: true,
 })
 
-const availableLanguages = [
-  { value: 'python', label: 'Python', icon: '🐍', iconClass: 'bg-yellow-100' },
-  { value: 'javascript', label: 'JavaScript', icon: '⚡', iconClass: 'bg-yellow-100' },
-  { value: 'typescript', label: 'TypeScript', icon: '💠', iconClass: 'bg-blue-100' },
-  { value: 'php', label: 'PHP', icon: '🐘', iconClass: 'bg-purple-100' },
-]
+// 导入语言配置
+import { AVAILABLE_LANGUAGES } from '@/constants/languages'
+
+const availableLanguages = AVAILABLE_LANGUAGES
 
 const vulnTypes = [
   { value: 'rce', label: 'RCE', colorClass: 'bg-red-500' },
@@ -323,6 +312,14 @@ const selectAllVulnTypes = () => {
 
 const clearVulnTypes = () => {
   config.vulnTypes = []
+}
+
+const selectAllLanguages = () => {
+  config.languages = availableLanguages.map(l => l.value)
+}
+
+const clearLanguages = () => {
+  config.languages = []
 }
 
 const resetConfig = () => {
@@ -366,19 +363,25 @@ defineExpose({
 
 <style scoped>
 .lang-chip {
-  @apply flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/50 border border-white/30 cursor-pointer transition-all duration-300;
+  @apply flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/50 border border-gray-200 cursor-pointer transition-all duration-200 text-sm;
 }
 
 .lang-chip:hover {
-  @apply bg-white/70 border-blue-200;
+  @apply bg-white/80 border-blue-300;
 }
 
 .lang-chip.active {
-  @apply bg-blue-50 border-blue-300 ring-2 ring-blue-100;
+  @apply bg-blue-50 border-blue-400 shadow-sm;
 }
 
-.lang-icon {
-  @apply w-7 h-7 rounded-lg flex items-center justify-center text-sm;
+.lang-chip .lang-icon {
+  @apply w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0;
+}
+
+/* C++ 特殊处理 */
+.lang-chip .lang-icon-cpp {
+  font-size: 9px;
+  white-space: nowrap;
 }
 
 .vuln-chip {

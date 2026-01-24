@@ -670,14 +670,12 @@ const rejectedFindings = ref([])
 // WebSocket
 let ws = null
 
+// ============ 导入语言配置 ============
+import { AVAILABLE_LANGUAGES } from '@/constants/languages'
+
 // ============ 计算属性 ============
 
-const availableLanguages = [
-  { value: 'python', label: 'Python', icon: 'Py', iconClass: 'bg-blue-500' },
-  { value: 'javascript', label: 'JavaScript', icon: 'JS', iconClass: 'bg-yellow-500' },
-  { value: 'typescript', label: 'TypeScript', icon: 'TS', iconClass: 'bg-blue-600' },
-  { value: 'php', label: 'PHP', icon: 'PHP', iconClass: 'bg-purple-500' },
-]
+const availableLanguages = AVAILABLE_LANGUAGES
 
 const sessionStatusClass = computed(() => {
   if (!currentSession.value) return ''

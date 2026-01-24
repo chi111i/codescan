@@ -21,9 +21,7 @@
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'"
         >
           <span class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-            </svg>
+            <MessageSquare class="w-4 h-4" />
             对话审计
           </span>
         </button>
@@ -35,9 +33,7 @@
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'"
         >
           <span class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
+            <Search class="w-4 h-4" />
             深度扫描
           </span>
         </button>
@@ -55,9 +51,7 @@
           class="btn-secondary text-yellow-500 hover:bg-yellow-500/10"
           title="清空对话历史"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-          </svg>
+          <Trash2 class="w-5 h-5" />
         </button>
         <button
           v-if="currentSession"
@@ -65,9 +59,7 @@
           class="btn-secondary text-red-500 hover:bg-red-500/10"
           title="删除会话"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
+          <X class="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -77,13 +69,11 @@
       <!-- 深度扫描模式 - 两步扫描 -->
       <div v-if="auditMode === 'quick-scan'" class="flex-1 flex flex-col min-h-0">
         <!-- 阶段1：配置阶段 -->
-        <div v-if="scanPhase === 'config'" class="flex-1 flex items-center justify-center">
-          <div class="glass-card rounded-2xl p-8 max-w-2xl w-full">
+        <div v-if="scanPhase === 'config'" class="flex-1 flex justify-center pt-8 overflow-y-auto">
+          <div class="glass-card rounded-2xl p-8 max-w-2xl w-full h-fit">
             <div class="text-center mb-6">
               <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
+                <Search class="w-8 h-8 text-white" />
               </div>
               <h2 class="text-2xl font-bold text-gray-800 mb-2">深度安全扫描</h2>
               <p class="text-gray-500">发现触发点 → 选择分析目标 → LLM 深度分析</p>
@@ -101,10 +91,7 @@
         <div v-else-if="scanPhase === 'discovering'" class="flex-1 flex items-center justify-center">
           <div class="glass-card rounded-2xl p-8 max-w-md w-full text-center">
             <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/10 flex items-center justify-center">
-              <svg class="w-8 h-8 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <Loader2 class="w-8 h-8 text-blue-500 animate-spin" />
             </div>
             <h3 class="text-lg font-semibold text-gray-800 mb-2">正在扫描触发点...</h3>
             <p class="text-gray-500 text-sm">正在分析代码，识别危险函数调用</p>
@@ -121,9 +108,7 @@
                 @click="backToConfig"
                 class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                </svg>
+                <ChevronLeft class="w-4 h-4" />
                 返回配置
               </button>
               <div class="flex items-center gap-2">
@@ -132,9 +117,7 @@
                   class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all"
                   :class="showCallGraph ? 'bg-purple-500 text-white' : 'bg-white/50 text-gray-600 hover:bg-white/70'"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-                  </svg>
+                  <MapIcon class="w-4 h-4" />
                   {{ showCallGraph ? '隐藏调用图' : '显示调用图' }}
                 </button>
               </div>
@@ -232,9 +215,7 @@
             <div v-if="currentScan?.findings?.length > 0" class="glass-card rounded-2xl p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
               <div class="flex items-center justify-between mb-3 shrink-0">
                 <h4 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-                  <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                  </svg>
+                  <AlertTriangle class="w-4 h-4 text-red-500" />
                   发现漏洞
                 </h4>
                 <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
@@ -255,9 +236,7 @@
             <!-- 空状态提示 -->
             <div v-if="!fcState.enabled && interactions.length === 0" class="glass-card rounded-2xl p-6 flex-1 flex items-center justify-center">
               <div class="text-center text-gray-400">
-                <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
+                <Monitor class="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p class="text-sm">选择触发点后点击"开始分析"</p>
                 <p class="text-xs mt-1">LLM 分析过程将在此显示</p>
               </div>
@@ -267,17 +246,16 @@
       </div>
 
       <!-- 对话审计模式（原有界面） -->
-      <div v-else class="flex-1 flex items-center justify-center">
-        <div class="glass-card rounded-2xl p-8 max-w-xl w-full">
-          <div class="text-center mb-8">
-            <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-              </svg>
+      <div v-else class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 flex justify-center pt-8 overflow-y-auto">
+          <div class="glass-card rounded-2xl p-8 max-w-2xl w-full h-fit">
+            <div class="text-center mb-6">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                <Sparkles class="w-8 h-8 text-white" />
+              </div>
+              <h2 class="text-2xl font-bold text-gray-800 mb-2">创建智能审计会话</h2>
+              <p class="text-gray-500">AI 智能体将自主调用工具进行深度代码分析</p>
             </div>
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">创建智能审计会话</h2>
-            <p class="text-gray-500">AI 智能体将自主调用工具进行深度代码分析</p>
-          </div>
 
         <form @submit.prevent="createSession" class="space-y-6">
           <!-- 目标路径 -->
@@ -294,8 +272,11 @@
 
           <!-- 语言选择 -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-3">扫描语言（可选）</label>
-            <div class="flex flex-wrap gap-2">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              扫描语言
+              <span class="text-xs text-gray-400 font-normal ml-1">(可多选，留空则扫描全部)</span>
+            </label>
+            <div class="grid grid-cols-5 gap-2">
               <label
                 v-for="lang in availableLanguages"
                 :key="lang.value"
@@ -309,8 +290,17 @@
                   class="hidden"
                 />
                 <span class="lang-icon" :class="lang.iconClass">{{ lang.icon }}</span>
-                <span>{{ lang.label }}</span>
+                <span class="truncate">{{ lang.label }}</span>
               </label>
+            </div>
+            <div class="flex gap-2 mt-2">
+              <button type="button" @click="selectAllLanguages" class="text-xs text-blue-600 hover:text-blue-700">
+                全选
+              </button>
+              <span class="text-gray-300">|</span>
+              <button type="button" @click="clearLanguages" class="text-xs text-gray-500 hover:text-gray-700">
+                清空
+              </button>
             </div>
           </div>
 
@@ -366,13 +356,12 @@
                   @click.stop="deleteSession(session.session_id)"
                   class="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
+                  <X class="w-4 h-4" />
                 </button>
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -384,9 +373,7 @@
       <div class="col-span-3 glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
         <div class="flex items-center justify-between mb-4 shrink-0">
           <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-            </svg>
+            <List class="w-5 h-5 text-purple-500" />
             可用工具
           </h3>
           <span class="text-xs text-gray-500">{{ availableTools.length }} 个</span>
@@ -442,9 +429,7 @@
       <div class="col-span-6 glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
         <div class="flex items-center justify-between mb-4 shrink-0">
           <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-            </svg>
+            <MessageSquare class="w-5 h-5 text-blue-500" />
             智能对话
           </h3>
           <div class="flex items-center gap-2 text-xs text-gray-500">
@@ -493,10 +478,7 @@
           <!-- 处理中提示 -->
           <div v-if="isProcessing" class="flex items-center gap-3 p-4 rounded-xl bg-violet-50">
             <div class="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
-              <svg class="w-5 h-5 text-white spinner" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <Loader2 class="w-5 h-5 text-white animate-spin" />
             </div>
             <div>
               <div class="font-medium text-violet-700">AI 智能体正在处理...</div>
@@ -506,9 +488,7 @@
 
           <!-- 空状态 -->
           <div v-if="chatMessages.length === 0 && !isProcessing" class="flex flex-col items-center justify-center h-full text-gray-400">
-            <svg class="w-20 h-20 mb-4 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
+            <Sparkles class="w-20 h-20 mb-4 text-violet-300" />
             <p class="text-center text-lg font-medium text-gray-500 mb-2">
               开始与 AI 智能体对话
             </p>
@@ -548,9 +528,7 @@
                 class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
                 title="清空输入"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
+                <X class="w-4 h-4" />
               </button>
             </div>
             <button
@@ -559,9 +537,7 @@
               class="btn-primary px-6"
               :class="{ 'opacity-60 cursor-not-allowed': !chatInput.trim() || isProcessing }"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-              </svg>
+              <Send class="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -576,9 +552,7 @@
         <div class="glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden" style="flex: 1 1 45%;">
           <div class="flex items-center justify-between mb-3 shrink-0">
             <h4 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-              <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-              </svg>
+              <Sparkles class="w-4 h-4 text-blue-500" />
               LLM 调用过程
             </h4>
             <span class="text-xs text-gray-400">{{ llmCallHistory.length }} 次</span>
@@ -609,9 +583,7 @@
         <div class="glass-card rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden" style="flex: 1 1 55%;">
           <div class="flex items-center justify-between mb-3 shrink-0">
             <h4 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-              <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
+              <AlertTriangle class="w-4 h-4 text-red-500" />
               实时发现
             </h4>
             <span class="text-xs px-2 py-0.5 rounded-full" :class="realtimeFindings.length > 0 ? 'bg-red-100 text-red-700' : 'text-gray-400'">
@@ -629,9 +601,7 @@
               @click="viewFindingDetail(finding)"
             />
             <div v-if="realtimeFindings.length === 0" class="text-center py-6 text-gray-400 text-sm">
-              <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
+              <CheckCircle class="w-10 h-10 mx-auto mb-2 text-gray-300" />
               暂无发现
             </div>
           </div>
@@ -666,18 +636,13 @@
             class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
             @click="closeChainSelector"
           >
-            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
+            <X class="w-5 h-5 text-gray-500" />
           </button>
         </div>
         <div class="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
           <div v-if="isLoadingChains" class="flex items-center justify-center py-12">
             <div class="flex items-center gap-3 text-gray-500">
-              <svg class="w-6 h-6 spinner" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <Loader2 class="w-6 h-6 animate-spin" />
               <span>加载调用链中...</span>
             </div>
           </div>
@@ -742,6 +707,23 @@ import CallGraphViewer from '../components/CallGraphViewer.vue'
 import LLMInteractionPanel from '../components/LLMInteractionPanel.vue'
 import FCProgressPanel from '../components/FCProgressPanel.vue'
 import FindingDetailModal from '../components/FindingDetailModal.vue'
+
+// 使用 Lucide 图标
+import {
+  MessageSquare,
+  Search,
+  Trash2,
+  X,
+  Loader2,
+  ChevronLeft,
+  Map as MapIcon,
+  Sparkles,
+  AlertTriangle,
+  Monitor,
+  List,
+  Send,
+  CheckCircle,
+} from '../components/icons'
 
 const route = useRoute()
 const router = useRouter()
@@ -837,16 +819,12 @@ const fcState = reactive({
   status: 'idle', // idle, analyzing, completed, failed
 })
 
+// ============ 导入语言配置 ============
+import { AVAILABLE_LANGUAGES } from '@/constants/languages'
+
 // ============ 计算属性 ============
 
-const availableLanguages = [
-  { value: 'python', label: 'Python', icon: 'Py', iconClass: 'bg-blue-500' },
-  { value: 'javascript', label: 'JavaScript', icon: 'JS', iconClass: 'bg-yellow-500' },
-  { value: 'typescript', label: 'TypeScript', icon: 'TS', iconClass: 'bg-blue-600' },
-  { value: 'php', label: 'PHP', icon: 'PHP', iconClass: 'bg-purple-500' },
-  { value: 'java', label: 'Java', icon: 'JV', iconClass: 'bg-orange-500' },
-  { value: 'go', label: 'Go', icon: 'GO', iconClass: 'bg-cyan-500' },
-]
+const availableLanguages = AVAILABLE_LANGUAGES
 
 const quickSuggestions = [
   '分析这个项目的安全风险',
@@ -855,6 +833,15 @@ const quickSuggestions = [
   '查找危险函数调用',
   '分析认证逻辑是否安全',
 ]
+
+// 语言选择快捷操作
+const selectAllLanguages = () => {
+  newSessionConfig.languages = availableLanguages.map(l => l.value)
+}
+
+const clearLanguages = () => {
+  newSessionConfig.languages = []
+}
 
 // ============ 方法 ============
 
@@ -1494,9 +1481,7 @@ watch(chatMessages, () => {
   border-color: rgb(139, 92, 246);
 }
 
-.lang-icon {
-  @apply w-7 h-7 rounded flex items-center justify-center text-white text-xs font-bold;
-}
+/* 使用全局 lang-icon 样式，不在此覆盖 */
 
 .chat-message {
   @apply p-4 rounded-xl;

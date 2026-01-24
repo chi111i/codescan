@@ -39,6 +39,10 @@
 
     <!-- 交互列表 -->
     <div ref="scrollContainer" class="flex-1 overflow-y-auto space-y-2 dark-scroll">
+      <!-- 隐藏记录提示 -->
+      <div v-if="hasHiddenItems" class="text-xs text-center text-gray-400 py-2 bg-gray-50/50 rounded-lg">
+        仅显示最近 {{ MAX_VISIBLE_INTERACTIONS }} 条记录，共 {{ interactions.length }} 条
+      </div>
       <template v-if="filteredInteractions.length > 0">
         <div
           v-for="(interaction, index) in filteredInteractions"
@@ -173,13 +177,30 @@ const filterType = ref('all')
 const expandedItems = ref([])
 const scrollContainer = ref(null)
 
+// 常量
+const MAX_VISIBLE_INTERACTIONS = 100  // 最大显示条数
+
 // 计算属性
 const filteredInteractions = computed(() => {
   if (!props.interactions || !Array.isArray(props.interactions)) return []
-  if (filterType.value === 'all') {
-    return props.interactions
+  let result = props.interactions
+  if (filterType.value !== 'all') {
+    result = result.filter(i => i && i.type === filterType.value)
   }
-  return props.interactions.filter(i => i && i.type === filterType.value)
+  // 限制显示数量，只显示最近的记录
+  if (result.length > MAX_VISIBLE_INTERACTIONS) {
+    result = result.slice(-MAX_VISIBLE_INTERACTIONS)
+  }
+  return result
+})
+
+// 是否有被隐藏的记录
+const hasHiddenItems = computed(() => {
+  if (!props.interactions || !Array.isArray(props.interactions)) return false
+  const total = filterType.value === 'all'
+    ? props.interactions.length
+    : props.interactions.filter(i => i && i.type === filterType.value).length
+  return total > MAX_VISIBLE_INTERACTIONS
 })
 
 const tokensUsed = computed(() => {
