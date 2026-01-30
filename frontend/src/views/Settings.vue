@@ -377,6 +377,100 @@
         </div>
       </div>
 
+      <!-- 搜索优化配置 (新增) -->
+      <div class="glass-card p-6 space-y-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold text-gray-800">搜索优化</h2>
+            <p class="text-sm text-gray-500">混合搜索、RRF融合、智能截断配置</p>
+          </div>
+          <span class="ml-auto px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">新功能</span>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">搜索模式</label>
+            <select v-model="settings.search.mode" class="select-glass">
+              <option value="hybrid">混合搜索 (推荐)</option>
+              <option value="vector">纯向量搜索</option>
+              <option value="keyword">纯关键词搜索</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">混合搜索结合向量语义和关键词匹配，效果最佳</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">RRF K 值</label>
+              <input
+                v-model.number="settings.search.rrfK"
+                type="number"
+                min="1"
+                max="100"
+                class="input-glass"
+                placeholder="60"
+              />
+              <p class="text-xs text-gray-500 mt-1">RRF 平滑常数，默认 60</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">向量权重</label>
+              <input
+                v-model.number="settings.search.vectorWeight"
+                type="number"
+                min="0"
+                max="2"
+                step="0.1"
+                class="input-glass"
+                placeholder="1.0"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-sm font-medium text-gray-700">智能截断</span>
+              <p class="text-xs text-gray-500">自动过滤低相关性结果</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" v-model="settings.search.enableSmartCutoff">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-sm font-medium text-gray-700">安全优先重排序</span>
+              <p class="text-xs text-gray-500">优先展示安全相关代码（含危险函数调用）</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" v-model="settings.search.enableSecurityRerank">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div v-if="settings.search.enableSecurityRerank">
+            <label class="block text-sm font-medium text-gray-700 mb-2">安全提升因子</label>
+            <div class="flex items-center gap-4">
+              <input
+                v-model.number="settings.search.securityBoost"
+                type="range"
+                min="1"
+                max="3"
+                step="0.1"
+                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <span class="text-sm text-gray-600 w-12 text-center glass-subtle px-2 py-1 rounded">
+                {{ settings.search.securityBoost }}x
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 扫描配置 -->
       <div class="glass-card p-6 space-y-6">
         <div class="flex items-center gap-3 mb-6">
@@ -890,7 +984,16 @@ const settings = reactive({
     ssti: true
   },
   // 新增：扫描模式
-  scanMode: 'llm-deep'  // 'fast-rule' | 'llm-deep' | 'full'
+  scanMode: 'llm-deep',  // 'fast-rule' | 'llm-deep' | 'full'
+  // 新增：搜索优化配置
+  search: {
+    mode: 'hybrid',           // 'hybrid' | 'vector' | 'keyword'
+    rrfK: 60,                 // RRF 平滑常数
+    vectorWeight: 1.0,        // 向量搜索权重
+    enableSmartCutoff: true,  // 智能截断
+    enableSecurityRerank: true, // 安全优先重排序
+    securityBoost: 1.5        // 安全提升因子
+  }
 })
 
 const showApiKey = ref(false)
@@ -945,6 +1048,15 @@ const saveSettings = async () => {
         embedding_dim: settings.embedding.dimensions || undefined,
       },
       scan_mode: settings.scanMode,
+      // 新增：搜索优化配置
+      search: {
+        mode: settings.search.mode,
+        rrf_k: settings.search.rrfK,
+        vector_weight: settings.search.vectorWeight,
+        enable_smart_cutoff: settings.search.enableSmartCutoff,
+        enable_security_rerank: settings.search.enableSecurityRerank,
+        security_boost: settings.search.securityBoost,
+      },
     }
 
     // 调用后端 API 保存配置
