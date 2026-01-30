@@ -1,19 +1,36 @@
-"""Code search result reranker
+"""Code search result reranker - Enhanced Security-First Reranking
 
 Reranks search results based on multiple factors:
 1. Vector similarity (original score)
 2. Keyword matching
 3. Security relevance (dangerous functions, sensitive operations)
 4. Code context (entry points, code length)
+5. Vulnerability patterns (sinks, sources, sanitizers)
 
-Based on CodeReranker from vector_store/interface.py
+Based on:
+- CodeReranker from vector_store/interface.py
+- ACI's OpenAICompatibleReranker
+- ContextWeaver's security scoring
+
+Features:
+- Async support for API-based rerankers
+- Security-first scoring with vulnerability pattern detection
+- CWE-aware pattern matching
+- Entry point prioritization
+- Integration with SearchService's RerankerInterface
 """
 
 from __future__ import annotations
 
+import asyncio
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional, Set, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..search_service import HybridSearchResult
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -317,26 +334,626 @@ class CodeReranker:
         return final_score
 
 
-class APIReranker:
-    """Reranker using external API (e.g., Cohere, Jina)
+# ─────────────────────────────────────────────────────────────────
+# Security-First Reranker for SearchService Integration
+# ─────────────────────────────────────────────────────────────────
 
-    Placeholder for future implementation
+@dataclass
+class SecurityRerankerConfig:
+    """Configuration for security-first reranking"""
+    # Base weights
+    vector_weight: float = 0.35
+    keyword_weight: float = 0.20
+    security_weight: float = 0.30
+    context_weight: float = 0.15
+
+    # Security boosting
+    security_boost_factor: float = 1.8
+    high_risk_threshold: float = 0.6
+
+    # Vulnerability pattern scoring
+    sink_boost: float = 0.4
+    source_boost: float = 0.3
+    auth_boost: float = 0.35
+
+    # Entry point preferences
+    prefer_entry_points: bool = True
+    entry_point_boost: float = 0.25
+
+    # CWE-aware scoring
+    enable_cwe_scoring: bool = True
+    critical_cwe_boost: float = 0.5  # RCE, SQLi, File inclusion
+    high_cwe_boost: float = 0.3      # XSS, SSRF, deserialization
+
+
+class SecurityFirstReranker:
+    """Security-First Reranker for SearchService integration
+
+    Implements RerankerInterface from search_service.py.
+    Prioritizes security-relevant code with vulnerability pattern detection.
+
+    Features:
+    - CWE-aware pattern matching
+    - Sink/source/sanitizer detection
+    - Entry point prioritization
+    - Multi-factor security scoring
+
+    Example:
+        reranker = SecurityFirstReranker(config)
+        results = await reranker.rerank(query, candidates, limit=10)
+    """
+
+    # Critical vulnerability patterns (CWE-78, CWE-89, CWE-94, CWE-502)
+    CRITICAL_PATTERNS: List[str] = [
+        # Command Injection (CWE-78)
+        r'\bos\.system\s*\(', r'\bos\.popen\s*\(', r'\bsubprocess\.',
+        r'\bexec\s*\(', r'\beval\s*\(', r'\bshell\s*=\s*True',
+        r'\bsystem\s*\(', r'\bpopen\s*\(', r'\bpassthru\s*\(',
+        r'\bshell_exec\s*\(', r'\bproc_open\s*\(',
+        # SQL Injection (CWE-89)
+        r'\.execute\s*\([^)]*%', r'\.raw\s*\(', r'cursor\.\w+\s*\(',
+        r'SELECT\s+.*\s+FROM\s+.*WHERE.*\+', r'INSERT\s+INTO.*\+',
+        r'mysql_query\s*\(', r'mysqli_query\s*\(',
+        # Code Injection (CWE-94)
+        r'\beval\s*\(', r'\bexec\s*\(', r'\bcompile\s*\(',
+        r'\bcreate_function\s*\(', r'\bassert\s*\(',
+        # Deserialization (CWE-502)
+        r'pickle\.loads?\s*\(', r'yaml\.load\s*\(', r'yaml\.unsafe_load',
+        r'unserialize\s*\(', r'jsonpickle\.decode',
+    ]
+
+    # High-risk patterns (CWE-22, CWE-79, CWE-918, CWE-611)
+    HIGH_RISK_PATTERNS: List[str] = [
+        # Path Traversal (CWE-22)
+        r'open\s*\([^)]*\+', r'Path\s*\([^)]*\+', r'os\.path\.join\s*\(',
+        r'file_get_contents\s*\(', r'fopen\s*\(', r'readfile\s*\(',
+        r'send_file\s*\(', r'send_from_directory\s*\(',
+        # XSS (CWE-79)
+        r'\.innerHTML\s*=', r'document\.write\s*\(', r'v-html\s*=',
+        r'dangerouslySetInnerHTML', r'\|safe\b', r'mark_safe\s*\(',
+        # SSRF (CWE-918)
+        r'requests\.(get|post|put|delete)\s*\(', r'urllib\.',
+        r'http\.request\s*\(', r'curl_exec\s*\(', r'file_get_contents\s*\(',
+        # XXE (CWE-611)
+        r'xml\.etree', r'lxml\.etree', r'xml\.dom', r'XMLParser\s*\(',
+        r'simplexml_load', r'DOMDocument',
+    ]
+
+    # Authentication/Authorization patterns
+    AUTH_PATTERNS: List[str] = [
+        r'\bauth', r'\blogin', r'\blogout', r'\bpassword', r'\btoken',
+        r'\bsession', r'\bjwt', r'\boauth', r'\bcredential',
+        r'\bpermission', r'\brole', r'\baccess', r'\bprivilege',
+        r'\bdecorator.*auth', r'@login_required', r'@require_permission',
+        r'IsAuthenticated', r'check_permission', r'verify_token',
+    ]
+
+    # Entry point indicators
+    ENTRY_POINT_PATTERNS: List[str] = [
+        r'@app\.(get|post|put|delete|patch)', r'@router\.',
+        r'@api_view', r'@action', r'@route',
+        r'def\s+(get|post|put|delete|patch)\s*\(',
+        r'class\s+\w+View', r'class\s+\w+Controller',
+        r'class\s+\w+Handler', r'class\s+\w+API',
+        r'func\s+\w+Handler', r'func\s+\w+Controller',
+    ]
+
+    # Sensitive data indicators
+    SENSITIVE_DATA_PATTERNS: List[str] = [
+        r'\bpassword\b', r'\bsecret\b', r'\bapi_key\b', r'\btoken\b',
+        r'\bcredential\b', r'\bprivate_key\b', r'\baccess_token\b',
+        r'\brefresh_token\b', r'\bauth_token\b', r'\bsession_id\b',
+        r'\bcredit_card\b', r'\bssn\b', r'\bsocial_security\b',
+    ]
+
+    def __init__(self, config: Optional[SecurityRerankerConfig] = None):
+        self.config = config or SecurityRerankerConfig()
+        self._compile_patterns()
+
+    def _compile_patterns(self) -> None:
+        """Compile regex patterns for performance"""
+        self._critical_re = [
+            re.compile(p, re.IGNORECASE) for p in self.CRITICAL_PATTERNS
+        ]
+        self._high_risk_re = [
+            re.compile(p, re.IGNORECASE) for p in self.HIGH_RISK_PATTERNS
+        ]
+        self._auth_re = [
+            re.compile(p, re.IGNORECASE) for p in self.AUTH_PATTERNS
+        ]
+        self._entry_point_re = [
+            re.compile(p, re.IGNORECASE) for p in self.ENTRY_POINT_PATTERNS
+        ]
+        self._sensitive_re = [
+            re.compile(p, re.IGNORECASE) for p in self.SENSITIVE_DATA_PATTERNS
+        ]
+
+    async def rerank(
+        self,
+        query: str,
+        results: List["HybridSearchResult"],
+        limit: int,
+    ) -> List["HybridSearchResult"]:
+        """Rerank search results with security-first scoring
+
+        Args:
+            query: Search query
+            results: List of HybridSearchResult to rerank
+            limit: Maximum results to return
+
+        Returns:
+            Reranked list of HybridSearchResult
+        """
+        if not results:
+            return []
+
+        # Extract query keywords for keyword scoring
+        query_keywords = self._extract_keywords(query)
+
+        # Score each result
+        scored_results = []
+        for result in results:
+            code = result.code_unit.code
+            symbol = result.code_unit.symbol or ""
+
+            scores = self._compute_all_scores(code, symbol, result, query_keywords)
+            final_score = self._combine_scores(scores, result.score)
+
+            # Update result metadata with scoring breakdown
+            result.metadata["security_scores"] = scores
+            result.metadata["reranked_score"] = final_score
+
+            scored_results.append((result, final_score))
+
+        # Sort by final score descending
+        scored_results.sort(key=lambda x: x[1], reverse=True)
+
+        # Update ranks and return
+        reranked = []
+        for rank, (result, score) in enumerate(scored_results[:limit]):
+            result.score = score
+            result.rank = rank
+            reranked.append(result)
+
+        return reranked
+
+    def _extract_keywords(self, query: str) -> List[str]:
+        """Extract meaningful keywords from query"""
+        # Common stop words
+        stop_words = {
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "have", "has", "had", "do", "does", "did", "will", "would",
+            "could", "should", "may", "might", "must", "to", "of", "in",
+            "for", "on", "with", "at", "by", "from", "as", "into",
+            "find", "search", "show", "get", "code", "function", "class",
+        }
+        words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', query.lower())
+        return [w for w in words if w not in stop_words and len(w) >= 3]
+
+    def _compute_all_scores(
+        self,
+        code: str,
+        symbol: str,
+        result: "HybridSearchResult",
+        query_keywords: List[str],
+    ) -> Dict[str, float]:
+        """Compute all scoring factors"""
+        return {
+            "keyword": self._score_keyword_match(code, symbol, query_keywords),
+            "security": self._score_security_relevance(code, symbol),
+            "context": self._score_context(code, symbol, result),
+            "vulnerability": self._score_vulnerability_patterns(code),
+        }
+
+    def _score_keyword_match(
+        self,
+        code: str,
+        symbol: str,
+        keywords: List[str],
+    ) -> float:
+        """Score based on keyword matches"""
+        if not keywords:
+            return 0.0
+
+        text = f"{symbol} {code}".lower()
+        matches = sum(1 for kw in keywords if kw in text)
+        return min(1.0, matches / len(keywords))
+
+    def _score_security_relevance(self, code: str, symbol: str) -> float:
+        """Score security relevance based on patterns"""
+        code_lower = code.lower()
+        symbol_lower = symbol.lower()
+        score = 0.0
+
+        # Check for authentication/authorization patterns
+        auth_matches = sum(1 for p in self._auth_re if p.search(code_lower) or p.search(symbol_lower))
+        if auth_matches > 0:
+            score += min(0.4, auth_matches * 0.1)
+
+        # Check for sensitive data handling
+        sensitive_matches = sum(1 for p in self._sensitive_re if p.search(code_lower))
+        if sensitive_matches > 0:
+            score += min(0.3, sensitive_matches * 0.1)
+
+        # Entry point bonus
+        if self.config.prefer_entry_points:
+            if any(p.search(code_lower) for p in self._entry_point_re):
+                score += self.config.entry_point_boost
+
+        return min(1.0, score)
+
+    def _score_context(
+        self,
+        code: str,
+        symbol: str,
+        result: "HybridSearchResult",
+    ) -> float:
+        """Score based on code context"""
+        score = 0.5
+
+        # Prefer smaller, more focused functions
+        lines = code.count('\n') + 1
+        if lines <= 50:
+            score += 0.2
+        elif lines <= 100:
+            score += 0.1
+        elif lines > 200:
+            score -= 0.1
+
+        # Prefer functions/methods over classes
+        unit_type = result.code_unit.unit_type
+        if unit_type:
+            type_val = unit_type.value if hasattr(unit_type, 'value') else str(unit_type)
+            if type_val in ["function", "method"]:
+                score += 0.15
+            elif type_val == "class":
+                score += 0.05
+
+        return min(1.0, max(0.0, score))
+
+    def _score_vulnerability_patterns(self, code: str) -> float:
+        """Score based on vulnerability pattern detection"""
+        code_lower = code.lower()
+        score = 0.0
+
+        # Critical vulnerability patterns (highest weight)
+        critical_matches = sum(1 for p in self._critical_re if p.search(code_lower))
+        if critical_matches > 0:
+            score += min(0.6, critical_matches * self.config.critical_cwe_boost)
+
+        # High-risk patterns
+        high_matches = sum(1 for p in self._high_risk_re if p.search(code_lower))
+        if high_matches > 0:
+            score += min(0.4, high_matches * self.config.high_cwe_boost)
+
+        return min(1.0, score)
+
+    def _combine_scores(self, scores: Dict[str, float], original_score: float) -> float:
+        """Combine all scores with configured weights"""
+        cfg = self.config
+
+        # Base weighted combination
+        final_score = (
+            original_score * cfg.vector_weight +
+            scores.get("keyword", 0) * cfg.keyword_weight +
+            scores.get("security", 0) * cfg.security_weight +
+            scores.get("context", 0) * cfg.context_weight
+        )
+
+        # Vulnerability pattern boost
+        vuln_score = scores.get("vulnerability", 0)
+        if vuln_score > 0:
+            final_score += vuln_score * 0.3
+
+        # Security boost for high-security-relevance results
+        security_score = scores.get("security", 0)
+        if security_score > cfg.high_risk_threshold:
+            final_score *= cfg.security_boost_factor
+
+        return final_score
+
+
+# ─────────────────────────────────────────────────────────────────
+# API-Based Reranker (OpenAI Compatible)
+# ─────────────────────────────────────────────────────────────────
+
+class APIReranker:
+    """Reranker using external API (OpenAI-compatible /v1/rerank endpoint)
+
+    Based on ACI's OpenAICompatibleReranker design.
+
+    Expects API endpoint that accepts:
+    {
+        "model": "<model>",
+        "query": "<query>",
+        "documents": ["doc1", "doc2", ...],
+        "top_n": <int>
+    }
+    and returns:
+    {
+        "data": [{"index": 0, "score": 0.9}, ...]
+    }
+
+    Example:
+        reranker = APIReranker(
+            api_url="https://api.jina.ai",
+            api_key="your-key",
+            model="jina-reranker-v2-base-multilingual"
+        )
+        results = await reranker.rerank(query, candidates, limit=10)
     """
 
     def __init__(
         self,
         api_url: str,
         api_key: str,
-        model: str = "rerank-english-v2.0"
+        model: str = "rerank-english-v2.0",
+        timeout: float = 30.0,
+        endpoint: str = "/v1/rerank",
     ):
-        self.api_url = api_url
+        self.api_url = api_url.rstrip("/")
         self.api_key = api_key
         self.model = model
+        self.timeout = timeout
+        self.endpoint = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+        self._client = None
+
+    async def _get_client(self):
+        """Get or create HTTP client"""
+        if self._client is None:
+            try:
+                import httpx
+                self._client = httpx.AsyncClient(
+                    base_url=self.api_url,
+                    timeout=self.timeout,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+            except ImportError:
+                raise ImportError("httpx is required for API reranker: pip install httpx")
+        return self._client
 
     async def rerank(
         self,
         query: str,
-        documents: List[str],
-        top_k: int = 10
-    ) -> List[Dict[str, Any]]:
-        raise NotImplementedError("API reranker not yet implemented")
+        results: List["HybridSearchResult"],
+        limit: int,
+    ) -> List["HybridSearchResult"]:
+        """Rerank search results using external API
+
+        Args:
+            query: Search query
+            results: List of HybridSearchResult to rerank
+            limit: Maximum results to return
+
+        Returns:
+            Reranked list of HybridSearchResult
+        """
+        if not results:
+            return []
+
+        # Prepare documents for API
+        documents = []
+        for r in results:
+            code_unit = r.code_unit
+            doc = f"{code_unit.symbol or ''}\n{code_unit.code}"
+            if code_unit.docstring:
+                doc = f"{code_unit.docstring}\n{doc}"
+            documents.append(doc)
+
+        # Call API
+        top_n = min(limit, len(results))
+        payload = {
+            "model": self.model,
+            "query": query,
+            "documents": documents,
+            "top_n": top_n,
+        }
+
+        try:
+            client = await self._get_client()
+            response = await client.post(self.endpoint, json=payload)
+
+            if response.status_code != 200:
+                logger.warning(
+                    f"Rerank API error: status={response.status_code}, "
+                    f"body={response.text[:200]}"
+                )
+                return results[:limit]
+
+            parsed = response.json()
+            data = parsed.get("data", []) or parsed.get("results", [])
+
+            if not data:
+                logger.warning("Rerank returned no data, using original order")
+                return results[:limit]
+
+            # Build reranked results
+            reranked = []
+            for item in data:
+                idx = item.get("index")
+                score = item.get("score") or item.get("relevance_score", 0)
+
+                if idx is None or idx >= len(results):
+                    continue
+
+                result = results[idx]
+                result.score = float(score)
+                result.metadata["api_reranked"] = True
+                reranked.append(result)
+
+            # Sort by score and assign ranks
+            reranked.sort(key=lambda x: x.score, reverse=True)
+            for rank, r in enumerate(reranked):
+                r.rank = rank
+
+            return reranked[:limit]
+
+        except Exception as e:
+            logger.error(f"Rerank API call failed: {e}")
+            return results[:limit]
+
+    async def aclose(self) -> None:
+        """Close HTTP client"""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+
+
+# ─────────────────────────────────────────────────────────────────
+# Hybrid Reranker (Combines Local + API)
+# ─────────────────────────────────────────────────────────────────
+
+class HybridReranker:
+    """Hybrid reranker combining local security scoring with optional API reranking
+
+    Uses SecurityFirstReranker for local scoring, then optionally
+    refines with API-based reranking.
+
+    Example:
+        reranker = HybridReranker(
+            local_config=SecurityRerankerConfig(),
+            api_reranker=APIReranker(api_url, api_key, model),
+            use_api=True
+        )
+        results = await reranker.rerank(query, candidates, limit=10)
+    """
+
+    def __init__(
+        self,
+        local_config: Optional[SecurityRerankerConfig] = None,
+        api_reranker: Optional[APIReranker] = None,
+        use_api: bool = False,
+        api_weight: float = 0.6,
+        local_weight: float = 0.4,
+    ):
+        self.local_reranker = SecurityFirstReranker(local_config)
+        self.api_reranker = api_reranker
+        self.use_api = use_api and api_reranker is not None
+        self.api_weight = api_weight
+        self.local_weight = local_weight
+
+    async def rerank(
+        self,
+        query: str,
+        results: List["HybridSearchResult"],
+        limit: int,
+    ) -> List["HybridSearchResult"]:
+        """Rerank with hybrid local + API scoring
+
+        Args:
+            query: Search query
+            results: List of HybridSearchResult to rerank
+            limit: Maximum results to return
+
+        Returns:
+            Reranked list of HybridSearchResult
+        """
+        if not results:
+            return []
+
+        # Always do local security-first reranking
+        local_results = await self.local_reranker.rerank(query, results, limit * 2)
+
+        if not self.use_api or not self.api_reranker:
+            return local_results[:limit]
+
+        # API reranking on top candidates
+        try:
+            api_results = await self.api_reranker.rerank(query, local_results, limit)
+
+            # Combine scores
+            local_scores = {id(r): r.score for r in local_results}
+            for r in api_results:
+                local_score = local_scores.get(id(r), r.score)
+                r.score = (
+                    r.score * self.api_weight +
+                    local_score * self.local_weight
+                )
+                r.metadata["hybrid_reranked"] = True
+
+            # Re-sort and return
+            api_results.sort(key=lambda x: x.score, reverse=True)
+            for rank, r in enumerate(api_results):
+                r.rank = rank
+
+            return api_results[:limit]
+
+        except Exception as e:
+            logger.warning(f"API reranking failed, using local results: {e}")
+            return local_results[:limit]
+
+    async def aclose(self) -> None:
+        """Close resources"""
+        if self.api_reranker:
+            await self.api_reranker.aclose()
+
+
+# ─────────────────────────────────────────────────────────────────
+# Factory Functions
+# ─────────────────────────────────────────────────────────────────
+
+def create_security_reranker(
+    config: Optional[SecurityRerankerConfig] = None
+) -> SecurityFirstReranker:
+    """Create a security-first reranker
+
+    Args:
+        config: Optional configuration
+
+    Returns:
+        Configured SecurityFirstReranker
+    """
+    return SecurityFirstReranker(config)
+
+
+def create_api_reranker(
+    api_url: str,
+    api_key: str,
+    model: str = "rerank-english-v2.0",
+    timeout: float = 30.0,
+) -> APIReranker:
+    """Create an API-based reranker
+
+    Args:
+        api_url: API base URL
+        api_key: API key
+        model: Model name
+        timeout: Request timeout
+
+    Returns:
+        Configured APIReranker
+    """
+    return APIReranker(api_url, api_key, model, timeout)
+
+
+def create_hybrid_reranker(
+    api_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    model: str = "rerank-english-v2.0",
+    local_config: Optional[SecurityRerankerConfig] = None,
+    use_api: bool = False,
+) -> HybridReranker:
+    """Create a hybrid reranker
+
+    Args:
+        api_url: Optional API URL for API reranking
+        api_key: Optional API key
+        model: Model name for API
+        local_config: Local reranker config
+        use_api: Whether to use API reranking
+
+    Returns:
+        Configured HybridReranker
+    """
+    api_reranker = None
+    if api_url and api_key:
+        api_reranker = APIReranker(api_url, api_key, model)
+
+    return HybridReranker(
+        local_config=local_config,
+        api_reranker=api_reranker,
+        use_api=use_api,
+    )
