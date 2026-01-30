@@ -18,7 +18,8 @@ import hashlib
 
 from config import AuditConfig
 from .models import CodeUnit
-from .vector_store_legacy import BaseVectorStore, SearchResult
+# Use unified vector store interface (replaces legacy)
+from .vector_store import VectorStoreInterface, SearchResult
 
 # TYPE_CHECKING to avoid circular import with llm_client
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ class StorageManager:
         self,
         config: AuditConfig,
         llm_client: "BaseLLMClient",
-        vector_store: BaseVectorStore,
+        vector_store: VectorStoreInterface,
         storage_dir: str = ".audit_data",
     ):
         self.config = config

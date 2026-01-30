@@ -27,7 +27,15 @@ if TYPE_CHECKING:
 from functools import lru_cache
 from .models import CodeUnit
 from .parser import get_parser_for_file, BaseLanguageParser
-from .vector_store_legacy import BaseVectorStore, SearchResult, HybridSearchConfig, create_vector_store
+# Use unified vector store interface (replaces legacy)
+from .vector_store import (
+    VectorStoreInterface,
+    SearchResult,
+    HybridSearchConfig,
+    create_vector_store,
+    VectorStoreConfig,
+    RerankerConfig,
+)
 from .embedding_cache import EmbeddingCache, CachedEmbeddingGenerator, get_embedding_cache
 from .embedding import (
     BatchProcessor,
@@ -45,6 +53,12 @@ from .vector_store import (
     compute_file_hash,
     EnhancedQdrantStore,
     QdrantConfig,
+)
+# Parallel processing (based on ACI design)
+from .parallel_worker import (
+    ParallelFileProcessor,
+    parse_file_worker,
+    reconstruct_code_unit,
 )
 
 logger = logging.getLogger(__name__)
@@ -317,7 +331,7 @@ class CodeIndexer:
         self,
         config: AuditConfig,
         llm_client: "BaseLLMClient",
-        vector_store: Optional[BaseVectorStore] = None,
+        vector_store: Optional[VectorStoreInterface] = None,
         embedding_cache: Optional[EmbeddingCache] = None,
         file_tracker: Optional[FileTracker] = None
     ):
@@ -350,7 +364,6 @@ class CodeIndexer:
         self.file_tracker = file_tracker or FileTracker(db_path=tracker_path)
 
         # Hybrid 检索配置 (包含重排序)
-        from .vector_store import RerankerConfig
         reranker_config = None
         if getattr(config.scan, 'enable_reranking', True):
             reranker_config = RerankerConfig(
@@ -383,6 +396,15 @@ class CodeIndexer:
         self._raw_unit_cache: OrderedDict[str, CodeUnit] = OrderedDict()
         # LRU 缓存大小
         self._raw_unit_cache_max_size: int = 500
+
+        # Parallel file processor (based on ACI design)
+        self._parallel_processor = ParallelFileProcessor(
+            max_workers=self.scan_config.max_concurrent,
+            batch_size=10,
+            worker_config={"chunk_size": self.scan_config.chunk_size},
+        )
+        # Enable parallel processing for large projects (>= 20 files)
+        self._parallel_threshold = 20
 
     @property
     def code_units(self) -> Dict[str, 'CodeUnit']:
@@ -834,7 +856,8 @@ class CodeIndexer:
         self,
         target_path: Optional[str] = None,
         progress_callback: Optional[Callable[[int, int], None]] = None,
-        embedding_callback: Optional[Callable[[int, int, str], None]] = None
+        embedding_callback: Optional[Callable[[int, int, str], None]] = None,
+        use_parallel: Optional[bool] = None
     ) -> int:
         """索引目录
 
@@ -842,6 +865,7 @@ class CodeIndexer:
             target_path: 目标路径，默认使用配置中的路径
             progress_callback: 解析进度回调函数 (current, total)
             embedding_callback: 嵌入进度回调函数 (current, total, message)
+            use_parallel: 是否使用进程池并行处理 (None=自动根据文件数判断)
 
         Returns:
             索引的代码单元数量
@@ -862,42 +886,60 @@ class CodeIndexer:
 
         # 收集所有文件
         files = list(self._scan_files(path))
-        logger.info(f"Found {len(files)} files to index")
+        total_files = len(files)
+        logger.info(f"Found {total_files} files to index")
 
         if not files:
             return 0
 
         # 解析所有文件
         all_units: List[CodeUnit] = []
-        total_files = len(files)
+        failed_files: List[str] = []
 
-        # 使用线程池并行解析
-        with ThreadPoolExecutor(max_workers=self.scan_config.max_concurrent) as executor:
-            futures = {
-                executor.submit(self._parse_file, f, path): f
-                for f in files
-            }
+        # 决定是否使用进程池并行处理 (基于 ACI 设计)
+        # ProcessPoolExecutor 对 CPU 密集型任务更高效（绕过 GIL）
+        should_use_parallel = use_parallel
+        if should_use_parallel is None:
+            should_use_parallel = total_files >= self._parallel_threshold
 
-            last_log_percent = 0
-            for i, future in enumerate(as_completed(futures)):
-                file_path = futures[future]
-                try:
-                    units = future.result()
-                    all_units.extend(units)
-                except Exception as e:
-                    logger.error(f"Failed to parse {file_path}: {e}")
-                    continue
+        if should_use_parallel:
+            # 使用 ProcessPoolExecutor 并行处理 (ACI 风格)
+            logger.info(f"[并行模式] 使用 ProcessPoolExecutor 处理 {total_files} 个文件")
+            all_units, failed_files = self._parallel_processor.process_files(
+                files, path, progress_callback
+            )
+            if failed_files:
+                logger.warning(f"[并行模式] {len(failed_files)} 个文件解析失败")
+        else:
+            # 使用线程池并行解析（小项目回退）
+            logger.info(f"[顺序模式] 使用 ThreadPoolExecutor 处理 {total_files} 个文件")
+            with ThreadPoolExecutor(max_workers=self.scan_config.max_concurrent) as executor:
+                futures = {
+                    executor.submit(self._parse_file, f, path): f
+                    for f in files
+                }
 
-                if progress_callback:
-                    progress_callback(i + 1, total_files)
+                last_log_percent = 0
+                for i, future in enumerate(as_completed(futures)):
+                    file_path = futures[future]
+                    try:
+                        units = future.result()
+                        all_units.extend(units)
+                    except Exception as e:
+                        logger.error(f"Failed to parse {file_path}: {e}")
+                        failed_files.append(str(file_path))
+                        continue
 
-                # 每 10% 或每 50 个文件输出一次进度日志
-                current_percent = ((i + 1) * 100) // total_files
-                if current_percent >= last_log_percent + 10 or (i + 1) % 50 == 0:
-                    last_log_percent = current_percent
-                    logger.info(f"[索引进度] 已解析 {i + 1}/{total_files} 文件 ({current_percent}%), 已生成 {len(all_units)} 代码单元")
+                    if progress_callback:
+                        progress_callback(i + 1, total_files)
 
-        logger.info(f"Parsed {len(all_units)} code units from {total_files} files")
+                    # 每 10% 或每 50 个文件输出一次进度日志
+                    current_percent = ((i + 1) * 100) // total_files
+                    if current_percent >= last_log_percent + 10 or (i + 1) % 50 == 0:
+                        last_log_percent = current_percent
+                        logger.info(f"[索引进度] 已解析 {i + 1}/{total_files} 文件 ({current_percent}%), 已生成 {len(all_units)} 代码单元")
+
+        logger.info(f"Parsed {len(all_units)} code units from {total_files} files (failed: {len(failed_files)})")
 
         if not all_units:
             return 0

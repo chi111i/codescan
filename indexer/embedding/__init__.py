@@ -33,6 +33,15 @@ from .openai_client import (
     create_embedding_client,
     create_client_from_settings,
 )
+from .rate_limiter import (
+    RateLimitController,
+    RateLimiterConfig,
+    RateLimiterStatus,
+    get_rate_limiter,
+    reset_global_rate_limiter,
+    with_rate_limit,
+    with_rate_limit_sync,
+)
 
 __all__ = [
     # Interface
@@ -63,4 +72,12 @@ __all__ = [
     "OpenAIClientConfig",
     "create_embedding_client",
     "create_client_from_settings",
+    # Rate limiting (based on ContextWeaver)
+    "RateLimitController",
+    "RateLimiterConfig",
+    "RateLimiterStatus",
+    "get_rate_limiter",
+    "reset_global_rate_limiter",
+    "with_rate_limit",
+    "with_rate_limit_sync",
 ]

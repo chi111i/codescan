@@ -45,6 +45,11 @@ from .memory_store import (
     create_enhanced_memory_store,
 )
 
+from .factory import (
+    create_vector_store,
+    VectorStoreConfig,
+)
+
 __all__ = [
     # Data classes
     "SearchResult",
@@ -78,4 +83,7 @@ __all__ = [
     "VectorStoreInterface",
     # Reranker
     "CodeReranker",
+    # Unified factory
+    "create_vector_store",
+    "VectorStoreConfig",
 ]
