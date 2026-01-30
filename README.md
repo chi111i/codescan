@@ -690,24 +690,96 @@ report:
 
 ## 向量搜索优化
 
+### 混合搜索 (Hybrid Search)
+
+CodeScan v2.0 引入了全新的混合搜索系统，结合向量语义搜索和关键词匹配：
+
+```yaml
+search:
+  # 搜索模式配置
+  mode: hybrid              # hybrid, vector, keyword
+
+  # RRF 融合参数
+  rrf_k: 60                 # RRF 平滑常数
+  vector_weight: 1.0        # 向量搜索权重
+  keyword_weight: 0.8       # 关键词搜索权重
+
+  # 智能 TopK 截断
+  enable_smart_cutoff: true
+  smart_ratio: 0.7          # 相对阈值比例
+  smart_delta: 0.2          # 最大分数差
+  smart_floor: 0.3          # 绝对分数下限
+  smart_min_k: 3            # 最小返回数量
+  smart_max_k: 50           # 最大返回数量
+```
+
+**查询修饰符语法**：
+- `path:*.py` - 限定文件路径
+- `-path:tests` - 排除路径
+- `lang:python` - 限定语言
+- `exclude:vendor` - 排除目录
+
+示例：`SQL injection path:*.py -path:tests lang:python`
+
 ### 嵌入缓存
 
+```yaml
+embedding_cache:
+  enabled: true
+  cache_dir: .audit_cache/embeddings
+  max_entries: 100000       # 最大缓存条目数
+  ttl_days: 30              # 缓存过期天数
+  compression: true         # 启用 zlib 压缩
+```
+
+特性：
 - **LRU 淘汰策略**: 基于 `accessed_at` 追踪访问时间
-- **压缩存储**: `struct.pack` + `zlib` 压缩嵌入向量
+- **压缩存储**: `struct.pack` + `zlib` 压缩嵌入向量（节省 60%+ 空间）
 - **持久化统计**: 命中率、淘汰次数等统计信息
+- **批量查询优化**: 一次性查询多个缓存键
 
 ### 增量索引
 
-- **FileTracker**: 基于 mtime + 内容哈希追踪文件变更
-- 只处理新增/修改的文件，大幅提升重复扫描效率
+```yaml
+incremental:
+  enabled: true
+  use_content_hash: true    # 使用 SHA-256 内容哈希（更精确）
+  use_mtime: false          # 使用文件修改时间（更快）
+  db_path: .audit_cache/file_index.db
+```
 
-### 高级重排序
+特性：
+- **FileChangeDetector**: 基于 SHA-256 内容哈希检测文件变更
+- **三种变更类型**: 新增、修改、删除文件
+- **6 阶段批量处理流水线**:
+  1. 文件发现与过滤
+  2. 并行文件解析
+  3. 代码单元提取
+  4. 批量嵌入生成
+  5. 向量存储写入
+  6. 索引状态更新
 
-**CodeReranker** 评分因素：
-1. 高危模式检测（exec/eval/SQL/文件操作等正则匹配）
-2. 敏感符号名（auth/login/password/admin/delete/payment）
-3. 入口点识别（handler/controller/route 等）
-4. 代码长度偏好（更短更聚焦的函数优先）
+### 安全优先重排序 (Security-First Reranker)
+
+```yaml
+reranker:
+  enabled: true
+  security_boost: 1.5       # 安全相关代码提升因子
+
+  # CWE 模式匹配
+  cwe_patterns:
+    - CWE-78   # 命令注入
+    - CWE-89   # SQL 注入
+    - CWE-94   # 代码注入
+    - CWE-502  # 反序列化
+```
+
+**SecurityFirstReranker** 评分因素：
+1. **高危模式检测**：exec/eval/SQL/文件操作等正则匹配（权重 0.4）
+2. **敏感符号名**：auth/login/password/admin/delete/payment（权重 0.25）
+3. **入口点识别**：handler/controller/route 等（权重 0.2）
+4. **代码长度偏好**：更短更聚焦的函数优先（权重 0.15）
+5. **CWE 关联**：匹配已知漏洞模式的代码优先
 
 ## 关键设计原则
 

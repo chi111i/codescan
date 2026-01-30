@@ -144,6 +144,10 @@ class RuleManager:
         """获取指定规则"""
         return self._rules.get(rule_id)
 
+    def get_all_rules(self) -> List[SecurityRule]:
+        """获取所有规则"""
+        return list(self._rules.values())
+
     def get_rules_by_category(self, category: RuleCategory) -> List[SecurityRule]:
         """按类别获取规则"""
         return self._by_category.get(category, [])
