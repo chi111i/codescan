@@ -248,6 +248,57 @@ class AgentToolManager:
                     is_async=is_async,
                 )
 
+    def _filter_arguments(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        definition: Optional[ToolDefinition],
+    ) -> Dict[str, Any]:
+        """过滤工具参数，移除未定义的参数
+
+        Args:
+            tool_name: 工具名称
+            arguments: 原始参数
+            definition: 工具定义
+
+        Returns:
+            过滤后的参数字典
+        """
+        if not definition or not arguments:
+            return arguments or {}
+
+        # 获取定义的参数列表
+        properties = definition.parameters.get("properties", {})
+        defined_params = set(properties.keys())
+
+        # 如果没有定义任何参数，返回空字典（忽略所有传入参数）
+        if not defined_params:
+            if arguments:
+                undefined_keys = list(arguments.keys())
+                logger.debug(
+                    f"[ToolManager] 工具 {tool_name} 未定义任何参数，"
+                    f"忽略传入的参数: {undefined_keys}"
+                )
+            return {}
+
+        # 过滤参数
+        filtered = {}
+        undefined_keys = []
+
+        for key, value in arguments.items():
+            if key in defined_params:
+                filtered[key] = value
+            else:
+                undefined_keys.append(key)
+
+        # 记录未定义参数的警告
+        if undefined_keys:
+            logger.warning(
+                f"[ToolManager] 工具 {tool_name} 收到未定义的参数: {undefined_keys}，已忽略"
+            )
+
+        return filtered
+
     def get_tool(self, name: str) -> Optional[ToolDefinition]:
         """获取工具定义"""
         return self._definitions.get(name)
@@ -328,18 +379,21 @@ class AgentToolManager:
         executor = self._executors[name]
 
         try:
+            # 参数验证和过滤：移除未定义的参数
+            filtered_arguments = self._filter_arguments(name, arguments, definition)
+
             # 如果需要上下文，注入上下文
             if definition and definition.requires_context and self._context_provider:
                 context = self._context_provider()
-                arguments = {**arguments, "_context": context}
+                filtered_arguments = {**filtered_arguments, "_context": context}
 
             # 执行工具
             if definition and definition.is_async:
                 # 异步执行
-                data = await executor(arguments)
+                data = await executor(filtered_arguments)
             else:
                 # 同步执行（在线程池中运行以避免阻塞）
-                data = await asyncio_to_thread(executor, arguments)
+                data = await asyncio_to_thread(executor, filtered_arguments)
 
             # 处理结果
             success = data.get("success", True) if isinstance(data, dict) else True

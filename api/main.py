@@ -157,7 +157,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import load_config, AuditConfig, save_user_config
 from llm_client import create_llm_client, BaseLLMClient
-from indexer import CodeIndexer, create_vector_store, BaseVectorStore
+from indexer import CodeIndexer, create_vector_store, VectorStoreInterface
 from rules import create_rule_manager, RuleManager
 from analyzer import (
     SecurityAnalyzer,
@@ -288,7 +288,7 @@ class AppState:
     def __init__(self):
         self.config: Optional[AuditConfig] = None
         self.llm_client: Optional[BaseLLMClient] = None
-        self.vector_store: Optional[BaseVectorStore] = None
+        self.vector_store: Optional[VectorStoreInterface] = None
         self.indexer: Optional[CodeIndexer] = None
         self.rule_manager: Optional[RuleManager] = None
 
@@ -3672,11 +3672,22 @@ class LLMSettingsRequest(BaseModel):
     max_tokens: Optional[int] = None
 
 
+class SearchSettingsRequest(BaseModel):
+    """搜索配置请求"""
+    mode: Optional[str] = None  # 'hybrid' | 'vector' | 'keyword'
+    rrf_k: Optional[int] = None  # RRF 平滑常数
+    vector_weight: Optional[float] = None  # 向量搜索权重
+    enable_smart_cutoff: Optional[bool] = None  # 智能截断
+    enable_security_rerank: Optional[bool] = None  # 安全优先重排序
+    security_boost: Optional[float] = None  # 安全提升因子
+
+
 class SettingsRequest(BaseModel):
     """配置更新请求"""
     llm: Optional[LLMSettingsRequest] = None
     scan_mode: Optional[str] = None
     target_path: Optional[str] = None
+    search: Optional[SearchSettingsRequest] = None  # 新增：搜索配置
 
 
 @app.get("/api/settings", response_model=APIResponse)
@@ -3820,6 +3831,48 @@ async def update_settings(request: SettingsRequest):
         app_state.config.scan.target_path = request.target_path
         updated_fields.append("scan.target_path")
 
+    # 更新搜索配置
+    if request.search is not None:
+        # 确保 search 配置对象存在
+        if not hasattr(app_state.config, 'search') or app_state.config.search is None:
+            from dataclasses import dataclass, field
+            @dataclass
+            class SearchConfig:
+                mode: str = "hybrid"
+                rrf_k: int = 60
+                vector_weight: float = 1.0
+                enable_smart_cutoff: bool = True
+                enable_security_rerank: bool = True
+                security_boost: float = 1.5
+            app_state.config.search = SearchConfig()
+
+        search_config = app_state.config.search
+
+        if request.search.mode is not None:
+            search_config.mode = request.search.mode
+            updated_fields.append("search.mode")
+            logger.info(f"更新搜索模式: {request.search.mode}")
+
+        if request.search.rrf_k is not None:
+            search_config.rrf_k = request.search.rrf_k
+            updated_fields.append("search.rrf_k")
+
+        if request.search.vector_weight is not None:
+            search_config.vector_weight = request.search.vector_weight
+            updated_fields.append("search.vector_weight")
+
+        if request.search.enable_smart_cutoff is not None:
+            search_config.enable_smart_cutoff = request.search.enable_smart_cutoff
+            updated_fields.append("search.enable_smart_cutoff")
+
+        if request.search.enable_security_rerank is not None:
+            search_config.enable_security_rerank = request.search.enable_security_rerank
+            updated_fields.append("search.enable_security_rerank")
+
+        if request.search.security_boost is not None:
+            search_config.security_boost = request.search.security_boost
+            updated_fields.append("search.security_boost")
+
     # 持久化配置到本地文件
     if updated_fields:
         config_to_save = {}
@@ -3853,6 +3906,22 @@ async def update_settings(request: SettingsRequest):
             if "scan" not in config_to_save:
                 config_to_save["scan"] = {}
             config_to_save["scan"]["target_path"] = request.target_path
+
+        # 保存搜索配置
+        if request.search is not None:
+            config_to_save["search"] = {}
+            if request.search.mode is not None:
+                config_to_save["search"]["mode"] = request.search.mode
+            if request.search.rrf_k is not None:
+                config_to_save["search"]["rrf_k"] = request.search.rrf_k
+            if request.search.vector_weight is not None:
+                config_to_save["search"]["vector_weight"] = request.search.vector_weight
+            if request.search.enable_smart_cutoff is not None:
+                config_to_save["search"]["enable_smart_cutoff"] = request.search.enable_smart_cutoff
+            if request.search.enable_security_rerank is not None:
+                config_to_save["search"]["enable_security_rerank"] = request.search.enable_security_rerank
+            if request.search.security_boost is not None:
+                config_to_save["search"]["security_boost"] = request.search.security_boost
 
         # 保存到文件
         if save_user_config(config_to_save):

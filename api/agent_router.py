@@ -214,6 +214,13 @@ async def create_session(request: CreateUnifiedSessionRequest):
         if hasattr(app_state, 'call_chain_analyzer'):
             call_chain_analyzer = app_state.call_chain_analyzer
 
+        # 获取变体分析器（用于 find_similar_code, detect_code_clones 等工具）
+        try:
+            from api.server import get_variant_analyzer
+            variant_analyzer = get_variant_analyzer()
+        except Exception as e:
+            logger.warning(f"[Session {session_id}] 变体分析器初始化失败，部分工具将不可用: {e}")
+
         # 创建智能体
         agent = create_unified_agent(
             session_id=session_id,
@@ -447,6 +454,14 @@ async def restore_session(session_id: str):
         if hasattr(app_state, 'call_chain_analyzer'):
             call_chain_analyzer = app_state.call_chain_analyzer
 
+        # 获取变体分析器（用于 find_similar_code, detect_code_clones 等工具）
+        variant_analyzer = None
+        try:
+            from api.server import get_variant_analyzer
+            variant_analyzer = get_variant_analyzer()
+        except Exception as e:
+            logger.warning(f"[Session {session_id}] 恢复会话时变体分析器初始化失败，部分工具将不可用: {e}")
+
         # 创建智能体
         agent = create_unified_agent(
             session_id=session_id,
@@ -454,7 +469,7 @@ async def restore_session(session_id: str):
             indexer=app_state.indexer,
             config=agent_config,
             call_chain_analyzer=call_chain_analyzer,
-            variant_analyzer=None,
+            variant_analyzer=variant_analyzer,
             vector_store=app_state.vector_store if hasattr(app_state, 'vector_store') else None,
             rule_manager=app_state.rule_manager,  # 传入规则管理器用于预扫描
         )

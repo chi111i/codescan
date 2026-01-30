@@ -814,6 +814,37 @@ class UnifiedAuditAgent:
             category="prescan",
         )
 
+        # list_security_rules - 列出安全检测规则（重命名避免与 variant_tools 的 list_vuln_patterns 冲突）
+        self.tool_manager.register_tool(
+            name="list_security_rules",
+            description="列出可用的安全检测规则和 Sink 模式。可以按漏洞类型或风险等级过滤，帮助了解系统支持检测哪些安全问题。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "vuln_type": {
+                        "type": "string",
+                        "description": "过滤漏洞类型: sql_injection, command_injection, xss, file_read, file_write, ssrf, deserialization 等"
+                    },
+                    "risk_level": {
+                        "type": "string",
+                        "description": "过滤风险等级: critical, high, medium, low",
+                        "enum": ["critical", "high", "medium", "low"]
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "过滤编程语言: python, php, javascript, java, go 等"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "返回数量限制，默认 50",
+                        "default": 50
+                    }
+                }
+            },
+            executor=self._execute_list_security_rules,
+            category="prescan",
+        )
+
         self.tool_manager.register_tool(
             name="get_prescan_sites",
             description="获取预扫描发现的危险函数触发点列表。可以按风险等级或类别过滤。",
@@ -2546,10 +2577,41 @@ Step 5: 输出结构化发现报告
         }
 
     def _execute_index_project(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """执行项目索引"""
+        """执行项目索引
+
+        安全限制：只允许索引会话绑定的目标项目目录，防止意外索引其他目录
+        """
         target_path = args.get("target_path")
         languages = args.get("languages")
         force_reindex = args.get("force_reindex", False)
+
+        # 获取会话绑定的项目路径
+        allowed_project_path = getattr(self.indexer, 'project_path', None)
+
+        # 安全验证：限制只能索引会话绑定的目标项目
+        if not allowed_project_path:
+            return {
+                "success": False,
+                "error": "会话未绑定目标项目，无法执行索引操作。请先创建会话并指定目标项目。"
+            }
+
+        # 规范化路径进行比较
+        import os
+        allowed_normalized = os.path.normpath(os.path.abspath(allowed_project_path)).lower()
+
+        # 如果未指定 target_path，使用会话绑定的项目路径
+        if not target_path:
+            target_path = allowed_project_path
+        else:
+            target_normalized = os.path.normpath(os.path.abspath(target_path)).lower()
+
+            # 检查请求的路径是否在允许的项目目录内
+            if not target_normalized.startswith(allowed_normalized):
+                return {
+                    "success": False,
+                    "error": f"安全限制：只允许索引会话绑定的目标项目 '{allowed_project_path}'，"
+                             f"不允许索引 '{target_path}'。"
+                }
 
         try:
             # 执行索引
@@ -2636,6 +2698,106 @@ Step 5: 输出结构化发现报告
             }
 
         return summary
+
+    def _execute_list_security_rules(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """列出可用的安全检测规则和 Sink 模式"""
+        vuln_type = args.get("vuln_type")
+        risk_level = args.get("risk_level")
+        language = args.get("language")
+        limit = args.get("limit", 50)
+
+        try:
+            # 从规则管理器获取所有规则
+            if not self.rule_manager:
+                return {
+                    "success": False,
+                    "error": "规则管理器未初始化"
+                }
+
+            all_rules = self.rule_manager.get_all_rules()
+
+            # 过滤规则
+            filtered_rules = []
+            for rule in all_rules:
+                # 按漏洞类型过滤
+                if vuln_type:
+                    rule_category = getattr(rule, 'category', '') or ''
+                    rule_vuln_type = getattr(rule, 'vulnerability_type', '') or ''
+                    if vuln_type.lower() not in rule_category.lower() and vuln_type.lower() not in rule_vuln_type.lower():
+                        continue
+
+                # 按风险等级过滤
+                if risk_level:
+                    rule_risk = getattr(rule, 'risk_level', '') or ''
+                    if isinstance(rule_risk, str):
+                        if rule_risk.lower() != risk_level.lower():
+                            continue
+                    elif hasattr(rule_risk, 'value'):
+                        if rule_risk.value.lower() != risk_level.lower():
+                            continue
+
+                # 按语言过滤
+                if language:
+                    rule_languages = getattr(rule, 'languages', []) or []
+                    if language.lower() not in [l.lower() for l in rule_languages]:
+                        continue
+
+                filtered_rules.append(rule)
+
+            # 截取
+            filtered_rules = filtered_rules[:limit]
+
+            # 构建返回结果
+            patterns = []
+            for rule in filtered_rules:
+                pattern_info = {
+                    "id": getattr(rule, 'id', '') or getattr(rule, 'rule_id', ''),
+                    "name": getattr(rule, 'name', '') or getattr(rule, 'title', ''),
+                    "type": getattr(rule, 'type', '') or '',
+                    "category": getattr(rule, 'category', '') or '',
+                    "risk_level": str(getattr(rule, 'risk_level', '')) if hasattr(rule, 'risk_level') else '',
+                    "description": getattr(rule, 'description', '') or '',
+                    "languages": getattr(rule, 'languages', []) or [],
+                    "patterns": getattr(rule, 'patterns', []) or [],
+                }
+                # 处理 risk_level 枚举值
+                if hasattr(pattern_info["risk_level"], 'value'):
+                    pattern_info["risk_level"] = pattern_info["risk_level"].value
+                patterns.append(pattern_info)
+
+            # 统计信息
+            stats = {
+                "total_rules": len(all_rules),
+                "filtered_count": len(patterns),
+                "by_type": {},
+                "by_risk_level": {},
+            }
+
+            for rule in all_rules:
+                # 统计类型
+                rule_type = getattr(rule, 'type', 'unknown') or 'unknown'
+                if hasattr(rule_type, 'value'):
+                    rule_type = rule_type.value
+                stats["by_type"][rule_type] = stats["by_type"].get(rule_type, 0) + 1
+
+                # 统计风险等级
+                rule_risk = getattr(rule, 'risk_level', 'unknown') or 'unknown'
+                if hasattr(rule_risk, 'value'):
+                    rule_risk = rule_risk.value
+                stats["by_risk_level"][str(rule_risk)] = stats["by_risk_level"].get(str(rule_risk), 0) + 1
+
+            return {
+                "success": True,
+                "patterns": patterns,
+                "stats": stats,
+            }
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] list_vuln_patterns 执行失败: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     def _execute_get_prescan_sites(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """获取预扫描触发点列表"""
