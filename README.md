@@ -5,10 +5,13 @@
   <img src="https://img.shields.io/badge/Node.js-16+-green.svg" alt="Node.js 16+">
   <img src="https://img.shields.io/badge/FastAPI-0.109+-orange.svg" alt="FastAPI">
   <img src="https://img.shields.io/badge/Vue-3.x-brightgreen.svg" alt="Vue 3">
+  <img src="https://img.shields.io/badge/Tree--sitter-Multi--lang-purple.svg" alt="Tree-sitter">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
 </p>
 
 一款基于大语言模型（LLM）的智能代码安全审计工具，专注于检测传统静态分析工具难以发现的**业务逻辑漏洞、权限控制问题和高危安全缺陷**（RCE、任意文件读写、反序列化、SSRF、鉴权绕过、IDOR、状态机绕过等）。
+
+**v2.1 新特性**：Tree-sitter 多语言 AST 解析 | Semgrep 集成 | 增量索引优化 | 框架自动检测
 
 ## 📑 目录
 
@@ -45,14 +48,32 @@
 
 | 功能 | 描述 |
 |------|------|
-| **智能代码索引** | 使用向量数据库（Qdrant/内存）存储代码嵌入，支持语义搜索和增量索引 |
-| **多语言支持** | Python（AST 解析）、JavaScript、TypeScript、PHP（正则解析） |
+| **智能代码索引** | 向量数据库（Qdrant/内存）+ 增量索引 + 代码去重，支持语义搜索 |
+| **Tree-sitter 多语言解析** | 基于 AST 的精确解析，支持 10+ 语言（见下方语言支持表） |
+| **Semgrep 集成** | 作为候选点生成器，支持 SARIF 导入，补充 LLM 分析 |
 | **高危漏洞检测** | RCE、命令注入、SQL 注入、文件操作、SSRF、反序列化、XXE、SSTI 等 |
 | **业务逻辑分析** | 认证绕过、权限控制、IDOR、竞态条件、批量赋值等逻辑漏洞 |
 | **污点分析** | Source → Sink 数据流追踪，自动识别过滤函数 |
 | **调用链分析** | 函数调用图构建与危险路径识别，支持深度控制 |
+| **框架自动检测** | 识别 Web 框架（Flask/Django/Express/Spring 等）并提取路由 |
 | **LLM Agent** | 支持 Function Calling 的自主代码探索，模拟安全专家审计过程 |
 | **链级深度分析** | 以调用链为单位进行复杂漏洞验证，提供结构化 JSON 输出 |
+
+### 🌐 语言支持
+
+| 语言 | 解析方式 | 框架支持 |
+|------|---------|---------|
+| **Python** | AST + Tree-sitter | Flask, Django, FastAPI |
+| **JavaScript** | Tree-sitter | Express, Koa, Next.js |
+| **TypeScript** | Tree-sitter | Express, NestJS |
+| **PHP** | Tree-sitter | Laravel, Symfony |
+| **Java** | Tree-sitter | Spring, Spring Boot |
+| **Go** | Tree-sitter | Gin, Echo, Fiber |
+| **Rust** | Tree-sitter | Actix, Axum |
+| **C/C++** | Tree-sitter | - |
+| **C#** | Tree-sitter | ASP.NET |
+| **Ruby** | Tree-sitter | Rails, Sinatra |
+| **Kotlin** | Tree-sitter | Spring, Ktor |
 
 ### 🖥️ 界面特性
 
