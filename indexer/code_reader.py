@@ -11,6 +11,7 @@
 
 import fnmatch
 import logging
+import re
 from pathlib import Path
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
@@ -637,10 +638,19 @@ class CodeReader:
 
                 # 从代码中额外提取函数调用（更可靠）
                 if unit.code:
-                    import re
                     # 匹配函数调用模式: word(
                     call_pattern = re.compile(r'\b(\w+)\s*\(')
                     code_calls = call_pattern.findall(unit.code)
+                    # 排除语言关键词和单字符误匹配
+                    _keywords = {
+                        'if', 'for', 'while', 'with', 'except', 'assert', 'return',
+                        'yield', 'del', 'raise', 'elif', 'switch', 'case', 'catch',
+                        'throw', 'new', 'typeof', 'instanceof', 'var', 'let', 'const',
+                        'from', 'import', 'class', 'def', 'lambda', 'print', 'not',
+                        'and', 'or', 'in', 'is', 'try', 'finally', 'else', 'async',
+                        'await', 'pass', 'break', 'continue', 'global', 'nonlocal',
+                    }
+                    code_calls = [c for c in code_calls if c not in _keywords and len(c) > 1]
                     calls = list(set(calls) | set(code_calls))
 
                 caller_info = {
@@ -689,6 +699,8 @@ class CodeReader:
     def _find_callers(self, unit) -> List[Dict[str, Any]]:
         """查找调用者
 
+        优先使用 caller_index 缓存，仅在缓存为空时回退到语义搜索。
+
         Args:
             unit: 代码单元
 
@@ -697,7 +709,28 @@ class CodeReader:
         """
         callers = []
         try:
-            # 搜索调用此符号的代码
+            # 优先使用缓存索引查找
+            caller_index = self._get_caller_index()
+            symbol_short = unit.symbol.split(".")[-1]
+
+            # 尝试多种 key 查找：完整符号名 > 短名
+            index_callers = caller_index.get(unit.symbol, [])
+            if not index_callers:
+                index_callers = caller_index.get(symbol_short, [])
+
+            if index_callers:
+                for caller_info in index_callers:
+                    if caller_info.get("caller_symbol") == unit.symbol:
+                        continue  # 跳过自引用
+                    callers.append({
+                        "file_path": caller_info.get("file_path", ""),
+                        "symbol": caller_info.get("caller_symbol", ""),
+                        "line": caller_info.get("start_line", 0),
+                        "type": caller_info.get("caller_type", "unknown"),
+                    })
+                return callers
+
+            # 回退：语义搜索（缓存索引为空时）
             results = self.indexer.search(
                 query=f"调用 {unit.symbol}",
                 top_k=15,
@@ -830,6 +863,17 @@ class CodeReader:
             target_def = definitions[0]
             direct_calls = symbol_result.get("callees", [])
 
+            # 批量获取所有代码单元并构建快速查找字典（避免 N+1 向量搜索）
+            all_units = self.indexer.get_all_units(limit=10000)
+            unit_by_symbol: Dict[str, Any] = {}
+            unit_by_short_name: Dict[str, List[Any]] = {}
+            for unit in all_units:
+                unit_by_symbol[unit.symbol] = unit
+                short_name = unit.symbol.split(".")[-1]
+                if short_name not in unit_by_short_name:
+                    unit_by_short_name[short_name] = []
+                unit_by_short_name[short_name].append(unit)
+
             # 分析代码中的函数调用
             callees = []
             seen_calls = set()
@@ -839,16 +883,30 @@ class CodeReader:
                     continue
                 seen_calls.add(call)
 
-                # 尝试找到被调用函数的定义
-                callee_result = self.read_symbol(call)
-                if callee_result.get("success") and callee_result.get("definitions"):
-                    callee_def = callee_result["definitions"][0]
+                # 优先从本地字典中查找（精确匹配 -> 短名匹配）
+                found_unit = unit_by_symbol.get(call)
+                if not found_unit:
+                    # 尝试短名匹配
+                    short_name = call.split(".")[-1]
+                    candidates = unit_by_short_name.get(short_name, [])
+                    if len(candidates) == 1:
+                        found_unit = candidates[0]
+                    elif len(candidates) > 1:
+                        # 多个候选，优先匹配以 call 结尾的
+                        for c in candidates:
+                            if c.symbol.endswith(f".{call}") or c.symbol == call:
+                                found_unit = c
+                                break
+                        if not found_unit:
+                            found_unit = candidates[0]  # 取第一个
+
+                if found_unit:
                     callees.append({
                         "symbol": call,
-                        "type": callee_def.get("type", "unknown"),
-                        "file_path": callee_def.get("file_path"),
-                        "line": callee_def.get("start_line"),
-                        "signature": callee_def.get("signature"),
+                        "type": found_unit.unit_type.value,
+                        "file_path": found_unit.file_path,
+                        "line": found_unit.span.start_line,
+                        "signature": found_unit.signature,
                         "found": True,
                     })
                 else:
@@ -865,7 +923,6 @@ class CodeReader:
 
             # 如果需要更深层次的调用链
             if max_depth > 1 and callees:
-                nested_callees = []
                 for callee in callees:
                     if callee.get("found") and callee.get("file_path"):
                         nested_result = self.get_callees(
@@ -897,12 +954,12 @@ class CodeReader:
     def grep_code(
         self,
         pattern: str,
-        file_glob: str | None = None,
+        file_glob: Optional[str] = None,
         max_results: int = 50,
         context_lines: int = 2,
         use_regex: bool = False,
         case_sensitive: bool = True,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """精确代码搜索（基于正则/关键词，非语义搜索）
 
         与 search_code（语义搜索）不同，此方法提供精确的字符串/正则匹配，
@@ -935,9 +992,6 @@ class CodeReader:
                 "hint": str,
             }
         """
-        import fnmatch
-        import re
-        from pathlib import Path
 
         matches = []
         total_matches = 0
@@ -973,10 +1027,15 @@ class CodeReader:
 
             # 如果没有索引，回退到目录扫描
             if not indexed_files:
-                # 从项目根目录扫描文件
-                project_root = Path.cwd()
-                if hasattr(self.indexer, 'project_root'):
-                    project_root = Path(self.indexer.project_root)
+                # 从项目根目录扫描文件（优先使用 self.project_path，避免 cwd() 的不可靠性）
+                project_root = self.project_path
+                if not project_root or not project_root.exists():
+                    # 回退：尝试从 indexer 获取
+                    project_root = Path(
+                        getattr(self.indexer, '_current_target_path', None)
+                        or getattr(self.indexer, 'project_root', None)
+                        or Path.cwd()
+                    )
 
                 # 常见代码文件扩展名
                 code_extensions = {
