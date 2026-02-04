@@ -9,7 +9,7 @@
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,11 @@ VARIANT_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                 "properties": {
                     "code_snippet": {
                         "type": "string",
-                        "description": "要查找相似代码的代码片段"
+                        "description": "要查找相似代码的代码片段（与 query_text 二选一，至少提供一个）"
                     },
                     "query_text": {
                         "type": "string",
-                        "description": "或者使用自然语言描述要查找的代码模式"
+                        "description": "或者使用自然语言描述要查找的代码模式（与 code_snippet 二选一，至少提供一个）"
                     },
                     "similarity_threshold": {
                         "type": "number",
@@ -68,11 +68,7 @@ VARIANT_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                         "description": "是否排除同一文件中的结果",
                         "default": True
                     }
-                },
-                "oneOf": [
-                    {"required": ["code_snippet"]},
-                    {"required": ["query_text"]}
-                ]
+                }
             }
         }
     },
@@ -686,7 +682,7 @@ class VariantToolExecutor:
             "total": len(patterns),
         }
 
-    def get_executors(self) -> Dict[str, callable]:
+    def get_executors(self) -> Dict[str, Callable]:
         """返回所有执行器映射"""
         return {
             "find_similar_code": self.find_similar_code,

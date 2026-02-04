@@ -23,19 +23,6 @@ from serialization import safe_json_dumps
 
 from .tools.manager import AgentToolManager, ToolResult
 from .tools.registry import CODE_NAVIGATION_TOOLS, SECURITY_ANALYSIS_TOOLS
-
-
-def _json_serializer(obj):
-    """自定义 JSON 序列化器，处理 datetime 和其他不可序列化类型"""
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if hasattr(obj, 'to_dict'):
-        return obj.to_dict()
-    if hasattr(obj, '__dict__'):
-        return obj.__dict__
-    return str(obj)
-
-
 from .tools.callchain_tools import (
     get_callchain_tool_definitions,
     create_callchain_executor,
@@ -50,6 +37,17 @@ from analyzer.prescan import RuleScanPreprocessor, PreScanConfig, PreScanResult
 from analyzer.enhancer import DeepAnalysisEnhancer, EnhancementConfig, EnhancementResult
 
 logger = logging.getLogger(__name__)
+
+
+def _json_serializer(obj):
+    """自定义 JSON 序列化器，处理 datetime 和其他不可序列化类型"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if hasattr(obj, 'to_dict'):
+        return obj.to_dict()
+    if hasattr(obj, '__dict__'):
+        return obj.__dict__
+    return str(obj)
 
 
 class ToolCallStatus(Enum):
@@ -266,6 +264,11 @@ class UnifiedAuditAgent:
         # === 主事件循环引用（用于跨线程回调调度） ===
         self._main_loop: Optional[asyncio.AbstractEventLoop] = None
 
+        # === 代码单元 TTL 缓存 ===
+        self._code_units_cache: Dict[str, CodeUnit] = {}
+        self._code_units_cache_time: float = 0.0
+        self._code_units_cache_ttl: float = 60.0  # 60 秒 TTL
+
         logger.info(f"[UnifiedAgent] 创建会话: {session_id}")
 
     async def initialize(self):
@@ -294,7 +297,9 @@ class UnifiedAuditAgent:
             code_units = []
 
         # 缓存代码单元用于后续查询
-        self._code_units_cache: Dict[str, CodeUnit] = {u.id: u for u in code_units}
+        import time as _time
+        self._code_units_cache = {u.id: u for u in code_units}
+        self._code_units_cache_time = _time.time()
 
         # 注册代码导航工具
         if self.config.enable_code_navigation:
@@ -446,6 +451,66 @@ class UnifiedAuditAgent:
         except Exception as e:
             logger.error(f"[UnifiedAgent] 预扫描失败: {e}")
             self._prescan_context = ""
+
+    def _get_code_units(self) -> Dict[str, 'CodeUnit']:
+        """获取代码单元（带 TTL 缓存）
+
+        避免每次工具调用都触发 vector_store.get_all() 重查询。
+        缓存 60 秒，超时自动刷新。
+
+        Returns:
+            符号 ID 到 CodeUnit 的映射字典
+        """
+        import time as _time
+        now = _time.time()
+
+        # 检查缓存是否有效
+        if (self._code_units_cache
+                and (now - self._code_units_cache_time) < self._code_units_cache_ttl):
+            return self._code_units_cache
+
+        # 刷新缓存
+        try:
+            all_units = self.indexer.get_all_units() or []
+            self._code_units_cache = {u.id: u for u in all_units}
+            self._code_units_cache_time = now
+            logger.debug(f"[UnifiedAgent] 代码单元缓存已刷新: {len(self._code_units_cache)} 个单元")
+        except Exception as e:
+            logger.warning(f"[UnifiedAgent] 刷新代码单元缓存失败: {e}")
+            # 缓存失效但查询失败时，返回旧缓存（如有）
+            if not self._code_units_cache:
+                self._code_units_cache = {}
+
+        return self._code_units_cache
+
+    def _invalidate_code_units_cache(self):
+        """手动失效代码单元缓存（在索引更新后调用）"""
+        self._code_units_cache_time = 0.0
+        logger.debug("[UnifiedAgent] 代码单元缓存已失效")
+
+    def _match_symbol(self, query: str, target: str) -> int:
+        """分级符号匹配
+
+        匹配优先级（返回值越高越精确）：
+        - 3: 完全相等
+        - 2: 点分隔后缀匹配（如 "get_user" 匹配 "UserService.get_user"）
+        - 1: 包含匹配（如 "get_user" 包含在 "my_get_user_info" 中）
+        - 0: 不匹配
+
+        Args:
+            query: 查询的符号名
+            target: 目标符号名
+
+        Returns:
+            匹配等级 (0-3)
+        """
+        if target == query:
+            return 3  # 精确匹配
+        if target.endswith(f".{query}") or target.split(".")[-1] == query:
+            return 2  # 后缀匹配
+        if query in target:
+            return 1  # 包含匹配
+        return 0  # 不匹配
 
     def _register_code_navigation_tools(self):
         """注册代码导航工具"""
@@ -623,7 +688,49 @@ class UnifiedAuditAgent:
             category="code_navigation",
         )
 
-        logger.debug("[UnifiedAgent] 代码导航工具已注册（含 get_callers/get_callees）")
+        # grep_code - 精确代码搜索
+        self.tool_manager.register_tool(
+            name="grep_code",
+            description="精确搜索代码（基于正则/关键词，非语义搜索）。与 search_code（语义搜索）不同，此工具提供精确的字符串/正则匹配，适用于：查找精确的函数调用、变量名、字符串常量、API 路径等。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "搜索模式（字符串或正则表达式）"
+                    },
+                    "file_glob": {
+                        "type": "string",
+                        "description": "文件过滤模式，如 '*.py', 'src/**/*.js'"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "最大返回结果数",
+                        "default": 50
+                    },
+                    "context_lines": {
+                        "type": "integer",
+                        "description": "匹配行前后的上下文行数",
+                        "default": 2
+                    },
+                    "use_regex": {
+                        "type": "boolean",
+                        "description": "是否将 pattern 作为正则表达式处理",
+                        "default": False
+                    },
+                    "case_sensitive": {
+                        "type": "boolean",
+                        "description": "是否区分大小写",
+                        "default": True
+                    }
+                },
+                "required": ["pattern"]
+            },
+            executor=self._execute_grep_code,
+            category="code_navigation",
+        )
+
+        logger.debug("[UnifiedAgent] 代码导航工具已注册（含 get_callers/get_callees/grep_code）")
 
     def _register_call_chain_tools(self, code_units: List[CodeUnit]):
         """注册调用链分析工具"""
@@ -1596,7 +1703,7 @@ Step 5: 输出结构化发现报告
 ## 会话信息
 
 - 会话 ID: {self.session_id}
-- 已索引代码单元: {len(getattr(self.indexer, 'code_units', {}) or {})}
+- 已索引代码单元: {len(self._get_code_units())}
 - 可用工具数: {self.tool_manager.count()}
 """
 
@@ -2254,18 +2361,22 @@ Step 5: 输出结构化发现报告
             return {"success": False, "error": "symbol_name 是必需参数"}
 
         try:
-            # 在代码单元中查找
-            matching_units = []
-            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
-                if unit.symbol == symbol_name or symbol_name in unit.symbol:
+            # 在代码单元中查找（使用缓存 + 分级匹配）
+            all_units = self._get_code_units()
+            scored_units = []
+            for unit in all_units.values():
+                match_level = self._match_symbol(symbol_name, unit.symbol)
+                if match_level > 0:
                     if file_path and file_path not in unit.file_path:
                         continue
-                    matching_units.append(unit)
+                    scored_units.append((match_level, unit))
 
-            if not matching_units:
+            if not scored_units:
                 return {"success": False, "error": f"未找到符号: {symbol_name}"}
 
-            # 返回第一个匹配
+            # 按匹配精确度排序，精确匹配优先
+            scored_units.sort(key=lambda x: x[0], reverse=True)
+            matching_units = [u for _, u in scored_units]
             unit = matching_units[0]
             return {
                 "success": True,
@@ -2308,9 +2419,10 @@ Step 5: 输出结构化发现报告
             return {"success": False, "error": "file_path 是必需参数"}
 
         try:
-            # 从代码单元中提取该文件的符号
+            # 从代码单元中提取该文件的符号（使用缓存）
+            all_units = self._get_code_units()
             symbols = []
-            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+            for unit in all_units.values():
                 if unit.file_path == file_path or file_path in unit.file_path:
                     symbols.append({
                         "name": unit.symbol,
@@ -2346,13 +2458,18 @@ Step 5: 输出结构化发现报告
             return {"success": False, "error": "symbol_name 是必需参数"}
 
         try:
-            # 首先在代码单元中查找目标符号
+            # 首先在代码单元中查找目标符号（使用缓存）
             target_units = []
-            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
-                if unit.symbol == symbol_name or symbol_name in unit.symbol:
+            for unit in self._get_code_units().values():
+                match_level = self._match_symbol(symbol_name, unit.symbol)
+                if match_level > 0:
                     if file_path and file_path not in unit.file_path:
                         continue
-                    target_units.append(unit)
+                    target_units.append((match_level, unit))
+
+            # 按匹配等级排序（精确匹配优先）
+            target_units.sort(key=lambda x: x[0], reverse=True)
+            target_units = [u for _, u in target_units]
 
             if not target_units:
                 return {
@@ -2381,10 +2498,11 @@ Step 5: 输出结构化发现报告
 
             # 如果调用图没有结果，回退到代码单元的 calls 字段反向查找
             if not callers_result:
-                for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+                for unit in self._get_code_units().values():
                     if unit.calls:
                         for call in unit.calls:
-                            if symbol_name in call or call == symbol_name:
+                            # 使用分级匹配替代模糊包含匹配
+                            if self._match_symbol(symbol_name, call) >= 2 or call == symbol_name:
                                 callers_result.append({
                                     "name": unit.symbol,
                                     "file_path": unit.file_path,
@@ -2422,42 +2540,82 @@ Step 5: 输出结构化发现报告
             return {"success": False, "error": "symbol_name 是必需参数"}
 
         try:
-            # 首先在代码单元中查找目标符号
-            target_units = []
-            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
-                if unit.symbol == symbol_name or symbol_name in unit.symbol:
+            # 使用缓存获取所有代码单元
+            all_units = self._get_code_units()
+
+            # 首先查找目标符号（分级匹配）
+            scored_targets = []
+            for unit in all_units.values():
+                match_level = self._match_symbol(symbol_name, unit.symbol)
+                if match_level > 0:
                     if file_path and file_path not in unit.file_path:
                         continue
-                    target_units.append(unit)
+                    scored_targets.append((match_level, unit))
 
-            if not target_units:
+            if not scored_targets:
                 return {
                     "success": False,
                     "error": f"未找到符号: {symbol_name}",
                     "hint": "请确认函数名称正确，或尝试使用部分名称搜索"
                 }
 
+            scored_targets.sort(key=lambda x: x[0], reverse=True)
+            target_units = [u for _, u in scored_targets]
+
+            # 构建 symbol 快速查找字典（用于 callee 解析）
+            unit_by_symbol: Dict[str, Any] = {}
+            unit_by_short: Dict[str, list] = {}
+            for unit in all_units.values():
+                unit_by_symbol[unit.symbol] = unit
+                short = unit.symbol.split(".")[-1]
+                if short not in unit_by_short:
+                    unit_by_short[short] = []
+                unit_by_short[short].append(unit)
+
+            def _resolve_callee(call_name: str):
+                """从缓存字典中解析 callee 对应的代码单元"""
+                # 精确匹配
+                if call_name in unit_by_symbol:
+                    return unit_by_symbol[call_name]
+                # 短名匹配
+                short = call_name.split(".")[-1]
+                candidates = unit_by_short.get(short, [])
+                if len(candidates) == 1:
+                    return candidates[0]
+                # 后缀匹配
+                for c in candidates:
+                    if c.symbol.endswith(f".{call_name}"):
+                        return c
+                return None
+
             # 收集所有被调用的函数
             callees_result = []
+            seen_names = set()
 
-            # 使用代码单元的 calls 字段
-            for unit in target_units:
-                if unit.calls:
+            # 递归收集 callees
+            def _collect_callees(units, depth, visited):
+                """递归收集指定深度的 callees"""
+                if depth > max_depth or depth > 5:  # 硬上限 5 层
+                    return
+                next_level_units = []
+                for unit in units:
+                    if unit.symbol in visited:
+                        continue
+                    visited.add(unit.symbol)
+                    if not unit.calls:
+                        continue
                     for call in unit.calls:
-                        # 查找 call 对应的代码单元
-                        found_unit = None
-                        for candidate in (getattr(self.indexer, 'code_units', None) or {}).values():
-                            if candidate.symbol == call or call in candidate.symbol:
-                                found_unit = candidate
-                                break
-
+                        if call in seen_names:
+                            continue
+                        seen_names.add(call)
+                        found_unit = _resolve_callee(call)
                         callee_info = {
                             "name": call,
                             "called_from": unit.symbol,
                             "source_file": unit.file_path,
                             "source_line": unit.span.start_line,
+                            "depth": depth,
                         }
-
                         if found_unit:
                             callee_info.update({
                                 "file_path": found_unit.file_path,
@@ -2465,20 +2623,25 @@ Step 5: 输出结构化发现报告
                                 "line_end": found_unit.span.end_line,
                                 "is_internal": True,
                             })
+                            next_level_units.append(found_unit)
                         else:
                             callee_info["is_internal"] = False
-
                         callees_result.append(callee_info)
+                # 递归下一层
+                if next_level_units and depth < max_depth:
+                    _collect_callees(next_level_units, depth + 1, visited)
 
-            # 如果有调用链分析器，补充调用图信息
+            _collect_callees(target_units, 1, set())
+
+            # 如果有调用链分析器，补充调用图中的额外信息
             if self.call_chain_analyzer and hasattr(self.call_chain_analyzer, 'call_graph'):
                 call_graph = self.call_chain_analyzer.call_graph
-                if call_graph and max_depth > 1:
-                    # 递归查找更深层次的被调用者
+                if call_graph:
                     for unit in target_units:
                         callee_nodes = call_graph.get_callees(unit.id)
                         for callee in callee_nodes:
-                            if not any(c.get("name") == callee.name for c in callees_result):
+                            if callee.name not in seen_names:
+                                seen_names.add(callee.name)
                                 callees_result.append({
                                     "name": callee.name,
                                     "qualified_name": callee.qualified_name,
@@ -2487,6 +2650,7 @@ Step 5: 输出结构化发现报告
                                     "line_end": callee.line_end,
                                     "node_type": callee.node_type.value if hasattr(callee.node_type, 'value') else str(callee.node_type),
                                     "depth": 1,
+                                    "source": "call_graph",
                                 })
 
             return {
@@ -2499,6 +2663,38 @@ Step 5: 输出结构化发现报告
 
         except Exception as e:
             logger.error(f"[UnifiedAgent] get_callees 执行失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _execute_grep_code(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """执行精确代码搜索
+
+        调用 CodeReader.grep_code() 进行正则/关键词搜索。
+        """
+        pattern = args.get("pattern", "")
+        if not pattern:
+            return {"success": False, "error": "pattern 是必需参数"}
+
+        try:
+            # 通过 code_reader 执行搜索
+            if hasattr(self.indexer, 'code_reader') and self.indexer.code_reader:
+                result = self.indexer.code_reader.grep_code(
+                    pattern=pattern,
+                    file_glob=args.get("file_glob"),
+                    max_results=args.get("max_results", 50),
+                    context_lines=args.get("context_lines", 2),
+                    use_regex=args.get("use_regex", False),
+                    case_sensitive=args.get("case_sensitive", True),
+                )
+                return result
+            else:
+                return {
+                    "success": False,
+                    "error": "CodeReader 未初始化",
+                    "hint": "请确保项目已完成索引。",
+                }
+
+        except Exception as e:
+            logger.error(f"[UnifiedAgent] grep_code 执行失败: {e}")
             return {"success": False, "error": str(e)}
 
     def _execute_report_finding(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -2555,12 +2751,37 @@ Step 5: 输出结构化发现报告
         finding_id = args.get("finding_id", "")
         notes = args.get("notes", "")
 
-        # TODO: 实现发现确认逻辑
+        if not finding_id:
+            return {"success": False, "error": "finding_id 是必需参数"}
+
+        # 查找并更新发现状态
+        if not hasattr(self, '_findings'):
+            return {"success": False, "error": "没有可用的发现记录"}
+
+        for finding in self._findings:
+            if finding.get("id") == finding_id:
+                finding["status"] = "confirmed"
+                finding["notes"] = notes
+                finding["updated_at"] = datetime.now().isoformat()
+
+                # 通过回调通知前端
+                if self.finding_callback:
+                    self._schedule_async_callback(
+                        self.finding_callback,
+                        {"type": "finding_updated", "finding": finding}
+                    )
+
+                return {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "status": "confirmed",
+                    "notes": notes,
+                }
+
         return {
-            "success": True,
-            "finding_id": finding_id,
-            "status": "confirmed",
-            "notes": notes,
+            "success": False,
+            "error": f"未找到发现 ID: {finding_id}",
+            "hint": "请确认发现 ID 是否正确",
         }
 
     def _execute_reject_finding(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -2568,12 +2789,37 @@ Step 5: 输出结构化发现报告
         finding_id = args.get("finding_id", "")
         reason = args.get("reason", "")
 
-        # TODO: 实现发现拒绝逻辑
+        if not finding_id:
+            return {"success": False, "error": "finding_id 是必需参数"}
+
+        # 查找并更新发现状态
+        if not hasattr(self, '_findings'):
+            return {"success": False, "error": "没有可用的发现记录"}
+
+        for finding in self._findings:
+            if finding.get("id") == finding_id:
+                finding["status"] = "rejected"
+                finding["reason"] = reason
+                finding["updated_at"] = datetime.now().isoformat()
+
+                # 通过回调通知前端
+                if self.finding_callback:
+                    self._schedule_async_callback(
+                        self.finding_callback,
+                        {"type": "finding_updated", "finding": finding}
+                    )
+
+                return {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "status": "rejected",
+                    "reason": reason,
+                }
+
         return {
-            "success": True,
-            "finding_id": finding_id,
-            "status": "rejected",
-            "reason": reason,
+            "success": False,
+            "error": f"未找到发现 ID: {finding_id}",
+            "hint": "请确认发现 ID 是否正确",
         }
 
     def _execute_index_project(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -2619,10 +2865,13 @@ Step 5: 输出结构化发现报告
                 target_path=target_path,
             )
 
+            # 索引更新后清除代码单元缓存
+            self._invalidate_code_units_cache()
+
             return {
                 "success": True,
                 "target_path": target_path,
-                "code_units_count": len(getattr(self.indexer, 'code_units', {}) or {}),
+                "code_units_count": len(self._get_code_units()),
                 "languages": languages,
             }
 
@@ -3288,12 +3537,17 @@ Step 5: 输出结构化发现报告
             return {"success": False, "error": "symbol_name 是必需参数"}
 
         try:
-            # 查找目标函数
-            target_unit = None
-            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
-                if unit.symbol == symbol_name or symbol_name in unit.symbol:
-                    target_unit = unit
-                    break
+            # 查找目标函数（使用缓存 + 分级匹配）
+            all_units = self._get_code_units()
+            best_match = None
+            best_level = 0
+            for unit in all_units.values():
+                match_level = self._match_symbol(symbol_name, unit.symbol)
+                if match_level > best_level:
+                    best_level = match_level
+                    best_match = unit
+
+            target_unit = best_match
 
             if not target_unit:
                 return {
@@ -3427,8 +3681,9 @@ Step 5: 输出结构化发现报告
             else:
                 patterns = generic_patterns
 
-            # 遍历代码单元查找入口点
-            for unit in (getattr(self.indexer, 'code_units', None) or {}).values():
+            # 遍历代码单元查找入口点（使用缓存）
+            all_units = self._get_code_units()
+            for unit in all_units.values():
                 is_entry_point = False
                 matched_pattern = None
 

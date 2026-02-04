@@ -10,8 +10,9 @@
 6. list_sink_sites - 列出危险函数调用点
 """
 
+import fnmatch
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -613,15 +614,43 @@ class CallChainToolExecutor:
         """执行 list_entry_points 工具"""
         file_pattern = args.get("file_pattern")
         max_results = args.get("max_results", 50)
+        framework = args.get("framework", "auto")
+        include_internal = args.get("include_internal", False)
 
         entry_points = self.analyzer.call_graph.get_entry_points()
 
-        # 过滤
+        # 文件模式过滤
         if file_pattern:
-            import fnmatch
             entry_points = [
                 ep for ep in entry_points
                 if fnmatch.fnmatch(ep.file_path, file_pattern)
+            ]
+
+        # 框架过滤：根据 decorators 匹配框架特征
+        if framework and framework != "auto":
+            framework_decorator_patterns = {
+                "flask": ["route", "blueprint"],
+                "django": ["url", "path"],
+                "fastapi": ["get", "post", "put", "delete", "patch", "router", "app"],
+                "express": ["get", "post", "put", "delete", "patch", "use"],
+                "spring": ["mapping", "getmapping", "postmapping", "putmapping", "deletemapping", "requestmapping"],
+                "laravel": ["route", "middleware"],
+            }
+            fw_keywords = framework_decorator_patterns.get(framework, [])
+            if fw_keywords:
+                filtered_eps = []
+                for ep in entry_points:
+                    decorators = ep.metadata.get("decorators", [])
+                    decorator_str = " ".join(str(d).lower() for d in decorators)
+                    if any(kw in decorator_str for kw in fw_keywords):
+                        filtered_eps.append(ep)
+                entry_points = filtered_eps
+
+        # 内部 API 过滤
+        if not include_internal:
+            entry_points = [
+                ep for ep in entry_points
+                if not ep.name.startswith("_") and not ep.metadata.get("internal", False)
             ]
 
         results = []
@@ -655,9 +684,28 @@ class CallChainToolExecutor:
             if risk_level != "all" and sink.risk_level != risk_level:
                 continue
 
+            # 类别过滤：从 matched_rules 规则 ID 和 metadata 推断 category
+            if category != "all":
+                # 定义 category 关键词映射
+                category_keywords = {
+                    "sql_injection": ["sql", "sqli", "query", "injection"],
+                    "command_injection": ["command", "cmd", "rce", "os_system", "exec", "shell"],
+                    "code_execution": ["eval", "code_exec", "code_execution", "dynamic"],
+                    "file_operation": ["file", "path", "read", "write", "upload", "download"],
+                    "deserialization": ["deserial", "pickle", "yaml_load", "unserialize", "marshal"],
+                    "ssrf": ["ssrf", "url", "request", "fetch", "curl"],
+                    "xxe": ["xxe", "xml", "entity"],
+                }
+                keywords = category_keywords.get(category, [])
+                if keywords:
+                    rules_str = " ".join(str(r).lower() for r in (sink.matched_rules or []))
+                    meta_category = str(sink.metadata.get("category", "")).lower() if hasattr(sink, 'metadata') and sink.metadata else ""
+                    combined = f"{rules_str} {meta_category}"
+                    if not any(kw in combined for kw in keywords):
+                        continue
+
             # 文件过滤
             if file_pattern:
-                import fnmatch
                 if not fnmatch.fnmatch(sink.file_path, file_pattern):
                     continue
 
@@ -679,7 +727,7 @@ class CallChainToolExecutor:
             "total": len(filtered),
         }
 
-    def get_executors(self) -> Dict[str, callable]:
+    def get_executors(self) -> Dict[str, Callable]:
         """返回所有执行器映射"""
         return {
             "analyze_call_chain": self.analyze_call_chain,
