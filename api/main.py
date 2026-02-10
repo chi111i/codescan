@@ -3526,23 +3526,31 @@ async def list_rules(
 
     rule_schemas = []
     for r in rules:
-        rule_schemas.append(RuleSchema(
-            id=r.id,
-            name=r.name,
-            rule_type=r.rule_type.value,
-            category=r.category.value,
-            risk_level=r.risk_level.value,
-            languages=r.languages,
-            patterns=r.patterns,
-            frameworks=r.frameworks,
-            description=r.description,
-            example=r.example,
-            attack_scenario=r.attack_scenario,
-            fix_suggestion=r.fix_suggestion,
-            cwe_ids=r.cwe_ids,
-            owasp_ids=r.owasp_ids,
-            tags=r.tags,
-        ))
+        try:
+            # 确保 patterns 全部为字符串（防御 YAML 解析产生的 dict）
+            safe_patterns = [
+                str(p) if not isinstance(p, str) else p
+                for p in r.patterns
+            ]
+            rule_schemas.append(RuleSchema(
+                id=r.id,
+                name=r.name,
+                rule_type=r.rule_type.value,
+                category=r.category.value,
+                risk_level=r.risk_level.value,
+                languages=r.languages,
+                patterns=safe_patterns,
+                frameworks=r.frameworks,
+                description=r.description,
+                example=r.example,
+                attack_scenario=r.attack_scenario,
+                fix_suggestion=r.fix_suggestion,
+                cwe_ids=r.cwe_ids,
+                owasp_ids=r.owasp_ids,
+                tags=r.tags,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to serialize rule {r.id}: {e}")
 
     return APIResponse(
         success=True,
