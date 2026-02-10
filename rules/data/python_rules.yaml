@@ -1,0 +1,821 @@
+# Python 语言安全规则
+# 覆盖 Python 2.x/3.x 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: python-rce-os-system
+    name: Python 命令执行 - os.system
+    description: 使用 os.system 执行系统命令，用户输入可控时导致命令注入
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - os.system
+      - os.popen
+      - os.popen2
+      - os.popen3
+      - os.popen4
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: python-rce-subprocess
+    name: Python 命令执行 - subprocess
+    description: subprocess 模块执行命令，shell=True 时尤其危险
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - subprocess.call
+      - subprocess.run
+      - subprocess.Popen
+      - subprocess.check_output
+      - subprocess.check_call
+      - subprocess.getoutput
+      - subprocess.getstatusoutput
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: python-rce-eval-exec
+    name: Python 代码执行 - eval/exec
+    description: 动态代码执行，用户输入可控时导致任意代码执行
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - eval
+      - exec
+      - execfile
+      - compile
+      - __import__
+    cwe_ids:
+      - CWE-94
+      - CWE-95
+    tags:
+      - rce
+      - code_injection
+
+  - id: python-rce-commands
+    name: Python 命令执行 - commands 模块
+    description: commands 模块（Python 2）执行命令
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - commands.getoutput
+      - commands.getstatusoutput
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+
+  # ==================== SQL 注入 ====================
+  - id: python-sqli-raw-query
+    name: Python SQL 注入 - 原始查询
+    description: 直接拼接 SQL 语句执行查询
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - cursor.execute
+      - cursor.executemany
+      - connection.execute
+      - engine.execute
+      - session.execute
+      - db.execute
+      - db.executesql
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: python-sqli-django-raw
+    name: Python SQL 注入 - Django Raw
+    description: Django ORM 的 raw() 和 extra() 方法可能导致 SQL 注入
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .raw(
+      - .extra(
+      - RawSQL
+      - cursor.execute
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - django
+
+  - id: python-sqli-sqlalchemy
+    name: Python SQL 注入 - SQLAlchemy
+    description: SQLAlchemy 的 text() 和 execute() 可能导致 SQL 注入
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - text(
+      - execute(
+      - from_statement
+      - filter(
+      - order_by(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - sqlalchemy
+
+  # ==================== 文件操作 ====================
+  - id: python-file-read
+    name: Python 任意文件读取
+    description: 文件读取操作，路径可控可能导致任意文件读取
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - open(
+      - file(
+      - io.open
+      - codecs.open
+      - Path.read_text
+      - Path.read_bytes
+      - pathlib.Path
+      - os.path.join
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: python-file-write
+    name: Python 任意文件写入
+    description: 文件写入操作，路径可控可能导致任意文件写入/覆盖
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .write(
+      - .writelines(
+      - Path.write_text
+      - Path.write_bytes
+      - shutil.copy
+      - shutil.copy2
+      - shutil.copyfile
+      - shutil.move
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_write
+
+  - id: python-file-include
+    name: Python 文件包含
+    description: 动态文件包含可能导致任意代码执行
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - __import__
+      - importlib.import_module
+      - imp.load_module
+      - imp.load_source
+      - runpy.run_path
+      - runpy.run_module
+    cwe_ids:
+      - CWE-94
+    tags:
+      - file_inclusion
+      - rce
+
+  # ==================== 反序列化 ====================
+  - id: python-deserialize-pickle
+    name: Python 反序列化 - pickle
+    description: pickle 反序列化不可信数据导致任意代码执行
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - pickle.loads
+      - pickle.load
+      - pickle.Unpickler
+      - cPickle.loads
+      - cPickle.load
+      - _pickle.loads
+      - _pickle.load
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: python-deserialize-yaml
+    name: Python 反序列化 - YAML
+    description: yaml.load 不安全反序列化可能导致代码执行
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - yaml.load
+      - yaml.unsafe_load
+      - yaml.full_load
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: python-deserialize-json
+    name: Python 反序列化 - JSON
+    description: JSON 反序列化，需检查后续处理
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - json.loads
+      - json.load
+      - simplejson.loads
+      - ujson.loads
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: python-deserialize-marshal
+    name: Python 反序列化 - marshal
+    description: marshal 反序列化不可信数据可能导致代码执行
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - marshal.loads
+      - marshal.load
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: python-deserialize-shelve
+    name: Python 反序列化 - shelve
+    description: shelve 使用 pickle，反序列化不可信数据危险
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - shelve.open
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  # ==================== SSRF ====================
+  - id: python-ssrf-requests
+    name: Python SSRF - requests
+    description: HTTP 请求 URL 可控可能导致 SSRF
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - requests.get
+      - requests.post
+      - requests.put
+      - requests.delete
+      - requests.patch
+      - requests.head
+      - requests.options
+      - requests.request
+      - requests.Session
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: python-ssrf-urllib
+    name: Python SSRF - urllib
+    description: urllib 请求 URL 可控可能导致 SSRF
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - urllib.request.urlopen
+      - urllib.request.urlretrieve
+      - urllib2.urlopen
+      - urllib.urlopen
+      - urllib.urlretrieve
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: python-ssrf-httplib
+    name: Python SSRF - httplib/http.client
+    description: HTTP 客户端连接目标可控可能导致 SSRF
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - http.client.HTTPConnection
+      - http.client.HTTPSConnection
+      - httplib.HTTPConnection
+      - httplib.HTTPSConnection
+      - httplib2.Http
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: python-ssrf-aiohttp
+    name: Python SSRF - aiohttp
+    description: aiohttp 异步 HTTP 请求可能导致 SSRF
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - aiohttp.ClientSession
+      - aiohttp.request
+      - session.get
+      - session.post
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - async
+
+  # ==================== 模板注入 (SSTI) ====================
+  - id: python-ssti-jinja2
+    name: Python 模板注入 - Jinja2
+    description: Jinja2 模板内容可控可能导致 SSTI
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Template(
+      - from_string
+      - Environment
+      - render_template_string
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - template_injection
+
+  - id: python-ssti-mako
+    name: Python 模板注入 - Mako
+    description: Mako 模板内容可控可能导致 SSTI
+    language: python
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - mako.template.Template
+      - Template(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - mako
+
+  - id: python-ssti-django
+    name: Python 模板注入 - Django
+    description: Django 模板内容可控可能导致 SSTI
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - django.template.Template
+      - Template(
+      - render_to_string
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - django
+
+  # ==================== XXE ====================
+  - id: python-xxe-xml
+    name: Python XXE - xml 模块
+    description: XML 解析未禁用外部实体可能导致 XXE
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - xml.etree.ElementTree.parse
+      - xml.etree.ElementTree.fromstring
+      - xml.dom.minidom.parse
+      - xml.dom.minidom.parseString
+      - xml.sax.parse
+      - xml.sax.parseString
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  - id: python-xxe-lxml
+    name: Python XXE - lxml
+    description: lxml 解析 XML 需禁用外部实体
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - lxml.etree.parse
+      - lxml.etree.fromstring
+      - lxml.etree.XML
+      - lxml.etree.XMLParser
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  # ==================== XSS ====================
+  - id: python-xss-flask
+    name: Python XSS - Flask
+    description: Flask 响应未转义可能导致 XSS
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Markup(
+      - make_response
+      - Response(
+      - render_template_string
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - flask
+
+  - id: python-xss-django
+    name: Python XSS - Django
+    description: Django 响应未转义可能导致 XSS
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - mark_safe
+      - SafeString
+      - HttpResponse(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - django
+
+  # ==================== LDAP 注入 ====================
+  - id: python-ldap-injection
+    name: Python LDAP 注入
+    description: LDAP 查询参数可控可能导致 LDAP 注入
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ldap.search
+      - ldap.search_s
+      - ldap.search_st
+      - ldap3.Connection
+      - connection.search
+    cwe_ids:
+      - CWE-90
+    tags:
+      - ldap_injection
+
+  # ==================== 正则表达式 DoS ====================
+  - id: python-redos
+    name: Python ReDoS
+    description: 正则表达式可能导致 ReDoS 攻击
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - re.match
+      - re.search
+      - re.findall
+      - re.sub
+      - re.compile
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos
+
+  # ==================== 加密相关 ====================
+  - id: python-weak-crypto-hash
+    name: Python 弱哈希算法
+    description: 使用 MD5/SHA1 等弱哈希算法
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - hashlib.md5
+      - hashlib.sha1
+      - md5.new
+      - sha.new
+    cwe_ids:
+      - CWE-327
+      - CWE-328
+    tags:
+      - weak_crypto
+
+  - id: python-weak-crypto-cipher
+    name: Python 弱加密算法
+    description: 使用 DES/RC4 等弱加密算法
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - DES.new
+      - DES3.new
+      - ARC4.new
+      - Blowfish.new
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: python-weak-random
+    name: Python 弱随机数
+    description: 使用 random 模块生成安全相关随机数
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - random.random
+      - random.randint
+      - random.choice
+      - random.randrange
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: python-hardcoded-password
+    name: Python 硬编码密码
+    description: 代码中硬编码密码
+    language: python
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:passwd
+      - prefix:secret
+      - prefix:api_key
+      - prefix:apikey
+      - prefix:access_token
+      - prefix:private_key
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 不安全配置 ====================
+  - id: python-debug-mode
+    name: Python 调试模式
+    description: 生产环境开启调试模式
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - DEBUG = True
+      - debug=True
+      - app.debug = True
+      - app.run(debug=True
+    cwe_ids:
+      - CWE-489
+    tags:
+      - misconfiguration
+
+  - id: python-ssl-verify-disabled
+    name: Python SSL 验证禁用
+    description: 禁用 SSL 证书验证
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - verify=False
+      - ssl._create_unverified_context
+      - CERT_NONE
+    cwe_ids:
+      - CWE-295
+    tags:
+      - ssl
+      - misconfiguration
+
+  # ==================== 日志注入 ====================
+  - id: python-log-injection
+    name: Python 日志注入
+    description: 用户输入直接写入日志可能导致日志注入/伪造
+    language: python
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - logging.info
+      - logging.debug
+      - logging.warning
+      - logging.error
+      - logging.critical
+      - logger.info
+      - logger.debug
+      - logger.warning
+      - logger.error
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 输入源 (Source) ====================
+  - id: python-source-flask-request
+    name: Python Flask 请求参数
+    description: Flask 请求参数作为用户输入源
+    language: python
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.args
+      - request.form
+      - request.values
+      - request.json
+      - request.data
+      - request.files
+      - request.headers
+      - request.cookies
+      - request.get_json
+    tags:
+      - source
+      - flask
+
+  - id: python-source-django-request
+    name: Python Django 请求参数
+    description: Django 请求参数作为用户输入源
+    language: python
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.GET
+      - request.POST
+      - request.FILES
+      - request.COOKIES
+      - request.META
+      - request.body
+      - request.data
+    tags:
+      - source
+      - django
+
+  - id: python-source-fastapi
+    name: Python FastAPI 请求参数
+    description: FastAPI 请求参数作为用户输入源
+    language: python
+    rule_type: source
+    risk_level: info
+    patterns:
+      - Query(
+      - Path(
+      - Body(
+      - Form(
+      - File(
+      - Header(
+      - Cookie(
+    tags:
+      - source
+      - fastapi
+
+  - id: python-source-tornado
+    name: Python Tornado 请求参数
+    description: Tornado 请求参数作为用户输入源
+    language: python
+    rule_type: source
+    risk_level: info
+    patterns:
+      - self.get_argument
+      - self.get_arguments
+      - self.get_body_argument
+      - self.get_query_argument
+      - self.request.body
+    tags:
+      - source
+      - tornado
+
+  - id: python-source-stdin
+    name: Python 标准输入
+    description: 标准输入作为用户输入源
+    language: python
+    rule_type: source
+    risk_level: info
+    patterns:
+      - input(
+      - raw_input(
+      - sys.stdin
+      - fileinput.input
+    tags:
+      - source
+
+  - id: python-source-env
+    name: Python 环境变量
+    description: 环境变量作为外部输入源
+    language: python
+    rule_type: source
+    risk_level: info
+    patterns:
+      - os.environ
+      - os.getenv
+    tags:
+      - source
+      - environment
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: python-sanitizer-escape
+    name: Python 转义函数
+    description: HTML/SQL 转义函数
+    language: python
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - html.escape
+      - cgi.escape
+      - markupsafe.escape
+      - bleach.clean
+      - django.utils.html.escape
+      - flask.escape
+    tags:
+      - sanitizer
+      - escape
+
+  - id: python-sanitizer-parameterized
+    name: Python 参数化查询
+    description: 使用参数化查询防止 SQL 注入
+    language: python
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - "%s"
+      - "?"
+      - ":param"
+    tags:
+      - sanitizer
+      - sql
+
+  # ==================== 认证/授权 ====================
+  - id: python-auth-jwt
+    name: Python JWT 处理
+    description: JWT 令牌解析和验证
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - jwt.decode
+      - jwt.encode
+      - PyJWT.decode
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: python-auth-session
+    name: Python Session 处理
+    description: Session 操作可能涉及认证绕过
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - session[
+      - flask.session
+      - request.session
+    cwe_ids:
+      - CWE-384
+    tags:
+      - authentication
+      - session
+
+  # ==================== 危险函数 ====================
+  - id: python-dangerous-assert
+    name: Python assert 语句
+    description: assert 在优化模式下会被移除，不应用于安全检查
+    language: python
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - assert
+    cwe_ids:
+      - CWE-617
+    tags:
+      - dangerous_function
+
+  - id: python-dangerous-getattr
+    name: Python 动态属性访问
+    description: 动态属性访问可能导致任意代码执行
+    language: python
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - getattr(
+      - setattr(
+      - delattr(
+      - hasattr(
+    cwe_ids:
+      - CWE-470
+    tags:
+      - dangerous_function

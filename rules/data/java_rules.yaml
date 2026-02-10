@@ -1,0 +1,752 @@
+# Java 语言安全规则
+# 覆盖 Java 8+ 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: java-rce-runtime-exec
+    name: Java 命令执行 - Runtime.exec
+    description: 使用 Runtime.exec 执行系统命令
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Runtime.getRuntime().exec(
+      - Runtime.exec(
+      - getRuntime().exec(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: java-rce-processbuilder
+    name: Java 命令执行 - ProcessBuilder
+    description: 使用 ProcessBuilder 执行系统命令
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ProcessBuilder(
+      - new ProcessBuilder(
+      - processBuilder.command(
+      - processBuilder.start(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: java-rce-script-engine
+    name: Java 代码执行 - ScriptEngine
+    description: 使用 ScriptEngine 执行脚本代码
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ScriptEngine.eval(
+      - scriptEngine.eval(
+      - engine.eval(
+      - ScriptEngineManager(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - code_injection
+
+  - id: java-rce-expression-language
+    name: Java 表达式注入 - EL/OGNL/SpEL
+    description: 表达式语言注入可能导致 RCE
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ELProcessor.eval(
+      - ValueExpression.getValue(
+      - Ognl.getValue(
+      - OgnlUtil.getValue(
+      - SpelExpressionParser(
+      - StandardEvaluationContext(
+      - parseExpression(
+      - expression.getValue(
+    cwe_ids:
+      - CWE-917
+    tags:
+      - rce
+      - expression_injection
+      - ognl
+      - spel
+
+  # ==================== SQL 注入 ====================
+  - id: java-sqli-statement
+    name: Java SQL 注入 - Statement
+    description: 使用 Statement 执行拼接的 SQL 语句
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Statement.execute(
+      - Statement.executeQuery(
+      - Statement.executeUpdate(
+      - statement.execute(
+      - statement.executeQuery(
+      - statement.executeUpdate(
+      - createStatement(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: java-sqli-hibernate
+    name: Java SQL 注入 - Hibernate
+    description: Hibernate 的 createQuery/createSQLQuery 可能导致 SQL 注入
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - createQuery(
+      - createSQLQuery(
+      - createNativeQuery(
+      - session.createQuery(
+      - entityManager.createQuery(
+      - entityManager.createNativeQuery(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - hibernate
+
+  - id: java-sqli-mybatis
+    name: Java SQL 注入 - MyBatis
+    description: MyBatis 的 ${} 占位符可能导致 SQL 注入
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - '"${"'
+      - '"${}"'
+      - selectList(
+      - selectOne(
+      - insert(
+      - update(
+      - delete(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - mybatis
+
+  - id: java-sqli-spring-jdbc
+    name: Java SQL 注入 - Spring JDBC
+    description: Spring JdbcTemplate 的 query/update 方法
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - jdbcTemplate.query(
+      - jdbcTemplate.queryForObject(
+      - jdbcTemplate.queryForList(
+      - jdbcTemplate.update(
+      - jdbcTemplate.execute(
+      - JdbcTemplate.query(
+      - JdbcTemplate.update(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - spring
+
+  # ==================== 文件操作 ====================
+  - id: java-file-read
+    name: Java 任意文件读取
+    description: 文件读取操作，路径可控可能导致任意文件读取
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FileInputStream(
+      - FileReader(
+      - Files.readAllBytes(
+      - Files.readAllLines(
+      - Files.readString(
+      - Files.newInputStream(
+      - BufferedReader(
+      - new File(
+      - Paths.get(
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: java-file-write
+    name: Java 任意文件写入
+    description: 文件写入操作，路径可控可能导致任意文件写入
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FileOutputStream(
+      - FileWriter(
+      - Files.write(
+      - Files.writeString(
+      - Files.copy(
+      - Files.move(
+      - BufferedWriter(
+      - PrintWriter(
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_write
+
+  - id: java-file-upload
+    name: Java 文件上传
+    description: 文件上传处理不当可能导致任意文件上传
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - MultipartFile.transferTo(
+      - Part.write(
+      - getInputStream(
+      - getOriginalFilename(
+    cwe_ids:
+      - CWE-434
+    tags:
+      - file_upload
+
+  # ==================== 反序列化 ====================
+  - id: java-deserialize-objectinputstream
+    name: Java 反序列化 - ObjectInputStream
+    description: ObjectInputStream 反序列化不可信数据可能导致 RCE
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ObjectInputStream(
+      - readObject(
+      - readUnshared(
+      - new ObjectInputStream(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: java-deserialize-xmldecoder
+    name: Java 反序列化 - XMLDecoder
+    description: XMLDecoder 反序列化可能导致 RCE
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - XMLDecoder(
+      - new XMLDecoder(
+      - xmlDecoder.readObject(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: java-deserialize-yaml
+    name: Java 反序列化 - SnakeYAML
+    description: SnakeYAML 的 load 方法可能导致 RCE
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Yaml.load(
+      - yaml.load(
+      - new Yaml(
+      - Yaml().load(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - yaml
+
+  - id: java-deserialize-json
+    name: Java 反序列化 - JSON
+    description: JSON 反序列化库 (Jackson/Fastjson/Gson)
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ObjectMapper.readValue(
+      - objectMapper.readValue(
+      - JSON.parseObject(
+      - JSON.parse(
+      - Gson.fromJson(
+      - gson.fromJson(
+      - JsonParser.parseString(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - json
+
+  - id: java-deserialize-xstream
+    name: Java 反序列化 - XStream
+    description: XStream 反序列化可能导致 RCE
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - XStream.fromXML(
+      - xstream.fromXML(
+      - new XStream(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - xstream
+
+  # ==================== SSRF ====================
+  - id: java-ssrf-url
+    name: Java SSRF - URL 连接
+    description: URL 连接目标可控可能导致 SSRF
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - URL.openConnection(
+      - URL.openStream(
+      - new URL(
+      - url.openConnection(
+      - url.openStream(
+      - HttpURLConnection(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: java-ssrf-httpclient
+    name: Java SSRF - HttpClient
+    description: HttpClient 请求目标可控可能导致 SSRF
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - HttpClient.execute(
+      - httpClient.execute(
+      - CloseableHttpClient.execute(
+      - HttpGet(
+      - HttpPost(
+      - HttpPut(
+      - HttpDelete(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - httpclient
+
+  - id: java-ssrf-resttemplate
+    name: Java SSRF - RestTemplate
+    description: RestTemplate 请求目标可控可能导致 SSRF
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - RestTemplate.getForObject(
+      - RestTemplate.getForEntity(
+      - RestTemplate.postForObject(
+      - RestTemplate.postForEntity(
+      - RestTemplate.exchange(
+      - restTemplate.getForObject(
+      - restTemplate.postForObject(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - spring
+
+  - id: java-ssrf-okhttp
+    name: Java SSRF - OkHttp
+    description: OkHttp 请求目标可控可能导致 SSRF
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - OkHttpClient(
+      - Request.Builder(
+      - newCall(
+      - client.newCall(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - okhttp
+
+  # ==================== XXE ====================
+  - id: java-xxe-dom
+    name: Java XXE - DOM 解析
+    description: XML DOM 解析未禁用外部实体可能导致 XXE
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - DocumentBuilderFactory.newInstance(
+      - DocumentBuilder.parse(
+      - documentBuilder.parse(
+      - newDocumentBuilder(
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  - id: java-xxe-sax
+    name: Java XXE - SAX 解析
+    description: XML SAX 解析未禁用外部实体可能导致 XXE
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - SAXParserFactory.newInstance(
+      - SAXParser.parse(
+      - saxParser.parse(
+      - XMLReader.parse(
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  - id: java-xxe-jaxb
+    name: Java XXE - JAXB
+    description: JAXB 反序列化 XML
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Unmarshaller.unmarshal(
+      - unmarshaller.unmarshal(
+      - JAXBContext.createUnmarshaller(
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+      - jaxb
+
+  # ==================== SSTI ====================
+  - id: java-ssti-velocity
+    name: Java 模板注入 - Velocity
+    description: Velocity 模板内容可控可能导致 SSTI
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Velocity.evaluate(
+      - VelocityEngine.evaluate(
+      - Template.merge(
+      - velocityEngine.evaluate(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - velocity
+
+  - id: java-ssti-freemarker
+    name: Java 模板注入 - FreeMarker
+    description: FreeMarker 模板内容可控可能导致 SSTI
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Template.process(
+      - template.process(
+      - Configuration.getTemplate(
+      - new Template(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - freemarker
+
+  - id: java-ssti-thymeleaf
+    name: Java 模板注入 - Thymeleaf
+    description: Thymeleaf 模板处理
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - TemplateEngine.process(
+      - templateEngine.process(
+      - SpringTemplateEngine(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - thymeleaf
+
+  # ==================== LDAP 注入 ====================
+  - id: java-ldap-injection
+    name: Java LDAP 注入
+    description: LDAP 查询参数可控可能导致 LDAP 注入
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - DirContext.search(
+      - dirContext.search(
+      - LdapTemplate.search(
+      - ldapTemplate.search(
+      - InitialDirContext(
+    cwe_ids:
+      - CWE-90
+    tags:
+      - ldap_injection
+
+  # ==================== XSS ====================
+  - id: java-xss-response
+    name: Java XSS - Response 输出
+    description: 直接输出用户输入可能导致 XSS
+    language: java
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - response.getWriter().write(
+      - response.getWriter().print(
+      - PrintWriter.write(
+      - PrintWriter.print(
+      - out.write(
+      - out.print(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+
+  # ==================== 加密相关 ====================
+  - id: java-weak-crypto
+    name: Java 弱加密算法
+    description: 使用弱加密算法
+    language: java
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - 'MessageDigest.getInstance("MD5"'
+      - 'MessageDigest.getInstance("SHA1"'
+      - 'MessageDigest.getInstance("SHA-1"'
+      - 'Cipher.getInstance("DES"'
+      - 'Cipher.getInstance("RC4"'
+      - 'Cipher.getInstance("AES/ECB"'
+    cwe_ids:
+      - CWE-327
+      - CWE-328
+    tags:
+      - weak_crypto
+
+  - id: java-weak-random
+    name: Java 弱随机数
+    description: 使用不安全的随机数生成器
+    language: java
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - new Random(
+      - Random.nextInt(
+      - Math.random(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: java-hardcoded-credentials
+    name: Java 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: java
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 开放重定向 ====================
+  - id: java-open-redirect
+    name: Java 开放重定向
+    description: 重定向目标可控可能导致钓鱼攻击
+    language: java
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - response.sendRedirect(
+      - HttpServletResponse.sendRedirect(
+      - RedirectView(
+      - "redirect:"
+    cwe_ids:
+      - CWE-601
+    tags:
+      - open_redirect
+
+  # ==================== 日志注入 ====================
+  - id: java-log-injection
+    name: Java 日志注入
+    description: 用户输入直接写入日志 (Log4j/SLF4J/Logback)
+    language: java
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - logger.info(
+      - logger.debug(
+      - logger.error(
+      - logger.warn(
+      - Logger.info(
+      - Logger.debug(
+      - Logger.error(
+      - log.info(
+      - log.debug(
+      - log.error(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  - id: java-log4j-jndi
+    name: Java Log4j JNDI 注入
+    description: Log4j JNDI 注入 (CVE-2021-44228)
+    language: java
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - "${jndi:"
+      - "${jndi:ldap:"
+      - "${jndi:rmi:"
+    cwe_ids:
+      - CWE-917
+    tags:
+      - log4j
+      - jndi
+      - rce
+
+  # ==================== 输入源 (Source) ====================
+  - id: java-source-servlet-request
+    name: Java Servlet 请求参数
+    description: Servlet 请求参数
+    language: java
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.getParameter(
+      - request.getParameterValues(
+      - request.getParameterMap(
+      - request.getHeader(
+      - request.getCookies(
+      - request.getInputStream(
+      - request.getReader(
+      - HttpServletRequest.getParameter(
+    tags:
+      - source
+      - servlet
+
+  - id: java-source-spring-request
+    name: Java Spring 请求参数
+    description: Spring MVC 请求参数
+    language: java
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "@RequestParam"
+      - "@PathVariable"
+      - "@RequestBody"
+      - "@RequestHeader"
+      - "@CookieValue"
+      - "@ModelAttribute"
+    tags:
+      - source
+      - spring
+
+  - id: java-source-jax-rs
+    name: Java JAX-RS 请求参数
+    description: JAX-RS 请求参数
+    language: java
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "@QueryParam"
+      - "@PathParam"
+      - "@FormParam"
+      - "@HeaderParam"
+      - "@CookieParam"
+    tags:
+      - source
+      - jax-rs
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: java-sanitizer-escape
+    name: Java 转义函数
+    description: HTML/SQL 转义函数
+    language: java
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - StringEscapeUtils.escapeHtml(
+      - HtmlUtils.htmlEscape(
+      - ESAPI.encoder().encodeForHTML(
+      - Encode.forHtml(
+      - Encode.forJavaScript(
+    tags:
+      - sanitizer
+      - escape
+
+  - id: java-sanitizer-prepared-statement
+    name: Java PreparedStatement
+    description: 使用 PreparedStatement 防止 SQL 注入
+    language: java
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - PreparedStatement(
+      - prepareStatement(
+      - setString(
+      - setInt(
+      - setLong(
+    tags:
+      - sanitizer
+      - sql
+
+  # ==================== 认证/授权 ====================
+  - id: java-auth-jwt
+    name: Java JWT 处理
+    description: JWT 令牌处理
+    language: java
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JWT.decode(
+      - JWT.verify(
+      - JWTVerifier.verify(
+      - Jwts.parser(
+      - Jwts.parserBuilder(
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: java-auth-spring-security
+    name: Java Spring Security
+    description: Spring Security 配置
+    language: java
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - permitAll(
+      - anonymous(
+      - httpBasic(
+      - csrf().disable(
+      - SecurityContextHolder.getContext(
+    cwe_ids:
+      - CWE-862
+    tags:
+      - authentication
+      - authorization
+      - spring

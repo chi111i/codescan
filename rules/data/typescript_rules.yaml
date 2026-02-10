@@ -1,0 +1,536 @@
+# TypeScript 语言安全规则
+# 继承 JavaScript 规则并添加 TypeScript 特定模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: ts-rce-child-process
+    name: TS 命令执行 - child_process
+    description: 使用 child_process 执行系统命令
+    language: typescript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - child_process.exec
+      - child_process.execSync
+      - child_process.spawn
+      - child_process.spawnSync
+      - child_process.execFile
+      - child_process.execFileSync
+      - exec(
+      - execSync(
+      - spawn(
+      - spawnSync(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: ts-rce-eval
+    name: TS 代码执行 - eval
+    description: 动态代码执行
+    language: typescript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - eval(
+      - Function(
+      - new Function(
+      - setTimeout(
+      - setInterval(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - code_injection
+
+  - id: ts-rce-vm
+    name: TS 代码执行 - vm 模块
+    description: vm 模块执行代码
+    language: typescript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - vm.runInContext
+      - vm.runInNewContext
+      - vm.runInThisContext
+      - vm.Script
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+
+  # ==================== SQL 注入 ====================
+  - id: ts-sqli-raw-query
+    name: TS SQL 注入 - 原始查询
+    description: 直接拼接 SQL 语句
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .query(
+      - .execute(
+      - .raw(
+      - connection.query
+      - pool.query
+      - knex.raw
+      - sequelize.query
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: ts-sqli-typeorm
+    name: TS SQL 注入 - TypeORM
+    description: TypeORM 的 query/createQueryBuilder 可能导致 SQL 注入
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .query(
+      - createQueryBuilder
+      - .where(
+      - .andWhere(
+      - .orWhere(
+      - .orderBy(
+      - getRepository
+      - EntityManager.query
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - typeorm
+
+  - id: ts-sqli-prisma
+    name: TS SQL 注入 - Prisma
+    description: Prisma 的 $queryRaw 可能导致 SQL 注入
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - $queryRaw
+      - $executeRaw
+      - $queryRawUnsafe
+      - $executeRawUnsafe
+      - Prisma.sql
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - prisma
+
+  - id: ts-sqli-mongodb
+    name: TS NoSQL 注入 - MongoDB
+    description: MongoDB 查询可能导致 NoSQL 注入
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .find(
+      - .findOne(
+      - .findOneAndUpdate(
+      - .updateOne(
+      - .deleteOne(
+      - .aggregate(
+      - $where
+      - $regex
+    cwe_ids:
+      - CWE-943
+    tags:
+      - nosql_injection
+
+  # ==================== 文件操作 ====================
+  - id: ts-file-read
+    name: TS 任意文件读取
+    description: 文件读取操作
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fs.readFile
+      - fs.readFileSync
+      - fs.promises.readFile
+      - fs.createReadStream
+      - readFile(
+      - readFileSync(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: ts-file-write
+    name: TS 任意文件写入
+    description: 文件写入操作
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fs.writeFile
+      - fs.writeFileSync
+      - fs.promises.writeFile
+      - fs.createWriteStream
+      - fs.appendFile
+      - writeFile(
+      - writeFileSync(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  # ==================== 反序列化 ====================
+  - id: ts-deserialize-json
+    name: TS 反序列化 - JSON
+    description: JSON 解析
+    language: typescript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JSON.parse
+      - plainToClass
+      - plainToInstance
+      - classToPlain
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: ts-deserialize-class-transformer
+    name: TS 反序列化 - class-transformer
+    description: class-transformer 反序列化
+    language: typescript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - plainToClass
+      - plainToInstance
+      - classToPlain
+      - instanceToPlain
+      - "@Transform"
+      - "@Type"
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  # ==================== 原型污染 ====================
+  - id: ts-prototype-pollution
+    name: TS 原型污染
+    description: 对象合并可能导致原型污染
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Object.assign
+      - _.merge
+      - _.defaultsDeep
+      - lodash.merge
+      - deepmerge
+      - spread operator
+    cwe_ids:
+      - CWE-1321
+    tags:
+      - prototype_pollution
+
+  # ==================== SSRF ====================
+  - id: ts-ssrf-http
+    name: TS SSRF - HTTP 请求
+    description: HTTP 请求 URL 可控
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - axios(
+      - axios.get
+      - axios.post
+      - axios.put
+      - axios.delete
+      - fetch(
+      - http.get
+      - http.request
+      - https.get
+      - https.request
+      - got(
+      - node-fetch
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  # ==================== XSS ====================
+  - id: ts-xss-dom
+    name: TS DOM XSS
+    description: DOM 操作可能导致 XSS
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - innerHTML
+      - outerHTML
+      - insertAdjacentHTML
+      - document.write
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+
+  - id: ts-xss-react
+    name: TS React XSS
+    description: React dangerouslySetInnerHTML
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - dangerouslySetInnerHTML
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - react
+
+  - id: ts-xss-angular
+    name: TS Angular XSS
+    description: Angular 绕过安全检查
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - bypassSecurityTrustHtml
+      - bypassSecurityTrustScript
+      - bypassSecurityTrustStyle
+      - bypassSecurityTrustUrl
+      - bypassSecurityTrustResourceUrl
+      - DomSanitizer
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - angular
+
+  # ==================== 路径遍历 ====================
+  - id: ts-path-traversal
+    name: TS 路径遍历
+    description: 路径操作
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - path.join
+      - path.resolve
+      - path.normalize
+      - res.sendFile
+      - res.download
+    cwe_ids:
+      - CWE-22
+    tags:
+      - path_traversal
+
+  # ==================== 加密相关 ====================
+  - id: ts-weak-crypto
+    name: TS 弱加密算法
+    description: 使用弱加密算法
+    language: typescript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - crypto.createHash('md5')
+      - crypto.createHash('sha1')
+      - CryptoJS.MD5
+      - CryptoJS.SHA1
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: ts-weak-random
+    name: TS 弱随机数
+    description: Math.random 不应用于安全场景
+    language: typescript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Math.random
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: ts-hardcoded-credentials
+    name: TS 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: typescript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 输入源 (Source) ====================
+  - id: ts-source-express-request
+    name: TS Express 请求参数
+    description: Express 请求参数
+    language: typescript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - req.params
+      - req.query
+      - req.body
+      - req.headers
+      - req.cookies
+      - req.files
+      - Request.params
+      - Request.query
+      - Request.body
+    tags:
+      - source
+      - express
+
+  - id: ts-source-nestjs-request
+    name: TS NestJS 请求参数
+    description: NestJS 请求参数
+    language: typescript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "@Param("
+      - "@Query("
+      - "@Body("
+      - "@Headers("
+      - "@Req("
+      - "@Request("
+    tags:
+      - source
+      - nestjs
+
+  - id: ts-source-fastify
+    name: TS Fastify 请求参数
+    description: Fastify 请求参数
+    language: typescript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.params
+      - request.query
+      - request.body
+      - request.headers
+    tags:
+      - source
+      - fastify
+
+  - id: ts-source-env
+    name: TS 环境变量
+    description: 环境变量
+    language: typescript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - process.env
+    tags:
+      - source
+      - environment
+
+  # ==================== 认证/授权 ====================
+  - id: ts-auth-jwt
+    name: TS JWT 处理
+    description: JWT 令牌处理
+    language: typescript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - jwt.verify
+      - jwt.decode
+      - jwt.sign
+      - JwtService.verify
+      - JwtService.sign
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: ts-auth-decorator
+    name: TS 认证装饰器
+    description: 认证相关装饰器
+    language: typescript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - "@UseGuards("
+      - "@Public("
+      - "@Roles("
+      - "@Auth("
+    cwe_ids:
+      - CWE-862
+    tags:
+      - authentication
+      - authorization
+
+  # ==================== 日志注入 ====================
+  - id: ts-log-injection
+    name: TS 日志注入
+    description: 用户输入写入日志
+    language: typescript
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - console.log
+      - console.error
+      - console.warn
+      - logger.log
+      - logger.error
+      - Logger.log
+      - Logger.error
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: ts-sanitizer-escape
+    name: TS 转义函数
+    description: 转义函数
+    language: typescript
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - encodeURIComponent
+      - encodeURI
+      - DOMPurify.sanitize
+      - sanitizeHtml
+      - validator.escape
+    tags:
+      - sanitizer
+      - escape
+
+  - id: ts-sanitizer-validation
+    name: TS 输入验证
+    description: 输入验证
+    language: typescript
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - class-validator
+      - "@IsString("
+      - "@IsNumber("
+      - "@IsEmail("
+      - "@IsUrl("
+      - "@IsInt("
+      - "@Min("
+      - "@Max("
+      - "@Length("
+      - ValidationPipe
+      - Joi.validate
+      - zod.parse
+    tags:
+      - sanitizer
+      - validation

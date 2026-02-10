@@ -1,0 +1,605 @@
+# C/C++ 语言安全规则
+# 覆盖 C/C++ 常见内存安全和安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: c-rce-system
+    name: C 命令执行 - system
+    description: 使用 system/popen 执行系统命令
+    language: c
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - system(
+      - popen(
+      - execl(
+      - execle(
+      - execlp(
+      - execv(
+      - execve(
+      - execvp(
+      - fork(
+      - vfork(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: cpp-rce-system
+    name: C++ 命令执行 - system
+    description: 使用 system/popen 执行系统命令
+    language: cpp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - system(
+      - popen(
+      - execl(
+      - execle(
+      - execlp(
+      - execv(
+      - execve(
+      - execvp(
+      - fork(
+      - std::system(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  # ==================== 缓冲区溢出 ====================
+  - id: c-buffer-overflow-strcpy
+    name: C 缓冲区溢出 - strcpy
+    description: 使用不安全的字符串复制函数
+    language: c
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - strcpy(
+      - strcat(
+      - sprintf(
+      - vsprintf(
+      - gets(
+      - scanf(
+      - sscanf(
+      - fscanf(
+    cwe_ids:
+      - CWE-120
+      - CWE-121
+      - CWE-122
+    tags:
+      - buffer_overflow
+      - memory_safety
+
+  - id: cpp-buffer-overflow-strcpy
+    name: C++ 缓冲区溢出 - strcpy
+    description: 使用不安全的字符串复制函数
+    language: cpp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - strcpy(
+      - strcat(
+      - sprintf(
+      - vsprintf(
+      - gets(
+      - scanf(
+      - sscanf(
+    cwe_ids:
+      - CWE-120
+      - CWE-121
+    tags:
+      - buffer_overflow
+      - memory_safety
+
+  - id: c-buffer-overflow-memcpy
+    name: C 缓冲区溢出 - memcpy
+    description: 内存复制操作可能导致溢出
+    language: c
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - memcpy(
+      - memmove(
+      - memset(
+      - bcopy(
+      - bzero(
+    cwe_ids:
+      - CWE-120
+      - CWE-805
+    tags:
+      - buffer_overflow
+      - memory_safety
+
+  - id: cpp-buffer-overflow-memcpy
+    name: C++ 缓冲区溢出 - memcpy
+    description: 内存复制操作可能导致溢出
+    language: cpp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - memcpy(
+      - memmove(
+      - memset(
+      - std::memcpy(
+      - std::memmove(
+    cwe_ids:
+      - CWE-120
+      - CWE-805
+    tags:
+      - buffer_overflow
+      - memory_safety
+
+  # ==================== 格式化字符串 ====================
+  - id: c-format-string
+    name: C 格式化字符串漏洞
+    description: 格式化字符串参数可控
+    language: c
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - printf(
+      - fprintf(
+      - sprintf(
+      - snprintf(
+      - vprintf(
+      - vfprintf(
+      - vsprintf(
+      - vsnprintf(
+      - syslog(
+    cwe_ids:
+      - CWE-134
+    tags:
+      - format_string
+
+  - id: cpp-format-string
+    name: C++ 格式化字符串漏洞
+    description: 格式化字符串参数可控
+    language: cpp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - printf(
+      - fprintf(
+      - sprintf(
+      - snprintf(
+      - std::printf(
+      - std::fprintf(
+    cwe_ids:
+      - CWE-134
+    tags:
+      - format_string
+
+  # ==================== 文件操作 ====================
+  - id: c-file-read
+    name: C 文件读取
+    description: 文件读取操作
+    language: c
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fopen(
+      - open(
+      - fread(
+      - read(
+      - fgets(
+      - fgetc(
+      - getc(
+      - getchar(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: cpp-file-read
+    name: C++ 文件读取
+    description: 文件读取操作
+    language: cpp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fopen(
+      - open(
+      - fread(
+      - std::ifstream(
+      - std::fstream(
+      - ifstream.open(
+      - ifstream.read(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: c-file-write
+    name: C 文件写入
+    description: 文件写入操作
+    language: c
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fwrite(
+      - write(
+      - fputs(
+      - fputc(
+      - putc(
+      - putchar(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  - id: cpp-file-write
+    name: C++ 文件写入
+    description: 文件写入操作
+    language: cpp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fwrite(
+      - write(
+      - std::ofstream(
+      - ofstream.write(
+      - ofstream.open(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  # ==================== 内存管理 ====================
+  - id: c-memory-leak
+    name: C 内存泄漏风险
+    description: 动态内存分配需要正确释放
+    language: c
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - malloc(
+      - calloc(
+      - realloc(
+      - alloca(
+      - strdup(
+      - strndup(
+    cwe_ids:
+      - CWE-401
+      - CWE-415
+      - CWE-416
+    tags:
+      - memory_leak
+      - memory_safety
+
+  - id: cpp-memory-leak
+    name: C++ 内存泄漏风险
+    description: 动态内存分配需要正确释放
+    language: cpp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - new(
+      - new[](
+      - malloc(
+      - calloc(
+      - realloc(
+    cwe_ids:
+      - CWE-401
+      - CWE-415
+      - CWE-416
+    tags:
+      - memory_leak
+      - memory_safety
+
+  - id: c-use-after-free
+    name: C Use-After-Free 风险
+    description: 释放后使用指针
+    language: c
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - free(
+    cwe_ids:
+      - CWE-416
+    tags:
+      - use_after_free
+      - memory_safety
+
+  - id: cpp-use-after-free
+    name: C++ Use-After-Free 风险
+    description: 释放后使用指针
+    language: cpp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - delete(
+      - delete[](
+      - free(
+    cwe_ids:
+      - CWE-416
+    tags:
+      - use_after_free
+      - memory_safety
+
+  # ==================== 整数溢出 ====================
+  - id: c-integer-overflow
+    name: C 整数溢出
+    description: 整数运算可能溢出
+    language: c
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - atoi(
+      - atol(
+      - atoll(
+      - strtol(
+      - strtoul(
+      - strtoll(
+    cwe_ids:
+      - CWE-190
+      - CWE-191
+    tags:
+      - integer_overflow
+
+  - id: cpp-integer-overflow
+    name: C++ 整数溢出
+    description: 整数运算可能溢出
+    language: cpp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - atoi(
+      - atol(
+      - std::stoi(
+      - std::stol(
+      - std::stoul(
+    cwe_ids:
+      - CWE-190
+      - CWE-191
+    tags:
+      - integer_overflow
+
+  # ==================== 加密相关 ====================
+  - id: c-weak-crypto
+    name: C 弱加密算法
+    description: 使用弱加密算法
+    language: c
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - MD5(
+      - MD5_Init(
+      - SHA1(
+      - SHA1_Init(
+      - DES_ecb_encrypt(
+      - DES_ncbc_encrypt(
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: cpp-weak-crypto
+    name: C++ 弱加密算法
+    description: 使用弱加密算法
+    language: cpp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - MD5(
+      - SHA1(
+      - EVP_md5(
+      - EVP_sha1(
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: c-weak-random
+    name: C 弱随机数
+    description: 使用不安全的随机数生成
+    language: c
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - rand(
+      - srand(
+      - random(
+      - srandom(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  - id: cpp-weak-random
+    name: C++ 弱随机数
+    description: 使用不安全的随机数生成
+    language: cpp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - rand(
+      - srand(
+      - std::rand(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: c-hardcoded-credentials
+    name: C 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: c
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:api_key
+      - prefix:token
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  - id: cpp-hardcoded-credentials
+    name: C++ 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: cpp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:token
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 竞态条件 ====================
+  - id: c-race-condition
+    name: C 竞态条件
+    description: 文件操作存在 TOCTOU 竞态条件
+    language: c
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - access(
+      - stat(
+      - lstat(
+      - fstat(
+    cwe_ids:
+      - CWE-367
+    tags:
+      - race_condition
+      - toctou
+
+  - id: cpp-race-condition
+    name: C++ 竞态条件
+    description: 文件操作存在 TOCTOU 竞态条件
+    language: cpp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - access(
+      - stat(
+      - std::filesystem::exists(
+      - std::filesystem::status(
+    cwe_ids:
+      - CWE-367
+    tags:
+      - race_condition
+      - toctou
+
+  # ==================== 输入源 (Source) ====================
+  - id: c-source-input
+    name: C 输入源
+    description: C 用户输入源
+    language: c
+    rule_type: source
+    risk_level: info
+    patterns:
+      - stdin
+      - argv
+      - argc
+      - getenv(
+      - fgets(
+      - gets(
+      - scanf(
+      - read(
+      - recv(
+      - recvfrom(
+    tags:
+      - source
+
+  - id: cpp-source-input
+    name: C++ 输入源
+    description: C++ 用户输入源
+    language: cpp
+    rule_type: source
+    risk_level: info
+    patterns:
+      - std::cin
+      - std::getline(
+      - argv
+      - getenv(
+      - std::getenv(
+    tags:
+      - source
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: c-sanitizer-bounds-check
+    name: C 边界检查函数
+    description: 使用带边界检查的安全函数
+    language: c
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - strncpy(
+      - strncat(
+      - snprintf(
+      - fgets(
+      - memcpy_s(
+      - strcpy_s(
+      - strcat_s(
+    tags:
+      - sanitizer
+      - bounds_check
+
+  - id: cpp-sanitizer-bounds-check
+    name: C++ 边界检查函数
+    description: 使用带边界检查的安全函数
+    language: cpp
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - strncpy(
+      - strncat(
+      - snprintf(
+      - std::string(
+      - std::vector(
+    tags:
+      - sanitizer
+      - bounds_check
+
+  # ==================== 网络相关 ====================
+  - id: c-network-socket
+    name: C 网络套接字
+    description: 网络套接字操作
+    language: c
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - socket(
+      - connect(
+      - bind(
+      - listen(
+      - accept(
+      - send(
+      - sendto(
+      - recv(
+      - recvfrom(
+    cwe_ids:
+      - CWE-20
+    tags:
+      - network
+
+  - id: cpp-network-socket
+    name: C++ 网络套接字
+    description: 网络套接字操作
+    language: cpp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - socket(
+      - connect(
+      - bind(
+      - listen(
+      - accept(
+      - boost::asio
+    cwe_ids:
+      - CWE-20
+    tags:
+      - network

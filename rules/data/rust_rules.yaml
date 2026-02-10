@@ -1,0 +1,630 @@
+# Rust 语言安全规则
+# 覆盖 Rust 常见安全漏洞模式（unsafe、Web 框架等）
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: rust-rce-command
+    name: Rust 命令执行 - Command
+    description: 使用 std::process::Command 执行系统命令
+    language: rust
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Command::new(
+      - command.arg(
+      - command.args(
+      - command.spawn(
+      - command.output(
+      - command.status(
+      - std::process::Command
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: rust-rce-shell
+    name: Rust 命令执行 - Shell
+    description: 通过 shell 执行命令
+    language: rust
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - shell(
+      - sh -c
+      - cmd /c
+      - bash -c
+      - /bin/sh
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  # ==================== Unsafe 代码 ====================
+  - id: rust-unsafe-block
+    name: Rust Unsafe 代码块
+    description: unsafe 代码块可能包含内存安全问题
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - unsafe {
+      - unsafe fn
+      - unsafe impl
+      - unsafe trait
+    cwe_ids:
+      - CWE-787
+      - CWE-416
+    tags:
+      - unsafe
+      - memory_safety
+
+  - id: rust-unsafe-raw-pointer
+    name: Rust 原始指针操作
+    description: 原始指针操作可能导致内存安全问题
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - "*mut"
+      - "*const"
+      - as *mut
+      - as *const
+      - ptr::read(
+      - ptr::write(
+      - ptr::copy(
+      - ptr::copy_nonoverlapping(
+      - std::ptr::null(
+      - std::ptr::null_mut(
+    cwe_ids:
+      - CWE-787
+      - CWE-125
+    tags:
+      - unsafe
+      - memory_safety
+
+  - id: rust-unsafe-transmute
+    name: Rust Transmute
+    description: std::mem::transmute 可能导致未定义行为
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - std::mem::transmute(
+      - mem::transmute(
+      - transmute_copy(
+    cwe_ids:
+      - CWE-843
+    tags:
+      - unsafe
+      - type_confusion
+
+  - id: rust-unsafe-ffi
+    name: Rust FFI 调用
+    description: 外部函数接口调用
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - extern "C"
+      - extern "system"
+      - "#[link("
+      - "libc::"
+      - "std::ffi::"
+      - CString::new(
+      - CStr::from_ptr(
+    cwe_ids:
+      - CWE-787
+    tags:
+      - unsafe
+      - ffi
+
+  # ==================== SQL 注入 ====================
+  - id: rust-sqli-diesel
+    name: Rust SQL 注入 - Diesel
+    description: Diesel ORM 原始 SQL
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - sql_query(
+      - diesel::sql_query(
+      - .execute(
+      - .load(
+      - .get_result(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - diesel
+
+  - id: rust-sqli-sqlx
+    name: Rust SQL 注入 - SQLx
+    description: SQLx 原始查询
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - sqlx::query(
+      - query!(
+      - query_as!(
+      - query_scalar!(
+      - .fetch_one(
+      - .fetch_all(
+      - .execute(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - sqlx
+
+  - id: rust-sqli-rusqlite
+    name: Rust SQL 注入 - rusqlite
+    description: rusqlite 查询
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - conn.execute(
+      - conn.query_row(
+      - conn.prepare(
+      - Statement::execute(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - rusqlite
+
+  # ==================== 文件操作 ====================
+  - id: rust-file-read
+    name: Rust 文件读取
+    description: 文件读取操作
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - std::fs::read(
+      - std::fs::read_to_string(
+      - File::open(
+      - fs::read(
+      - fs::read_to_string(
+      - BufReader::new(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: rust-file-write
+    name: Rust 文件写入
+    description: 文件写入操作
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - std::fs::write(
+      - File::create(
+      - fs::write(
+      - fs::copy(
+      - fs::rename(
+      - BufWriter::new(
+      - OpenOptions::new(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  - id: rust-file-include
+    name: Rust 文件包含
+    description: 编译时文件包含
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - include_str!(
+      - include_bytes!(
+      - include!(
+    cwe_ids:
+      - CWE-98
+    tags:
+      - file_inclusion
+
+  # ==================== 反序列化 ====================
+  - id: rust-deserialize-serde
+    name: Rust 反序列化 - Serde
+    description: Serde 反序列化
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - serde_json::from_str(
+      - serde_json::from_slice(
+      - serde_json::from_reader(
+      - serde_yaml::from_str(
+      - toml::from_str(
+      - bincode::deserialize(
+      - rmp_serde::from_slice(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: rust-deserialize-pickle
+    name: Rust 反序列化 - Pickle
+    description: Pickle 反序列化可能导致 RCE
+    language: rust
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - serde_pickle::from_slice(
+      - "pickle::"
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  # ==================== SSRF ====================
+  - id: rust-ssrf-reqwest
+    name: Rust SSRF - reqwest
+    description: reqwest HTTP 请求
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - reqwest::get(
+      - reqwest::Client::new(
+      - client.get(
+      - client.post(
+      - client.put(
+      - client.delete(
+      - .send(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - reqwest
+
+  - id: rust-ssrf-hyper
+    name: Rust SSRF - hyper
+    description: hyper HTTP 请求
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - hyper::Client::new(
+      - Client::builder(
+      - Uri::from_str(
+      - Request::builder(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - hyper
+
+  - id: rust-ssrf-ureq
+    name: Rust SSRF - ureq
+    description: ureq HTTP 请求
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ureq::get(
+      - ureq::post(
+      - ureq::agent(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - ureq
+
+  # ==================== XSS ====================
+  - id: rust-xss-html
+    name: Rust XSS - HTML 输出
+    description: 直接输出 HTML 可能导致 XSS
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Html(
+      - format!(
+      - write!(
+      - HttpResponse::Ok().body(
+      - Html::from(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+
+  - id: rust-xss-template
+    name: Rust XSS - 模板引擎
+    description: 模板引擎未转义输出
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - tera::Context
+      - handlebars::Handlebars
+      - askama::Template
+      - maud::html!
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - template
+
+  # ==================== 加密相关 ====================
+  - id: rust-weak-crypto
+    name: Rust 弱加密算法
+    description: 使用弱加密算法
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - md5::Md5
+      - sha1::Sha1
+      - Md5::new(
+      - Sha1::new(
+      - md5::compute(
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: rust-weak-random
+    name: Rust 弱随机数
+    description: 使用不安全的随机数生成器
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - rand::thread_rng(
+      - rand::random(
+      - SmallRng::from_entropy(
+      - StdRng::seed_from_u64(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: rust-hardcoded-credentials
+    name: Rust 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: rust
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:api_key
+      - prefix:token
+      - prefix:private_key
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 并发安全 ====================
+  - id: rust-data-race
+    name: Rust 数据竞争风险
+    description: 可能存在数据竞争的模式
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - static mut
+      - UnsafeCell
+      - Cell::new(
+      - RefCell::new(
+      - Rc::new(
+      - Arc::new(
+    cwe_ids:
+      - CWE-362
+    tags:
+      - concurrency
+      - data_race
+
+  - id: rust-deadlock
+    name: Rust 死锁风险
+    description: 可能导致死锁的模式
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Mutex::new(
+      - RwLock::new(
+      - .lock(
+      - .read(
+      - .write(
+    cwe_ids:
+      - CWE-833
+    tags:
+      - concurrency
+      - deadlock
+
+  # ==================== Panic 相关 ====================
+  - id: rust-panic-unwrap
+    name: Rust Panic - unwrap
+    description: unwrap/expect 可能导致 panic
+    language: rust
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - .unwrap(
+      - .expect(
+      - panic!(
+      - unreachable!(
+      - unimplemented!(
+      - todo!(
+    cwe_ids:
+      - CWE-248
+    tags:
+      - panic
+      - availability
+
+  # ==================== 输入源 (Source) ====================
+  - id: rust-source-actix
+    name: Rust Actix-web 请求参数
+    description: Actix-web 请求参数
+    language: rust
+    rule_type: source
+    risk_level: info
+    patterns:
+      - web::Path
+      - web::Query
+      - web::Json
+      - web::Form
+      - HttpRequest
+      - req.headers(
+      - req.uri(
+    tags:
+      - source
+      - actix
+
+  - id: rust-source-axum
+    name: Rust Axum 请求参数
+    description: Axum 请求参数
+    language: rust
+    rule_type: source
+    risk_level: info
+    patterns:
+      - extract::Path
+      - extract::Query
+      - extract::Json
+      - "axum::extract::"
+      - Extension(
+    tags:
+      - source
+      - axum
+
+  - id: rust-source-rocket
+    name: Rust Rocket 请求参数
+    description: Rocket 请求参数
+    language: rust
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "#[get("
+      - "#[post("
+      - Form<
+      - Json<
+      - "rocket::request::"
+    tags:
+      - source
+      - rocket
+
+  - id: rust-source-warp
+    name: Rust Warp 请求参数
+    description: Warp 请求参数
+    language: rust
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "warp::path::"
+      - "warp::query::"
+      - "warp::body::"
+      - "warp::header::"
+    tags:
+      - source
+      - warp
+
+  - id: rust-source-env
+    name: Rust 环境变量
+    description: 环境变量
+    language: rust
+    rule_type: source
+    risk_level: info
+    patterns:
+      - std::env::var(
+      - env::var(
+      - env::args(
+      - std::env::args(
+    tags:
+      - source
+      - environment
+
+  - id: rust-source-stdin
+    name: Rust 标准输入
+    description: 标准输入
+    language: rust
+    rule_type: source
+    risk_level: info
+    patterns:
+      - std::io::stdin(
+      - io::stdin(
+      - BufRead::read_line(
+    tags:
+      - source
+      - stdin
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: rust-sanitizer-escape
+    name: Rust 转义函数
+    description: HTML/URL 转义函数
+    language: rust
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - html_escape::encode_text(
+      - percent_encoding::utf8_percent_encode(
+      - urlencoding::encode(
+      - ammonia::clean(
+    tags:
+      - sanitizer
+      - escape
+
+  - id: rust-sanitizer-validation
+    name: Rust 输入验证
+    description: 输入验证
+    language: rust
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - validator::Validate
+      - "#[validate("
+      - .validate(
+    tags:
+      - sanitizer
+      - validation
+
+  # ==================== 日志注入 ====================
+  - id: rust-log-injection
+    name: Rust 日志注入
+    description: 用户输入写入日志
+    language: rust
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - log::info!(
+      - log::error!(
+      - log::warn!(
+      - log::debug!(
+      - tracing::info!(
+      - tracing::error!(
+      - println!(
+      - eprintln!(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 正则表达式 DoS ====================
+  - id: rust-redos
+    name: Rust ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: rust
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Regex::new(
+      - regex::Regex
+      - .is_match(
+      - .captures(
+      - .find(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos

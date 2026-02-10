@@ -1,0 +1,601 @@
+# Kotlin 语言安全规则
+# 覆盖 Kotlin/Android/Spring Boot 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: kotlin-rce-runtime
+    name: Kotlin 命令执行 - Runtime.exec
+    description: 使用 Runtime.exec 执行系统命令
+    language: kotlin
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Runtime.getRuntime().exec(
+      - runtime.exec(
+      - getRuntime().exec(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: kotlin-rce-processbuilder
+    name: Kotlin 命令执行 - ProcessBuilder
+    description: 使用 ProcessBuilder 执行系统命令
+    language: kotlin
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ProcessBuilder(
+      - processBuilder.command(
+      - processBuilder.start(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: kotlin-rce-script-engine
+    name: Kotlin 代码执行 - ScriptEngine
+    description: 使用 ScriptEngine 执行脚本
+    language: kotlin
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ScriptEngineManager(
+      - scriptEngine.eval(
+      - engine.eval(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - code_injection
+
+  - id: kotlin-rce-reflection
+    name: Kotlin 反射调用
+    description: 使用反射动态调用方法
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Class.forName(
+      - ::class.java
+      - javaClass.getMethod(
+      - method.invoke(
+      - KClass
+      - callBy(
+    cwe_ids:
+      - CWE-470
+    tags:
+      - rce
+      - reflection
+
+  # ==================== SQL 注入 ====================
+  - id: kotlin-sqli-jdbc
+    name: Kotlin SQL 注入 - JDBC
+    description: 使用 Statement 执行拼接的 SQL
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - createStatement(
+      - statement.execute(
+      - statement.executeQuery(
+      - statement.executeUpdate(
+      - connection.prepareStatement(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: kotlin-sqli-exposed
+    name: Kotlin SQL 注入 - Exposed
+    description: Exposed ORM 原始 SQL
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - exec(
+      - TransactionManager.current().exec(
+      - SqlExpressionBuilder
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - exposed
+
+  - id: kotlin-sqli-spring
+    name: Kotlin SQL 注入 - Spring Data
+    description: Spring Data JPA 查询
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - "@Query("
+      - nativeQuery
+      - entityManager.createQuery(
+      - entityManager.createNativeQuery(
+      - jdbcTemplate.query(
+      - jdbcTemplate.update(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - spring
+
+  # ==================== 文件操作 ====================
+  - id: kotlin-file-read
+    name: Kotlin 文件读取
+    description: 文件读取操作
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - File(
+      - FileInputStream(
+      - FileReader(
+      - readText(
+      - readBytes(
+      - readLines(
+      - bufferedReader(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: kotlin-file-write
+    name: Kotlin 文件写入
+    description: 文件写入操作
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FileOutputStream(
+      - FileWriter(
+      - writeText(
+      - writeBytes(
+      - bufferedWriter(
+      - printWriter(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  # ==================== 反序列化 ====================
+  - id: kotlin-deserialize-object
+    name: Kotlin 反序列化 - ObjectInputStream
+    description: ObjectInputStream 反序列化
+    language: kotlin
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ObjectInputStream(
+      - readObject(
+      - readUnshared(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: kotlin-deserialize-json
+    name: Kotlin 反序列化 - JSON
+    description: JSON 反序列化
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ObjectMapper(
+      - objectMapper.readValue(
+      - Json.decodeFromString(
+      - Gson().fromJson(
+      - gson.fromJson(
+      - Moshi.adapter(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - json
+
+  - id: kotlin-deserialize-xml
+    name: Kotlin 反序列化 - XML
+    description: XML 反序列化
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - XmlMapper(
+      - DocumentBuilderFactory.newInstance(
+      - SAXParserFactory.newInstance(
+      - XMLInputFactory.newInstance(
+    cwe_ids:
+      - CWE-502
+      - CWE-611
+    tags:
+      - deserialization
+      - xxe
+
+  # ==================== SSRF ====================
+  - id: kotlin-ssrf-url
+    name: Kotlin SSRF - URL
+    description: URL 连接
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - URL(
+      - url.openConnection(
+      - url.openStream(
+      - HttpURLConnection
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: kotlin-ssrf-okhttp
+    name: Kotlin SSRF - OkHttp
+    description: OkHttp 请求
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - OkHttpClient(
+      - Request.Builder(
+      - client.newCall(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - okhttp
+
+  - id: kotlin-ssrf-ktor
+    name: Kotlin SSRF - Ktor
+    description: Ktor HTTP 客户端
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - HttpClient(
+      - client.get(
+      - client.post(
+      - client.request(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - ktor
+
+  - id: kotlin-ssrf-retrofit
+    name: Kotlin SSRF - Retrofit
+    description: Retrofit HTTP 客户端
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Retrofit.Builder(
+      - retrofit.create(
+      - "@GET("
+      - "@POST("
+      - "@PUT("
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - retrofit
+
+  # ==================== Android 特定 ====================
+  - id: kotlin-android-webview
+    name: Kotlin Android WebView
+    description: WebView 安全配置
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - WebView(
+      - webView.loadUrl(
+      - webView.loadData(
+      - setJavaScriptEnabled(true)
+      - addJavascriptInterface(
+      - WebViewClient(
+    cwe_ids:
+      - CWE-749
+    tags:
+      - android
+      - webview
+
+  - id: kotlin-android-intent
+    name: Kotlin Android Intent
+    description: Intent 组件通信
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Intent(
+      - intent.getStringExtra(
+      - intent.getParcelableExtra(
+      - startActivity(
+      - startService(
+      - sendBroadcast(
+    cwe_ids:
+      - CWE-927
+    tags:
+      - android
+      - intent
+
+  - id: kotlin-android-content-provider
+    name: Kotlin Android ContentProvider
+    description: ContentProvider 数据访问
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - ContentProvider
+      - contentResolver.query(
+      - contentResolver.insert(
+      - contentResolver.update(
+      - contentResolver.delete(
+    cwe_ids:
+      - CWE-200
+    tags:
+      - android
+      - content_provider
+
+  - id: kotlin-android-shared-prefs
+    name: Kotlin Android SharedPreferences
+    description: SharedPreferences 存储敏感数据
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - getSharedPreferences(
+      - SharedPreferences
+      - .edit(
+      - putString(
+      - getString(
+    cwe_ids:
+      - CWE-312
+    tags:
+      - android
+      - storage
+
+  - id: kotlin-android-log
+    name: Kotlin Android 日志
+    description: Android 日志可能泄露敏感信息
+    language: kotlin
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - Log.d(
+      - Log.i(
+      - Log.e(
+      - Log.v(
+      - Log.w(
+    cwe_ids:
+      - CWE-532
+    tags:
+      - android
+      - logging
+
+  # ==================== 加密相关 ====================
+  - id: kotlin-weak-crypto
+    name: Kotlin 弱加密算法
+    description: 使用弱加密算法
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - MessageDigest.getInstance("MD5")
+      - MessageDigest.getInstance("SHA1")
+      - MessageDigest.getInstance("SHA-1")
+      - Cipher.getInstance("DES")
+      - Cipher.getInstance("AES/ECB")
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: kotlin-weak-random
+    name: Kotlin 弱随机数
+    description: 使用不安全的随机数
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Random(
+      - java.util.Random(
+      - Math.random(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: kotlin-hardcoded-credentials
+    name: Kotlin 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: kotlin
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 输入源 (Source) ====================
+  - id: kotlin-source-spring
+    name: Kotlin Spring 请求参数
+    description: Spring 请求参数
+    language: kotlin
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "@RequestParam"
+      - "@PathVariable"
+      - "@RequestBody"
+      - "@RequestHeader"
+      - "@CookieValue"
+    tags:
+      - source
+      - spring
+
+  - id: kotlin-source-ktor
+    name: Kotlin Ktor 请求参数
+    description: Ktor 请求参数
+    language: kotlin
+    rule_type: source
+    risk_level: info
+    patterns:
+      - call.receive(
+      - call.parameters
+      - call.request.headers
+      - call.request.queryParameters
+    tags:
+      - source
+      - ktor
+
+  - id: kotlin-source-android
+    name: Kotlin Android 输入源
+    description: Android 用户输入
+    language: kotlin
+    rule_type: source
+    risk_level: info
+    patterns:
+      - intent.getStringExtra(
+      - intent.extras
+      - Bundle
+      - EditText
+      - getText(
+    tags:
+      - source
+      - android
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: kotlin-sanitizer-escape
+    name: Kotlin 转义函数
+    description: 转义函数
+    language: kotlin
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - StringEscapeUtils.escapeHtml(
+      - HtmlUtils.htmlEscape(
+      - URLEncoder.encode(
+      - TextUtils.htmlEncode(
+    tags:
+      - sanitizer
+      - escape
+
+  - id: kotlin-sanitizer-validation
+    name: Kotlin 输入验证
+    description: 输入验证
+    language: kotlin
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - "@Valid"
+      - "@NotNull"
+      - "@NotBlank"
+      - "@Size"
+      - "@Pattern"
+      - Validators
+    tags:
+      - sanitizer
+      - validation
+
+  # ==================== 认证/授权 ====================
+  - id: kotlin-auth-jwt
+    name: Kotlin JWT 处理
+    description: JWT 令牌处理
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JWT.decode(
+      - JWT.verify(
+      - Jwts.parser(
+      - Jwts.parserBuilder(
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: kotlin-auth-spring-security
+    name: Kotlin Spring Security
+    description: Spring Security 配置
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - permitAll(
+      - anonymous(
+      - csrf().disable(
+      - "@PreAuthorize"
+      - "@Secured"
+      - SecurityContextHolder
+    cwe_ids:
+      - CWE-862
+    tags:
+      - authentication
+      - authorization
+
+  # ==================== 日志注入 ====================
+  - id: kotlin-log-injection
+    name: Kotlin 日志注入
+    description: 用户输入写入日志
+    language: kotlin
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - logger.info(
+      - logger.debug(
+      - logger.error(
+      - logger.warn(
+      - println(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 开放重定向 ====================
+  - id: kotlin-open-redirect
+    name: Kotlin 开放重定向
+    description: 重定向目标可控
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - sendRedirect(
+      - RedirectView(
+      - "redirect:"
+    cwe_ids:
+      - CWE-601
+    tags:
+      - open_redirect
+
+  # ==================== 正则表达式 DoS ====================
+  - id: kotlin-redos
+    name: Kotlin ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: kotlin
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Regex(
+      - Pattern.compile(
+      - .matches(
+      - .find(
+      - .replace(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos

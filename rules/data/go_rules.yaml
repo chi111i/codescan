@@ -1,0 +1,454 @@
+# Go 语言安全规则
+# 覆盖常见的 Go 安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: go-rce-exec-command
+    name: Go 命令执行 - exec.Command
+    description: 使用 exec.Command 执行系统命令，可能导致命令注入
+    language: go
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - exec.Command
+      - exec.CommandContext
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: go-rce-os-exec
+    name: Go 命令执行 - os/syscall
+    description: 使用 os 或 syscall 包执行进程
+    language: go
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - os.StartProcess
+      - syscall.Exec
+      - syscall.ForkExec
+      - syscall.StartProcess
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+
+  # ==================== SQL 注入 ====================
+  - id: go-sqli-db-query
+    name: Go SQL 注入 - database/sql
+    description: 直接拼接 SQL 查询可能导致 SQL 注入
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - db.Query
+      - db.QueryRow
+      - db.Exec
+      - db.QueryContext
+      - db.QueryRowContext
+      - db.ExecContext
+      - DB.Query
+      - DB.QueryRow
+      - DB.Exec
+      - tx.Query
+      - tx.QueryRow
+      - tx.Exec
+      - Tx.Query
+      - Tx.QueryRow
+      - Tx.Exec
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: go-sqli-gorm
+    name: Go SQL 注入 - GORM Raw
+    description: GORM Raw 方法可能导致 SQL 注入
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Raw
+      - Exec
+      - Where
+      - Order
+      - Group
+      - Having
+      - Joins
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - gorm
+
+  # ==================== 文件操作 ====================
+  - id: go-file-read
+    name: Go 任意文件读取
+    description: 文件读取操作，路径可控可能导致任意文件读取
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - os.Open
+      - os.OpenFile
+      - os.ReadFile
+      - ioutil.ReadFile
+      - io.ReadAll
+      - bufio.NewReader
+      - filepath.Join
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: go-file-write
+    name: Go 任意文件写入
+    description: 文件写入操作，路径可控可能导致任意文件写入
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - os.Create
+      - os.WriteFile
+      - ioutil.WriteFile
+      - io.Copy
+      - io.WriteString
+      - bufio.NewWriter
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  # ==================== SSRF ====================
+  - id: go-ssrf-http
+    name: Go SSRF - HTTP 请求
+    description: HTTP 请求 URL 可控可能导致 SSRF
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - http.Get
+      - http.Post
+      - http.PostForm
+      - http.Head
+      - http.Do
+      - http.NewRequest
+      - http.NewRequestWithContext
+      - Client.Get
+      - Client.Post
+      - Client.Do
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: go-ssrf-net
+    name: Go SSRF - 网络连接
+    description: 网络连接目标可控可能导致 SSRF
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - net.Dial
+      - net.DialTimeout
+      - net.DialTCP
+      - net.DialUDP
+      - net.DialIP
+      - net.DialUnix
+      - Dialer.Dial
+      - Dialer.DialContext
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  # ==================== 模板注入 (SSTI) ====================
+  - id: go-ssti-template
+    name: Go 模板注入
+    description: 模板内容可控可能导致模板注入
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - template.HTML
+      - template.JS
+      - template.URL
+      - template.CSS
+      - template.Srcset
+      - template.Must
+      - template.ParseFiles
+      - template.ParseGlob
+      - template.New
+      - Template.Execute
+      - Template.ExecuteTemplate
+    cwe_ids:
+      - CWE-94
+    tags:
+      - ssti
+      - template_injection
+
+  # ==================== 反序列化 ====================
+  - id: go-deserialize-json
+    name: Go 反序列化 - JSON
+    description: JSON 反序列化不当可能导致安全问题
+    language: go
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - json.Unmarshal
+      - json.NewDecoder
+      - Decoder.Decode
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: go-deserialize-xml
+    name: Go 反序列化 - XML
+    description: XML 反序列化可能导致 XXE 攻击
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - xml.Unmarshal
+      - xml.NewDecoder
+      - Decoder.Decode
+    cwe_ids:
+      - CWE-611
+    tags:
+      - deserialization
+      - xxe
+
+  - id: go-deserialize-gob
+    name: Go 反序列化 - Gob
+    description: Gob 反序列化不可信数据可能导致安全问题
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - gob.Decode
+      - gob.NewDecoder
+      - Decoder.Decode
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: go-deserialize-yaml
+    name: Go 反序列化 - YAML
+    description: YAML 反序列化可能导致代码执行
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - yaml.Unmarshal
+      - yaml.NewDecoder
+      - Decoder.Decode
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  # ==================== 不安全操作 ====================
+  - id: go-unsafe-pointer
+    name: Go 不安全指针操作
+    description: 使用 unsafe 包可能导致内存安全问题
+    language: go
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - unsafe.Pointer
+      - unsafe.Sizeof
+      - unsafe.Offsetof
+      - unsafe.Alignof
+    cwe_ids:
+      - CWE-119
+    tags:
+      - memory_safety
+
+  - id: go-reflect-call
+    name: Go 反射调用
+    description: 反射调用可能导致任意方法执行
+    language: go
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - reflect.Value.Call
+      - reflect.Value.Method
+      - reflect.Value.MethodByName
+      - Value.Call
+      - Value.Method
+    cwe_ids:
+      - CWE-470
+    tags:
+      - reflection
+
+  # ==================== 加密相关 ====================
+  - id: go-weak-crypto
+    name: Go 弱加密算法
+    description: 使用弱加密算法可能导致数据泄露
+    language: go
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - md5.New
+      - md5.Sum
+      - sha1.New
+      - sha1.Sum
+      - des.NewCipher
+      - rc4.NewCipher
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: go-hardcoded-credentials
+    name: Go 硬编码凭据
+    description: 代码中硬编码密码或密钥
+    language: go
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:token
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== HTTP 入口点 (Source) ====================
+  - id: go-source-http-request
+    name: Go HTTP 请求参数
+    description: HTTP 请求参数作为用户输入源
+    language: go
+    rule_type: source
+    risk_level: info
+    patterns:
+      - r.URL.Query
+      - r.FormValue
+      - r.PostFormValue
+      - r.Form
+      - r.PostForm
+      - r.Body
+      - r.Header
+      - r.Cookies
+      - Request.URL
+      - Request.Form
+      - Request.Body
+      - c.Query
+      - c.Param
+      - c.PostForm
+      - c.GetHeader
+      - c.Request
+      - Context.Query
+      - Context.Param
+      - Context.FormValue
+      - Ctx.Query
+      - Ctx.Params
+      - Ctx.Body
+    tags:
+      - source
+      - http
+
+  # ==================== Gin 框架 ====================
+  - id: go-gin-source
+    name: Go Gin 框架输入
+    description: Gin 框架的用户输入
+    language: go
+    rule_type: source
+    risk_level: info
+    patterns:
+      - c.Query
+      - c.DefaultQuery
+      - c.Param
+      - c.PostForm
+      - c.DefaultPostForm
+      - c.GetHeader
+      - c.BindJSON
+      - c.ShouldBindJSON
+      - c.Bind
+      - c.ShouldBind
+    tags:
+      - source
+      - gin
+
+  # ==================== Echo 框架 ====================
+  - id: go-echo-source
+    name: Go Echo 框架输入
+    description: Echo 框架的用户输入
+    language: go
+    rule_type: source
+    risk_level: info
+    patterns:
+      - c.QueryParam
+      - c.Param
+      - c.FormValue
+      - c.Bind
+      - c.Request
+    tags:
+      - source
+      - echo
+
+  # ==================== Fiber 框架 ====================
+  - id: go-fiber-source
+    name: Go Fiber 框架输入
+    description: Fiber 框架的用户输入
+    language: go
+    rule_type: source
+    risk_level: info
+    patterns:
+      - c.Query
+      - c.Params
+      - c.FormValue
+      - c.Body
+      - c.BodyParser
+    tags:
+      - source
+      - fiber
+
+  # ==================== 认证/授权 ====================
+  - id: go-auth-jwt
+    name: Go JWT 处理
+    description: JWT 令牌解析，需检查是否正确验证
+    language: go
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - jwt.Parse
+      - jwt.ParseWithClaims
+      - ParseToken
+      - ValidateToken
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  # ==================== 日志注入 ====================
+  - id: go-log-injection
+    name: Go 日志注入
+    description: 用户输入直接写入日志可能导致日志注入
+    language: go
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - log.Print
+      - log.Printf
+      - log.Println
+      - log.Fatal
+      - log.Fatalf
+      - log.Panic
+      - log.Panicf
+      - logger.Info
+      - logger.Error
+      - logger.Warn
+      - logger.Debug
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection

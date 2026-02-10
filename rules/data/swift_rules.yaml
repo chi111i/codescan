@@ -1,0 +1,543 @@
+# Swift 语言安全规则
+# 覆盖 Swift/iOS/macOS 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: swift-rce-process
+    name: Swift 命令执行 - Process
+    description: 使用 Process 执行系统命令
+    language: swift
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Process(
+      - process.launchPath
+      - process.arguments
+      - process.launch(
+      - process.run(
+      - NSTask(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: swift-rce-shell
+    name: Swift 命令执行 - Shell
+    description: 通过 shell 执行命令
+    language: swift
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - /bin/sh
+      - /bin/bash
+      - /usr/bin/env
+      - shell(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  # ==================== 文件操作 ====================
+  - id: swift-file-read
+    name: Swift 文件读取
+    description: 文件读取操作
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FileManager.default.contents(
+      - "String(contentsOfFile:"
+      - "Data(contentsOf:"
+      - "FileHandle(forReadingAtPath:"
+      - "FileHandle(forReadingFrom:"
+      - "NSData(contentsOfFile:"
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: swift-file-write
+    name: Swift 文件写入
+    description: 文件写入操作
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FileManager.default.createFile(
+      - "write(toFile:"
+      - "write(to:"
+      - "FileHandle(forWritingAtPath:"
+      - "FileHandle(forWritingTo:"
+      - NSData.write(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  - id: swift-file-manager
+    name: Swift FileManager 操作
+    description: FileManager 文件操作
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - FileManager.default.copyItem(
+      - FileManager.default.moveItem(
+      - FileManager.default.removeItem(
+      - FileManager.default.createDirectory(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_operation
+
+  # ==================== 反序列化 ====================
+  - id: swift-deserialize-json
+    name: Swift 反序列化 - JSON
+    description: JSON 反序列化
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JSONDecoder().decode(
+      - JSONSerialization.jsonObject(
+      - try? JSONDecoder().decode(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - json
+
+  - id: swift-deserialize-plist
+    name: Swift 反序列化 - PropertyList
+    description: PropertyList 反序列化
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - PropertyListDecoder().decode(
+      - PropertyListSerialization.propertyList(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - plist
+
+  - id: swift-deserialize-nscoding
+    name: Swift 反序列化 - NSCoding
+    description: NSCoding/NSKeyedUnarchiver 反序列化
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - NSKeyedUnarchiver.unarchiveObject(
+      - NSKeyedUnarchiver.unarchivedObject(
+      - NSCoding
+      - decodeObject(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - nscoding
+
+  # ==================== 网络请求 / SSRF ====================
+  - id: swift-ssrf-urlsession
+    name: Swift SSRF - URLSession
+    description: URLSession 网络请求
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - URLSession.shared.dataTask(
+      - URLSession.shared.downloadTask(
+      - URLSession.shared.uploadTask(
+      - urlSession.dataTask(
+      - "URL(string:"
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: swift-ssrf-alamofire
+    name: Swift SSRF - Alamofire
+    description: Alamofire HTTP 请求
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - AF.request(
+      - Alamofire.request(
+      - AF.download(
+      - AF.upload(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - alamofire
+
+  # ==================== iOS 特定 ====================
+  - id: swift-ios-webview
+    name: Swift iOS WebView
+    description: WKWebView/UIWebView 安全配置
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - WKWebView(
+      - UIWebView(
+      - webView.load(
+      - webView.loadHTMLString(
+      - evaluateJavaScript(
+      - WKUserContentController(
+      - addScriptMessageHandler(
+    cwe_ids:
+      - CWE-749
+    tags:
+      - ios
+      - webview
+
+  - id: swift-ios-keychain
+    name: Swift iOS Keychain
+    description: Keychain 存储操作
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - SecItemAdd(
+      - SecItemCopyMatching(
+      - SecItemUpdate(
+      - SecItemDelete(
+      - kSecClass
+      - kSecAttrAccessible
+    cwe_ids:
+      - CWE-312
+    tags:
+      - ios
+      - keychain
+
+  - id: swift-ios-userdefaults
+    name: Swift iOS UserDefaults
+    description: UserDefaults 存储敏感数据
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - UserDefaults.standard.set(
+      - UserDefaults.standard.string(
+      - UserDefaults.standard.object(
+      - userDefaults.set(
+    cwe_ids:
+      - CWE-312
+    tags:
+      - ios
+      - storage
+
+  - id: swift-ios-pasteboard
+    name: Swift iOS Pasteboard
+    description: UIPasteboard 剪贴板操作
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - UIPasteboard.general.string
+      - UIPasteboard.general.setItems(
+      - pasteboard.string
+    cwe_ids:
+      - CWE-200
+    tags:
+      - ios
+      - pasteboard
+
+  - id: swift-ios-url-scheme
+    name: Swift iOS URL Scheme
+    description: URL Scheme 处理
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - UIApplication.shared.open(
+      - canOpenURL(
+      - openURL(
+      - "application(_:open:options:"
+    cwe_ids:
+      - CWE-939
+    tags:
+      - ios
+      - url_scheme
+
+  - id: swift-ios-biometric
+    name: Swift iOS 生物识别
+    description: 生物识别认证
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - LAContext(
+      - evaluatePolicy(
+      - canEvaluatePolicy(
+      - LocalAuthentication
+    cwe_ids:
+      - CWE-287
+    tags:
+      - ios
+      - authentication
+
+  # ==================== 加密相关 ====================
+  - id: swift-weak-crypto
+    name: Swift 弱加密算法
+    description: 使用弱加密算法
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - CC_MD5(
+      - CC_SHA1(
+      - kCCAlgorithmDES
+      - kCCAlgorithm3DES
+      - Insecure.MD5
+      - Insecure.SHA1
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: swift-weak-random
+    name: Swift 弱随机数
+    description: 使用不安全的随机数
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - arc4random(
+      - arc4random_uniform(
+      - random(
+      - Int.random(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  - id: swift-crypto-key
+    name: Swift 加密密钥处理
+    description: 加密密钥相关操作
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - SecKeyCreateRandomKey(
+      - SecKeyCreateWithData(
+      - SecKeyEncrypt(
+      - SecKeyDecrypt(
+      - CryptoKit
+    cwe_ids:
+      - CWE-321
+    tags:
+      - crypto
+      - key_management
+
+  # ==================== 硬编码凭据 ====================
+  - id: swift-hardcoded-credentials
+    name: Swift 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 输入源 (Source) ====================
+  - id: swift-source-urlrequest
+    name: Swift URL 请求参数
+    description: URL 请求参数
+    language: swift
+    rule_type: source
+    risk_level: info
+    patterns:
+      - URLComponents
+      - queryItems
+      - url.query
+      - URLRequest
+    tags:
+      - source
+
+  - id: swift-source-vapor
+    name: Swift Vapor 请求参数
+    description: Vapor 框架请求参数
+    language: swift
+    rule_type: source
+    risk_level: info
+    patterns:
+      - req.parameters
+      - req.query
+      - req.content
+      - req.headers
+      - Request
+    tags:
+      - source
+      - vapor
+
+  - id: swift-source-perfect
+    name: Swift Perfect 请求参数
+    description: Perfect 框架请求参数
+    language: swift
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.param(
+      - request.params(
+      - request.postParams
+      - HTTPRequest
+    tags:
+      - source
+      - perfect
+
+  - id: swift-source-kitura
+    name: Swift Kitura 请求参数
+    description: Kitura 框架请求参数
+    language: swift
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.parameters
+      - request.queryParameters
+      - RouterRequest
+    tags:
+      - source
+      - kitura
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: swift-sanitizer-escape
+    name: Swift 转义函数
+    description: 转义函数
+    language: swift
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - addingPercentEncoding(
+      - removingPercentEncoding
+      - replacingOccurrences(
+    tags:
+      - sanitizer
+      - escape
+
+  # ==================== SQL 注入 ====================
+  - id: swift-sqli-sqlite
+    name: Swift SQL 注入 - SQLite
+    description: SQLite 查询
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - sqlite3_exec(
+      - sqlite3_prepare(
+      - sqlite3_prepare_v2(
+      - SQLite.swift
+      - GRDB
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - sqlite
+
+  - id: swift-sqli-coredata
+    name: Swift SQL 注入 - Core Data
+    description: Core Data 查询
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - "NSPredicate(format:"
+      - NSFetchRequest(
+      - fetchRequest.predicate
+      - NSManagedObjectContext
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - coredata
+
+  # ==================== 日志 ====================
+  - id: swift-log-injection
+    name: Swift 日志注入
+    description: 用户输入写入日志
+    language: swift
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - print(
+      - NSLog(
+      - os_log(
+      - Logger.log(
+      - debugPrint(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== SSL/TLS ====================
+  - id: swift-ssl-bypass
+    name: Swift SSL 证书验证绕过
+    description: 禁用 SSL 证书验证
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - URLSessionDelegate
+      - didReceive challenge
+      - SecTrustEvaluate(
+      - allowsAnyHTTPSCertificate
+      - serverTrustPolicy
+      - .disableEvaluation
+    cwe_ids:
+      - CWE-295
+    tags:
+      - ssl
+      - certificate
+
+  # ==================== 内存安全 ====================
+  - id: swift-unsafe-pointer
+    name: Swift Unsafe 指针
+    description: 不安全指针操作
+    language: swift
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - UnsafePointer(
+      - UnsafeMutablePointer(
+      - UnsafeRawPointer(
+      - UnsafeBufferPointer(
+      - withUnsafePointer(
+      - withUnsafeMutablePointer(
+    cwe_ids:
+      - CWE-787
+    tags:
+      - memory_safety
+      - unsafe
+
+  # ==================== 正则表达式 DoS ====================
+  - id: swift-redos
+    name: Swift ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: swift
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - NSRegularExpression(
+      - regularExpression.matches(
+      - range(of:options:.regularExpression
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos

@@ -40,12 +40,23 @@ class RuleManager:
         self._cache_version: int = 0
 
     def load_builtin_rules(self) -> int:
-        """加载内置规则"""
+        """加载内置规则（硬编码 + YAML 文件）"""
+        # 1. 加载硬编码规则
         rules = self._get_builtin_rules()
         for rule in rules:
             self._add_rule(rule)
-        logger.info(f"Loaded {len(rules)} builtin rules")
-        return len(rules)
+        hardcoded_count = len(rules)
+
+        # 2. 加载 rules/data/ 目录下的 YAML 规则文件
+        data_dir = Path(__file__).parent / "data"
+        yaml_count = 0
+        if data_dir.exists():
+            yaml_count = self.load_from_directory(str(data_dir))
+            logger.info(f"Loaded {yaml_count} rules from YAML files in {data_dir}")
+
+        total = hardcoded_count + yaml_count
+        logger.info(f"Loaded {total} builtin rules (hardcoded: {hardcoded_count}, yaml: {yaml_count})")
+        return total
 
     def load_from_file(self, file_path: str) -> int:
         """从 YAML 文件加载规则"""

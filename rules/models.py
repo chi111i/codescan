@@ -27,6 +27,7 @@ def _get_compiled_regex(pattern: str) -> Pattern:
 @total_ordering
 class RiskLevel(Enum):
     """风险等级（支持比较操作）"""
+    INFO = "info"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -34,7 +35,7 @@ class RiskLevel(Enum):
 
     def _get_order(self) -> int:
         """获取风险等级的排序值"""
-        order_map = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+        order_map = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
         return order_map.get(self.value, 0)
 
     def __lt__(self, other):
@@ -230,15 +231,45 @@ class SecurityRule:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SecurityRule":
-        """从字典创建"""
+        """从字典创建
+
+        支持两种语言字段格式:
+        - language: "python" (单数，YAML规则文件常用格式)
+        - languages: ["python", "javascript"] (复数，列表格式)
+        """
+        # 兼容单数 language 和复数 languages 字段
+        languages = data.get("languages", [])
+        if not languages and "language" in data:
+            # 单数形式转换为列表
+            lang = data["language"]
+            languages = [lang] if isinstance(lang, str) else lang
+
+        # 归一化 patterns：YAML 解析器会将含冒号的未加引号字符串解析为 dict
+        # 例如 `header("Location:` 被解析为 {'header("Location': None}
+        raw_patterns = data.get("patterns", [])
+        normalized_patterns = []
+        for p in raw_patterns:
+            if isinstance(p, str):
+                normalized_patterns.append(p)
+            elif isinstance(p, dict):
+                # dict 类型说明 YAML 解析了含冒号的字符串，将 key:value 还原
+                for k, v in p.items():
+                    if v is None:
+                        normalized_patterns.append(f"{k}:")
+                    else:
+                        normalized_patterns.append(f"{k}: {v}")
+            else:
+                # 其他类型强制转字符串
+                normalized_patterns.append(str(p))
+
         return cls(
             id=data["id"],
             name=data["name"],
             rule_type=RuleType(data["rule_type"]),
-            category=RuleCategory(data["category"]),
+            category=RuleCategory(data.get("category", "other")),
             risk_level=RiskLevel(data["risk_level"]),
-            languages=data.get("languages", []),
-            patterns=data.get("patterns", []),
+            languages=languages,
+            patterns=normalized_patterns,
             frameworks=data.get("frameworks", []),
             description=data.get("description", ""),
             example=data.get("example", ""),

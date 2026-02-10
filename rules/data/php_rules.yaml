@@ -1,0 +1,659 @@
+# PHP 语言安全规则
+# 覆盖 PHP 5.x/7.x/8.x 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: php-rce-system
+    name: PHP 命令执行 - system 函数
+    description: 使用 system/exec/shell_exec 等函数执行系统命令
+    language: php
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - system(
+      - exec(
+      - shell_exec(
+      - passthru(
+      - popen(
+      - proc_open(
+      - pcntl_exec(
+      - backtick
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: php-rce-eval
+    name: PHP 代码执行 - eval
+    description: 动态代码执行函数
+    language: php
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - eval(
+      - assert(
+      - create_function(
+      - preg_replace
+      - call_user_func(
+      - call_user_func_array(
+      - array_map(
+      - array_filter(
+      - usort(
+      - uasort(
+    cwe_ids:
+      - CWE-94
+      - CWE-95
+    tags:
+      - rce
+      - code_injection
+
+  # ==================== SQL 注入 ====================
+  - id: php-sqli-mysql
+    name: PHP SQL 注入 - MySQL 函数
+    description: 直接拼接 SQL 语句执行查询
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - mysql_query(
+      - mysqli_query(
+      - mysqli_multi_query(
+      - mysqli_real_query(
+      - pg_query(
+      - pg_send_query(
+      - sqlite_query(
+      - sqlite_exec(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: php-sqli-pdo
+    name: PHP SQL 注入 - PDO
+    description: PDO query/exec 方法可能导致 SQL 注入
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - $pdo->query(
+      - $pdo->exec(
+      - $db->query(
+      - $db->exec(
+      - PDO::query
+      - PDO::exec
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - pdo
+
+  - id: php-sqli-laravel
+    name: PHP SQL 注入 - Laravel
+    description: Laravel 的 DB::raw/whereRaw 可能导致 SQL 注入
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - DB::raw(
+      - DB::select(
+      - DB::insert(
+      - DB::update(
+      - DB::delete(
+      - DB::statement(
+      - whereRaw(
+      - havingRaw(
+      - orderByRaw(
+      - selectRaw(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - laravel
+
+  # ==================== 文件操作 ====================
+  - id: php-file-read
+    name: PHP 任意文件读取
+    description: 文件读取操作，路径可控可能导致任意文件读取
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - file_get_contents(
+      - file(
+      - fopen(
+      - fread(
+      - fgets(
+      - fgetc(
+      - fgetss(
+      - fgetcsv(
+      - readfile(
+      - highlight_file(
+      - show_source(
+      - parse_ini_file(
+      - simplexml_load_file(
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: php-file-write
+    name: PHP 任意文件写入
+    description: 文件写入操作，路径可控可能导致任意文件写入
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - file_put_contents(
+      - fwrite(
+      - fputs(
+      - fputcsv(
+      - copy(
+      - move_uploaded_file(
+      - rename(
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_write
+
+  - id: php-file-include
+    name: PHP 文件包含
+    description: 动态文件包含可能导致任意代码执行 (LFI/RFI)
+    language: php
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - include(
+      - include_once(
+      - require(
+      - require_once(
+    cwe_ids:
+      - CWE-98
+    tags:
+      - file_inclusion
+      - lfi
+      - rfi
+      - rce
+
+  - id: php-file-upload
+    name: PHP 文件上传
+    description: 文件上传处理不当可能导致任意文件上传
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - move_uploaded_file(
+      - $_FILES
+      - getimagesize(
+      - exif_imagetype(
+    cwe_ids:
+      - CWE-434
+    tags:
+      - file_upload
+
+  # ==================== 反序列化 ====================
+  - id: php-deserialize-unserialize
+    name: PHP 反序列化 - unserialize
+    description: unserialize 反序列化不可信数据可能导致对象注入/RCE
+    language: php
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - unserialize(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - object_injection
+      - rce
+
+  - id: php-deserialize-json
+    name: PHP 反序列化 - JSON
+    description: JSON 解码
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - json_decode(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: php-deserialize-yaml
+    name: PHP 反序列化 - YAML
+    description: YAML 解析可能导致代码执行
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - yaml_parse(
+      - yaml_parse_file(
+      - Yaml::parse(
+      - Symfony\Component\Yaml\Yaml::parse
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  # ==================== SSRF ====================
+  - id: php-ssrf-curl
+    name: PHP SSRF - cURL
+    description: cURL 请求 URL 可控可能导致 SSRF
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - curl_init(
+      - curl_setopt(
+      - curl_exec(
+      - curl_multi_exec(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: php-ssrf-file-functions
+    name: PHP SSRF - 文件函数
+    description: 文件函数支持 URL wrapper 可能导致 SSRF
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - file_get_contents(
+      - fopen(
+      - readfile(
+      - copy(
+      - get_headers(
+      - getimagesize(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: php-ssrf-guzzle
+    name: PHP SSRF - Guzzle
+    description: Guzzle HTTP 客户端请求
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - $client->get(
+      - $client->post(
+      - $client->put(
+      - $client->delete(
+      - $client->request(
+      - GuzzleHttp\Client
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - guzzle
+
+  # ==================== XSS ====================
+  - id: php-xss-echo
+    name: PHP XSS - echo/print
+    description: 直接输出用户输入可能导致 XSS
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - echo
+      - print(
+      - printf(
+      - print_r(
+      - var_dump(
+      - var_export(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+
+  - id: php-xss-blade
+    name: PHP XSS - Laravel Blade
+    description: Laravel Blade 模板未转义输出
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - "{!!"
+      - "!!}"
+      - "@php"
+      - "@eval"
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - laravel
+
+  # ==================== XXE ====================
+  - id: php-xxe-xml
+    name: PHP XXE - XML 解析
+    description: XML 解析未禁用外部实体可能导致 XXE
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - simplexml_load_string(
+      - simplexml_load_file(
+      - DOMDocument::load
+      - DOMDocument::loadXML
+      - XMLReader::open
+      - XMLReader::xml
+      - xml_parse(
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  # ==================== LDAP 注入 ====================
+  - id: php-ldap-injection
+    name: PHP LDAP 注入
+    description: LDAP 查询参数可控可能导致 LDAP 注入
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ldap_search(
+      - ldap_list(
+      - ldap_read(
+      - ldap_bind(
+    cwe_ids:
+      - CWE-90
+    tags:
+      - ldap_injection
+
+  # ==================== 加密相关 ====================
+  - id: php-weak-crypto
+    name: PHP 弱加密算法
+    description: 使用 MD5/SHA1 等弱哈希算法
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - md5(
+      - sha1(
+      - crypt(
+      - mcrypt_encrypt(
+      - mcrypt_decrypt(
+    cwe_ids:
+      - CWE-327
+      - CWE-328
+    tags:
+      - weak_crypto
+
+  - id: php-weak-random
+    name: PHP 弱随机数
+    description: 使用不安全的随机数生成函数
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - rand(
+      - mt_rand(
+      - array_rand(
+      - shuffle(
+      - str_shuffle(
+      - uniqid(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: php-hardcoded-credentials
+    name: PHP 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:$password
+      - prefix:$secret
+      - prefix:$api_key
+      - prefix:$apiKey
+      - prefix:$token
+      - prefix:$db_password
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 开放重定向 ====================
+  - id: php-open-redirect
+    name: PHP 开放重定向
+    description: 重定向目标可控可能导致钓鱼攻击
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - 'header("Location:'
+      - "header('Location:"
+      - redirect(
+      - Redirect::to(
+      - ->redirect(
+    cwe_ids:
+      - CWE-601
+    tags:
+      - open_redirect
+
+  # ==================== 信息泄露 ====================
+  - id: php-info-disclosure
+    name: PHP 信息泄露
+    description: 敏感信息泄露函数
+    language: php
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - phpinfo(
+      - debug_backtrace(
+      - debug_print_backtrace(
+      - error_reporting(
+      - ini_set('display_errors'
+    cwe_ids:
+      - CWE-200
+    tags:
+      - information_disclosure
+
+  # ==================== 日志注入 ====================
+  - id: php-log-injection
+    name: PHP 日志注入
+    description: 用户输入直接写入日志
+    language: php
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - error_log(
+      - syslog(
+      - Log::info(
+      - Log::error(
+      - Log::warning(
+      - Log::debug(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 正则表达式 DoS ====================
+  - id: php-redos
+    name: PHP ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - preg_match(
+      - preg_match_all(
+      - preg_replace(
+      - preg_split(
+      - preg_grep(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos
+
+  # ==================== 输入源 (Source) ====================
+  - id: php-source-superglobals
+    name: PHP 超全局变量
+    description: PHP 超全局变量作为用户输入源
+    language: php
+    rule_type: source
+    risk_level: info
+    patterns:
+      - $_GET
+      - $_POST
+      - $_REQUEST
+      - $_FILES
+      - $_COOKIE
+      - $_SERVER
+      - $_SESSION
+      - $HTTP_GET_VARS
+      - $HTTP_POST_VARS
+    tags:
+      - source
+
+  - id: php-source-laravel-request
+    name: PHP Laravel 请求
+    description: Laravel 请求参数
+    language: php
+    rule_type: source
+    risk_level: info
+    patterns:
+      - $request->input(
+      - $request->get(
+      - $request->query(
+      - $request->post(
+      - $request->all(
+      - $request->only(
+      - $request->file(
+      - $request->header(
+      - $request->cookie(
+      - Request::input(
+      - Request::get(
+    tags:
+      - source
+      - laravel
+
+  - id: php-source-stdin
+    name: PHP 标准输入
+    description: 标准输入和命令行参数
+    language: php
+    rule_type: source
+    risk_level: info
+    patterns:
+      - php://input
+      - php://stdin
+      - $argv
+      - $argc
+      - getopt(
+    tags:
+      - source
+
+  - id: php-source-env
+    name: PHP 环境变量
+    description: 环境变量
+    language: php
+    rule_type: source
+    risk_level: info
+    patterns:
+      - getenv(
+      - $_ENV
+      - $_SERVER['
+    tags:
+      - source
+      - environment
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: php-sanitizer-escape
+    name: PHP 转义函数
+    description: HTML/SQL 转义函数
+    language: php
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - htmlspecialchars(
+      - htmlentities(
+      - strip_tags(
+      - addslashes(
+      - mysqli_real_escape_string(
+      - mysql_real_escape_string(
+      - pg_escape_string(
+      - PDO::quote(
+      - e(
+    tags:
+      - sanitizer
+      - escape
+
+  - id: php-sanitizer-filter
+    name: PHP 过滤函数
+    description: 过滤验证函数
+    language: php
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - filter_input(
+      - filter_var(
+      - filter_input_array(
+      - filter_var_array(
+      - FILTER_SANITIZE
+      - FILTER_VALIDATE
+    tags:
+      - sanitizer
+      - validation
+
+  # ==================== 认证/授权 ====================
+  - id: php-auth-session
+    name: PHP Session 处理
+    description: Session 操作
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - session_start(
+      - session_regenerate_id(
+      - session_destroy(
+      - $_SESSION
+    cwe_ids:
+      - CWE-384
+    tags:
+      - authentication
+      - session
+
+  - id: php-auth-jwt
+    name: PHP JWT 处理
+    description: JWT 令牌处理
+    language: php
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JWT::decode(
+      - JWT::encode(
+      - Firebase\JWT\JWT
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  # ==================== 危险函数 ====================
+  - id: php-dangerous-functions
+    name: PHP 危险函数
+    description: 其他高危函数
+    language: php
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - extract(
+      - parse_str(
+      - putenv(
+      - dl(
+      - mail(
+      - mb_send_mail(
+    cwe_ids:
+      - CWE-20
+    tags:
+      - dangerous_function

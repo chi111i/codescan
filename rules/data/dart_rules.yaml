@@ -1,0 +1,575 @@
+# Dart 语言安全规则
+# 覆盖 Dart/Flutter 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: dart-rce-process
+    name: Dart 命令执行 - Process
+    description: 使用 Process 执行系统命令
+    language: dart
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Process.run(
+      - Process.start(
+      - Process.runSync(
+      - dart:io.Process
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: dart-rce-shell
+    name: Dart 命令执行 - Shell
+    description: 通过 shell 执行命令
+    language: dart
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - "runInShell: true"
+      - /bin/sh
+      - /bin/bash
+      - cmd.exe
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: dart-rce-isolate
+    name: Dart Isolate 执行
+    description: Isolate 动态代码执行
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Isolate.spawn(
+      - Isolate.spawnUri(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - isolate
+
+  # ==================== 文件操作 ====================
+  - id: dart-file-read
+    name: Dart 文件读取
+    description: 文件读取操作
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - File(
+      - file.readAsString(
+      - file.readAsBytes(
+      - file.readAsLines(
+      - file.openRead(
+      - dart:io.File
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: dart-file-write
+    name: Dart 文件写入
+    description: 文件写入操作
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - file.writeAsString(
+      - file.writeAsBytes(
+      - file.openWrite(
+      - file.create(
+      - file.copy(
+      - file.rename(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  - id: dart-file-directory
+    name: Dart 目录操作
+    description: 目录操作
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Directory(
+      - directory.create(
+      - directory.delete(
+      - directory.list(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_operation
+
+  # ==================== 反序列化 ====================
+  - id: dart-deserialize-json
+    name: Dart 反序列化 - JSON
+    description: JSON 反序列化
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - jsonDecode(
+      - json.decode(
+      - JsonCodec.decode(
+      - dart:convert
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - json
+
+  - id: dart-deserialize-xml
+    name: Dart 反序列化 - XML
+    description: XML 解析
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - XmlDocument.parse(
+      - xml.parse(
+      - package:xml
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - xml
+
+  # ==================== 网络请求 / SSRF ====================
+  - id: dart-ssrf-http
+    name: Dart SSRF - HTTP
+    description: HTTP 客户端请求
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - HttpClient(
+      - http.get(
+      - http.post(
+      - http.put(
+      - http.delete(
+      - Uri.parse(
+      - dart:io.HttpClient
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: dart-ssrf-dio
+    name: Dart SSRF - Dio
+    description: Dio HTTP 客户端
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Dio(
+      - dio.get(
+      - dio.post(
+      - dio.put(
+      - dio.delete(
+      - dio.request(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - dio
+
+  - id: dart-ssrf-http-package
+    name: Dart SSRF - http package
+    description: http package 请求
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - package:http
+      - http.Client(
+      - client.get(
+      - client.post(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  # ==================== Flutter 特定 ====================
+  - id: dart-flutter-webview
+    name: Dart Flutter WebView
+    description: WebView 安全配置
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - WebView(
+      - WebViewController(
+      - webViewController.loadUrl(
+      - webViewController.evaluateJavascript(
+      - "javascriptMode: JavascriptMode.unrestricted"
+      - webview_flutter
+    cwe_ids:
+      - CWE-749
+    tags:
+      - flutter
+      - webview
+
+  - id: dart-flutter-url-launcher
+    name: Dart Flutter URL Launcher
+    description: URL Launcher 外部链接
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - launchUrl(
+      - launch(
+      - canLaunchUrl(
+      - url_launcher
+    cwe_ids:
+      - CWE-939
+    tags:
+      - flutter
+      - url_launcher
+
+  - id: dart-flutter-shared-prefs
+    name: Dart Flutter SharedPreferences
+    description: SharedPreferences 存储敏感数据
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - SharedPreferences.getInstance(
+      - prefs.setString(
+      - prefs.getString(
+      - shared_preferences
+    cwe_ids:
+      - CWE-312
+    tags:
+      - flutter
+      - storage
+
+  - id: dart-flutter-secure-storage
+    name: Dart Flutter Secure Storage
+    description: 安全存储操作
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - FlutterSecureStorage(
+      - storage.read(
+      - storage.write(
+      - flutter_secure_storage
+    cwe_ids:
+      - CWE-312
+    tags:
+      - flutter
+      - storage
+
+  - id: dart-flutter-platform-channel
+    name: Dart Flutter Platform Channel
+    description: 平台通道通信
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - MethodChannel(
+      - EventChannel(
+      - BasicMessageChannel(
+      - invokeMethod(
+    cwe_ids:
+      - CWE-20
+    tags:
+      - flutter
+      - platform_channel
+
+  - id: dart-flutter-deep-link
+    name: Dart Flutter Deep Link
+    description: Deep Link 处理
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - uni_links
+      - getInitialUri(
+      - uriLinkStream
+      - app_links
+    cwe_ids:
+      - CWE-939
+    tags:
+      - flutter
+      - deep_link
+
+  # ==================== SQL 注入 ====================
+  - id: dart-sqli-sqflite
+    name: Dart SQL 注入 - sqflite
+    description: sqflite 数据库查询
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - db.rawQuery(
+      - db.rawInsert(
+      - db.rawUpdate(
+      - db.rawDelete(
+      - db.execute(
+      - sqflite
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - sqflite
+
+  - id: dart-sqli-drift
+    name: Dart SQL 注入 - Drift
+    description: Drift ORM 查询
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - customSelect(
+      - customStatement(
+      - customUpdate(
+      - drift
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - drift
+
+  # ==================== 加密相关 ====================
+  - id: dart-weak-crypto
+    name: Dart 弱加密算法
+    description: 使用弱加密算法
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - md5.convert(
+      - sha1.convert(
+      - Md5(
+      - Sha1(
+      - package:crypto
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: dart-weak-random
+    name: Dart 弱随机数
+    description: 使用不安全的随机数
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Random(
+      - random.nextInt(
+      - random.nextDouble(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: dart-hardcoded-credentials
+    name: Dart 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 输入源 (Source) ====================
+  - id: dart-source-shelf
+    name: Dart Shelf 请求参数
+    description: Shelf 框架请求参数
+    language: dart
+    rule_type: source
+    risk_level: info
+    patterns:
+      - Request
+      - request.url.queryParameters
+      - request.headers
+      - request.readAsString(
+      - package:shelf
+    tags:
+      - source
+      - shelf
+
+  - id: dart-source-aqueduct
+    name: Dart Aqueduct 请求参数
+    description: Aqueduct 框架请求参数
+    language: dart
+    rule_type: source
+    risk_level: info
+    patterns:
+      - Request
+      - request.body
+      - request.path
+      - ResourceController
+    tags:
+      - source
+      - aqueduct
+
+  - id: dart-source-angel
+    name: Dart Angel 请求参数
+    description: Angel 框架请求参数
+    language: dart
+    rule_type: source
+    risk_level: info
+    patterns:
+      - RequestContext
+      - req.params
+      - req.body
+      - req.queryParameters
+    tags:
+      - source
+      - angel
+
+  - id: dart-source-flutter-input
+    name: Dart Flutter 用户输入
+    description: Flutter 用户输入
+    language: dart
+    rule_type: source
+    risk_level: info
+    patterns:
+      - TextEditingController(
+      - controller.text
+      - TextField(
+      - TextFormField(
+    tags:
+      - source
+      - flutter
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: dart-sanitizer-escape
+    name: Dart 转义函数
+    description: 转义函数
+    language: dart
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - Uri.encodeComponent(
+      - Uri.encodeFull(
+      - HtmlEscape(
+      - htmlEscape.convert(
+    tags:
+      - sanitizer
+      - escape
+
+  # ==================== SSL/TLS ====================
+  - id: dart-ssl-bypass
+    name: Dart SSL 证书验证绕过
+    description: 禁用 SSL 证书验证
+    language: dart
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - badCertificateCallback
+      - HttpClient.badCertificateCallback
+      - SecurityContext(
+      - allowBadCertificates
+    cwe_ids:
+      - CWE-295
+    tags:
+      - ssl
+      - certificate
+
+  # ==================== 日志 ====================
+  - id: dart-log-injection
+    name: Dart 日志注入
+    description: 用户输入写入日志
+    language: dart
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - print(
+      - debugPrint(
+      - log(
+      - Logger(
+      - package:logging
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 反射 ====================
+  - id: dart-reflection
+    name: Dart 反射
+    description: 使用 dart:mirrors 反射
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - dart:mirrors
+      - reflect(
+      - reflectClass(
+      - MirrorSystem
+      - InstanceMirror
+    cwe_ids:
+      - CWE-470
+    tags:
+      - reflection
+
+  # ==================== 正则表达式 DoS ====================
+  - id: dart-redos
+    name: Dart ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - RegExp(
+      - regex.hasMatch(
+      - regex.allMatches(
+      - regex.firstMatch(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos
+
+  # ==================== 认证相关 ====================
+  - id: dart-auth-jwt
+    name: Dart JWT 处理
+    description: JWT 令牌处理
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JWT.decode(
+      - JWT.verify(
+      - package:dart_jsonwebtoken
+      - package:jaguar_jwt
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: dart-auth-firebase
+    name: Dart Firebase Auth
+    description: Firebase 认证
+    language: dart
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - FirebaseAuth.instance
+      - signInWithEmailAndPassword(
+      - createUserWithEmailAndPassword(
+      - signInAnonymously(
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - firebase

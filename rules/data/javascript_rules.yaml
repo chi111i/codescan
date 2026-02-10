@@ -1,0 +1,695 @@
+# JavaScript 语言安全规则
+# 覆盖 Node.js 和浏览器端 JavaScript 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: js-rce-child-process
+    name: JS 命令执行 - child_process
+    description: 使用 child_process 执行系统命令，用户输入可控时导致命令注入
+    language: javascript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - child_process.exec
+      - child_process.execSync
+      - child_process.spawn
+      - child_process.spawnSync
+      - child_process.execFile
+      - child_process.execFileSync
+      - child_process.fork
+      - exec(
+      - execSync(
+      - spawn(
+      - spawnSync(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: js-rce-eval
+    name: JS 代码执行 - eval
+    description: 动态代码执行，用户输入可控时导致任意代码执行
+    language: javascript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - eval(
+      - Function(
+      - setTimeout(
+      - setInterval(
+      - setImmediate(
+      - new Function(
+    cwe_ids:
+      - CWE-94
+      - CWE-95
+    tags:
+      - rce
+      - code_injection
+
+  - id: js-rce-vm
+    name: JS 代码执行 - vm 模块
+    description: Node.js vm 模块执行代码，可能导致沙箱逃逸
+    language: javascript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - vm.runInContext
+      - vm.runInNewContext
+      - vm.runInThisContext
+      - vm.Script
+      - vm.compileFunction
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - sandbox_escape
+
+  # ==================== SQL 注入 ====================
+  - id: js-sqli-raw-query
+    name: JS SQL 注入 - 原始查询
+    description: 直接拼接 SQL 语句执行查询
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .query(
+      - .execute(
+      - .raw(
+      - connection.query
+      - pool.query
+      - db.query
+      - knex.raw
+      - sequelize.query
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: js-sqli-mongodb
+    name: JS NoSQL 注入 - MongoDB
+    description: MongoDB 查询参数可控可能导致 NoSQL 注入
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - .find(
+      - .findOne(
+      - .findOneAndUpdate(
+      - .findOneAndDelete(
+      - .updateOne(
+      - .updateMany(
+      - .deleteOne(
+      - .deleteMany(
+      - .aggregate(
+      - $where
+      - $regex
+    cwe_ids:
+      - CWE-943
+    tags:
+      - nosql_injection
+      - mongodb
+
+  - id: js-sqli-prisma
+    name: JS SQL 注入 - Prisma
+    description: Prisma ORM 的 $queryRaw 可能导致 SQL 注入
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - $queryRaw
+      - $executeRaw
+      - $queryRawUnsafe
+      - $executeRawUnsafe
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - prisma
+
+  # ==================== 文件操作 ====================
+  - id: js-file-read
+    name: JS 任意文件读取
+    description: 文件读取操作，路径可控可能导致任意文件读取
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fs.readFile
+      - fs.readFileSync
+      - fs.readdir
+      - fs.readdirSync
+      - fs.createReadStream
+      - fs.promises.readFile
+      - path.join
+      - path.resolve
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: js-file-write
+    name: JS 任意文件写入
+    description: 文件写入操作，路径可控可能导致任意文件写入
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - fs.writeFile
+      - fs.writeFileSync
+      - fs.appendFile
+      - fs.appendFileSync
+      - fs.createWriteStream
+      - fs.promises.writeFile
+      - fs.copyFile
+      - fs.copyFileSync
+    cwe_ids:
+      - CWE-22
+      - CWE-73
+    tags:
+      - file_write
+
+  - id: js-file-include
+    name: JS 动态 require
+    description: 动态 require 可能导致任意模块加载
+    language: javascript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - require(
+      - import(
+      - require.resolve(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - file_inclusion
+      - rce
+
+  # ==================== 反序列化 ====================
+  - id: js-deserialize-json
+    name: JS 反序列化 - JSON.parse
+    description: JSON 解析，需检查后续原型污染风险
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JSON.parse
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  - id: js-deserialize-node-serialize
+    name: JS 反序列化 - node-serialize
+    description: node-serialize 反序列化可能导致 RCE
+    language: javascript
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - serialize.unserialize
+      - unserialize(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: js-deserialize-yaml
+    name: JS 反序列化 - YAML
+    description: YAML 解析可能导致代码执行
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - yaml.load
+      - yaml.safeLoad
+      - YAML.parse
+      - js-yaml.load
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+
+  # ==================== 原型污染 ====================
+  - id: js-prototype-pollution
+    name: JS 原型污染
+    description: 对象合并/深拷贝可能导致原型污染
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Object.assign
+      - _.merge
+      - _.defaultsDeep
+      - _.set
+      - lodash.merge
+      - lodash.defaultsDeep
+      - deepmerge
+      - extend(
+      - $.extend
+    cwe_ids:
+      - CWE-1321
+    tags:
+      - prototype_pollution
+
+  # ==================== SSRF ====================
+  - id: js-ssrf-http
+    name: JS SSRF - HTTP 请求
+    description: HTTP 请求 URL 可控可能导致 SSRF
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - http.get
+      - http.request
+      - https.get
+      - https.request
+      - axios(
+      - axios.get
+      - axios.post
+      - axios.put
+      - axios.delete
+      - fetch(
+      - node-fetch
+      - got(
+      - got.get
+      - got.post
+      - request(
+      - superagent
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: js-ssrf-dns
+    name: JS SSRF - DNS 查询
+    description: DNS 查询目标可控可能导致信息泄露
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - dns.lookup
+      - dns.resolve
+      - dns.resolve4
+      - dns.resolve6
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - dns
+
+  # ==================== XSS ====================
+  - id: js-xss-dom
+    name: JS DOM XSS
+    description: DOM 操作可能导致 XSS
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - innerHTML
+      - outerHTML
+      - insertAdjacentHTML
+      - document.write
+      - document.writeln
+      - .html(
+      - $.html
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - dom
+
+  - id: js-xss-template
+    name: JS 模板 XSS
+    description: 模板引擎未正确转义可能导致 XSS
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ejs.render
+      - pug.render
+      - handlebars.compile
+      - mustache.render
+      - nunjucks.render
+      - res.render
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - template
+
+  - id: js-xss-react-dangerous
+    name: JS React dangerouslySetInnerHTML
+    description: React dangerouslySetInnerHTML 可能导致 XSS
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - dangerouslySetInnerHTML
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - react
+
+  # ==================== XXE ====================
+  - id: js-xxe-xml
+    name: JS XXE - XML 解析
+    description: XML 解析未禁用外部实体可能导致 XXE
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - xml2js.parseString
+      - xmldom.DOMParser
+      - libxmljs.parseXml
+      - fast-xml-parser
+      - DOMParser
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  # ==================== 路径遍历 ====================
+  - id: js-path-traversal
+    name: JS 路径遍历
+    description: 路径操作未验证可能导致目录遍历
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - path.join
+      - path.resolve
+      - path.normalize
+      - res.sendFile
+      - res.download
+      - express.static
+    cwe_ids:
+      - CWE-22
+    tags:
+      - path_traversal
+
+  # ==================== 重定向 ====================
+  - id: js-open-redirect
+    name: JS 开放重定向
+    description: 重定向目标可控可能导致钓鱼攻击
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - res.redirect
+      - response.redirect
+      - window.location
+      - location.href
+      - location.assign
+      - location.replace
+    cwe_ids:
+      - CWE-601
+    tags:
+      - open_redirect
+
+  # ==================== 加密相关 ====================
+  - id: js-weak-crypto
+    name: JS 弱加密算法
+    description: 使用 MD5/SHA1 等弱加密算法
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - crypto.createHash('md5')
+      - crypto.createHash('sha1')
+      - CryptoJS.MD5
+      - CryptoJS.SHA1
+    cwe_ids:
+      - CWE-327
+      - CWE-328
+    tags:
+      - weak_crypto
+
+  - id: js-weak-random
+    name: JS 弱随机数
+    description: Math.random 不应用于安全相关场景
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Math.random
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: js-hardcoded-credentials
+    name: JS 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: javascript
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+      - prefix:AWS_SECRET
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 不安全配置 ====================
+  - id: js-cors-misconfiguration
+    name: JS CORS 配置错误
+    description: CORS 配置过于宽松
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - "Access-Control-Allow-Origin: *"
+      - "cors({ origin: true })"
+      - "cors({ origin: '*' })"
+    cwe_ids:
+      - CWE-942
+    tags:
+      - misconfiguration
+      - cors
+
+  - id: js-helmet-disabled
+    name: JS 安全头缺失
+    description: 未使用 helmet 等安全中间件
+    language: javascript
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - app.disable('x-powered-by')
+    cwe_ids:
+      - CWE-693
+    tags:
+      - misconfiguration
+
+  # ==================== 日志注入 ====================
+  - id: js-log-injection
+    name: JS 日志注入
+    description: 用户输入直接写入日志
+    language: javascript
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - console.log
+      - console.error
+      - console.warn
+      - console.info
+      - console.debug
+      - logger.info
+      - logger.error
+      - logger.warn
+      - winston.log
+      - bunyan.info
+      - pino.info
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 正则表达式 DoS ====================
+  - id: js-redos
+    name: JS ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - new RegExp(
+      - .match(
+      - .test(
+      - .exec(
+      - .replace(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos
+
+  # ==================== 输入源 (Source) ====================
+  - id: js-source-express-request
+    name: JS Express 请求参数
+    description: Express 请求参数作为用户输入源
+    language: javascript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - req.params
+      - req.query
+      - req.body
+      - req.headers
+      - req.cookies
+      - req.files
+      - req.file
+      - req.url
+      - req.path
+      - req.originalUrl
+    tags:
+      - source
+      - express
+
+  - id: js-source-koa-request
+    name: JS Koa 请求参数
+    description: Koa 请求参数作为用户输入源
+    language: javascript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - ctx.params
+      - ctx.query
+      - ctx.request.body
+      - ctx.headers
+      - ctx.cookies
+      - ctx.request.files
+    tags:
+      - source
+      - koa
+
+  - id: js-source-fastify-request
+    name: JS Fastify 请求参数
+    description: Fastify 请求参数作为用户输入源
+    language: javascript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.params
+      - request.query
+      - request.body
+      - request.headers
+    tags:
+      - source
+      - fastify
+
+  - id: js-source-browser
+    name: JS 浏览器输入源
+    description: 浏览器端用户输入源
+    language: javascript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - window.location
+      - location.search
+      - location.hash
+      - document.URL
+      - document.documentURI
+      - document.referrer
+      - document.cookie
+      - localStorage.getItem
+      - sessionStorage.getItem
+      - URLSearchParams
+    tags:
+      - source
+      - browser
+
+  - id: js-source-env
+    name: JS 环境变量
+    description: 环境变量作为外部输入源
+    language: javascript
+    rule_type: source
+    risk_level: info
+    patterns:
+      - process.env
+    tags:
+      - source
+      - environment
+
+  # ==================== 认证/授权 ====================
+  - id: js-auth-jwt
+    name: JS JWT 处理
+    description: JWT 令牌解析和验证
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - jwt.verify
+      - jwt.decode
+      - jwt.sign
+      - jsonwebtoken.verify
+      - jsonwebtoken.decode
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: js-auth-session
+    name: JS Session 处理
+    description: Session 操作
+    language: javascript
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - req.session
+      - ctx.session
+      - session.destroy
+      - session.regenerate
+    cwe_ids:
+      - CWE-384
+    tags:
+      - authentication
+      - session
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: js-sanitizer-escape
+    name: JS 转义函数
+    description: HTML/SQL 转义函数
+    language: javascript
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - escape(
+      - encodeURIComponent
+      - encodeURI
+      - he.encode
+      - DOMPurify.sanitize
+      - xss(
+      - sanitize-html
+      - validator.escape
+    tags:
+      - sanitizer
+      - escape
+
+  - id: js-sanitizer-validation
+    name: JS 输入验证
+    description: 输入验证函数
+    language: javascript
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - validator.isEmail
+      - validator.isURL
+      - validator.isInt
+      - Joi.validate
+      - yup.validate
+      - zod.parse
+    tags:
+      - sanitizer
+      - validation

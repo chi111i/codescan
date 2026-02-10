@@ -1,0 +1,540 @@
+# Scala 语言安全规则
+# 覆盖 Scala/Play Framework/Akka 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: scala-rce-process
+    name: Scala 命令执行 - Process
+    description: 使用 scala.sys.process 执行系统命令
+    language: scala
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Process(
+      - stringToProcess(
+      - "!!"
+      - "!"
+      - "#|"
+      - "#>"
+      - sys.process
+      - Runtime.getRuntime.exec(
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: scala-rce-reflection
+    name: Scala 反射调用
+    description: 使用反射动态调用方法
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - classOf[
+      - Class.forName(
+      - getClass.getMethod(
+      - method.invoke(
+      - runtimeMirror(
+      - TypeTag
+    cwe_ids:
+      - CWE-470
+    tags:
+      - rce
+      - reflection
+
+  - id: scala-rce-script-engine
+    name: Scala 代码执行 - ScriptEngine
+    description: 使用 ScriptEngine 执行脚本
+    language: scala
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ScriptEngineManager(
+      - scriptEngine.eval(
+      - engine.eval(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - code_injection
+
+  # ==================== SQL 注入 ====================
+  - id: scala-sqli-slick
+    name: Scala SQL 注入 - Slick
+    description: Slick 原始 SQL 查询
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - sql"
+      - sqlu"
+      - tsql"
+      - .result
+      - .transactionally
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - slick
+
+  - id: scala-sqli-doobie
+    name: Scala SQL 注入 - Doobie
+    description: Doobie SQL 查询
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - sql"
+      - fr"
+      - Fragment
+      - .query[
+      - .update
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - doobie
+
+  - id: scala-sqli-anorm
+    name: Scala SQL 注入 - Anorm
+    description: Anorm SQL 查询 (Play Framework)
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - SQL(
+      - SQL"
+      - .executeQuery(
+      - .executeUpdate(
+      - .as(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - anorm
+      - play
+
+  - id: scala-sqli-jdbc
+    name: Scala SQL 注入 - JDBC
+    description: 直接使用 JDBC
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - createStatement(
+      - statement.execute(
+      - statement.executeQuery(
+      - connection.prepareStatement(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - jdbc
+
+  # ==================== 文件操作 ====================
+  - id: scala-file-read
+    name: Scala 文件读取
+    description: 文件读取操作
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Source.fromFile(
+      - FileInputStream(
+      - Files.readAllBytes(
+      - Files.readAllLines(
+      - scala.io.Source
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: scala-file-write
+    name: Scala 文件写入
+    description: 文件写入操作
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FileOutputStream(
+      - FileWriter(
+      - Files.write(
+      - PrintWriter(
+      - BufferedWriter(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  # ==================== 反序列化 ====================
+  - id: scala-deserialize-object
+    name: Scala 反序列化 - ObjectInputStream
+    description: ObjectInputStream 反序列化
+    language: scala
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - ObjectInputStream(
+      - readObject(
+      - readUnshared(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: scala-deserialize-json
+    name: Scala 反序列化 - JSON
+    description: JSON 反序列化
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Json.parse(
+      - Json.fromJson(
+      - decode[
+      - parse(
+      - circe.parser
+      - play.api.libs.json
+      - spray.json
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - json
+
+  - id: scala-deserialize-xml
+    name: Scala 反序列化 - XML
+    description: XML 反序列化
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - XML.load(
+      - XML.loadFile(
+      - XML.loadString(
+      - scala.xml.XML
+      - DocumentBuilderFactory
+    cwe_ids:
+      - CWE-502
+      - CWE-611
+    tags:
+      - deserialization
+      - xxe
+
+  # ==================== SSRF ====================
+  - id: scala-ssrf-http
+    name: Scala SSRF - HTTP 请求
+    description: HTTP 客户端请求
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Http(
+      - ws.url(
+      - WSClient
+      - HttpClient(
+      - sttp.client
+      - akka.http.scaladsl.Http
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: scala-ssrf-play-ws
+    name: Scala SSRF - Play WS
+    description: Play WS 客户端
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - ws.url(
+      - WSClient
+      - .get(
+      - .post(
+      - .put(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+      - play
+
+  # ==================== XSS ====================
+  - id: scala-xss-html
+    name: Scala XSS - HTML 输出
+    description: 直接输出 HTML
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Html(
+      - play.twirl.api.Html
+      - "@Html("
+      - Ok(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+
+  - id: scala-xss-twirl
+    name: Scala XSS - Twirl 模板
+    description: Twirl 模板未转义输出
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - "@Html("
+      - "@{"
+      - Html.apply(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - twirl
+
+  # ==================== 加密相关 ====================
+  - id: scala-weak-crypto
+    name: Scala 弱加密算法
+    description: 使用弱加密算法
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - MessageDigest.getInstance("MD5")
+      - MessageDigest.getInstance("SHA1")
+      - MessageDigest.getInstance("SHA-1")
+      - Cipher.getInstance("DES")
+      - Cipher.getInstance("AES/ECB")
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: scala-weak-random
+    name: Scala 弱随机数
+    description: 使用不安全的随机数
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - scala.util.Random
+      - new Random(
+      - Random.nextInt(
+      - Math.random(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: scala-hardcoded-credentials
+    name: Scala 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:secret
+      - prefix:apiKey
+      - prefix:api_key
+      - prefix:accessToken
+      - prefix:privateKey
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 输入源 (Source) ====================
+  - id: scala-source-play
+    name: Scala Play Framework 请求参数
+    description: Play Framework 请求参数
+    language: scala
+    rule_type: source
+    risk_level: info
+    patterns:
+      - request.body
+      - request.queryString
+      - request.headers
+      - request.cookies
+      - request.getQueryString(
+      - Action {
+      - Action.async {
+    tags:
+      - source
+      - play
+
+  - id: scala-source-akka-http
+    name: Scala Akka HTTP 请求参数
+    description: Akka HTTP 请求参数
+    language: scala
+    rule_type: source
+    risk_level: info
+    patterns:
+      - parameters(
+      - entity(
+      - formFields(
+      - headerValueByName(
+      - path(
+    tags:
+      - source
+      - akka
+
+  - id: scala-source-http4s
+    name: Scala http4s 请求参数
+    description: http4s 请求参数
+    language: scala
+    rule_type: source
+    risk_level: info
+    patterns:
+      - Request[
+      - req.params
+      - req.headers
+      - req.body
+      - QueryParamDecoder
+    tags:
+      - source
+      - http4s
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: scala-sanitizer-escape
+    name: Scala 转义函数
+    description: 转义函数
+    language: scala
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - StringEscapeUtils.escapeHtml(
+      - HtmlFormat.escape(
+      - URLEncoder.encode(
+      - xml.Utility.escape(
+    tags:
+      - sanitizer
+      - escape
+
+  # ==================== 认证/授权 ====================
+  - id: scala-auth-jwt
+    name: Scala JWT 处理
+    description: JWT 令牌处理
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JWT.decode(
+      - Jwt.decode(
+      - JwtJson.decode(
+      - pdi.jwt
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  - id: scala-auth-play-silhouette
+    name: Scala Silhouette 认证
+    description: Play Silhouette 认证框架
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Silhouette
+      - SecuredAction
+      - UserAwareAction
+      - Identity
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - silhouette
+
+  # ==================== Akka 特定 ====================
+  - id: scala-akka-serialization
+    name: Scala Akka 序列化
+    description: Akka 远程序列化
+    language: scala
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Serialization(
+      - serialization.serialize(
+      - serialization.deserialize(
+      - akka.serialization
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - akka
+
+  - id: scala-akka-remote
+    name: Scala Akka Remote
+    description: Akka 远程通信
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - akka.remote
+      - RemoteActorRefProvider
+      - akka.cluster
+    cwe_ids:
+      - CWE-918
+    tags:
+      - network
+      - akka
+
+  # ==================== 日志注入 ====================
+  - id: scala-log-injection
+    name: Scala 日志注入
+    description: 用户输入写入日志
+    language: scala
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - logger.info(
+      - logger.debug(
+      - logger.error(
+      - logger.warn(
+      - Logger.info(
+      - println(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 开放重定向 ====================
+  - id: scala-open-redirect
+    name: Scala 开放重定向
+    description: 重定向目标可控
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Redirect(
+      - TemporaryRedirect(
+      - PermanentRedirect(
+      - MovedPermanently(
+    cwe_ids:
+      - CWE-601
+    tags:
+      - open_redirect
+      - play
+
+  # ==================== 正则表达式 DoS ====================
+  - id: scala-redos
+    name: Scala ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: scala
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - ".r"
+      - Regex(
+      - Pattern.compile(
+      - .findAllIn(
+      - .matches(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos

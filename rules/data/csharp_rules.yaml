@@ -1,0 +1,752 @@
+# C# 语言安全规则
+# 覆盖 .NET Framework/.NET Core/ASP.NET 常见安全漏洞模式
+
+rules:
+  # ==================== RCE / 命令执行 ====================
+  - id: csharp-rce-process
+    name: C# 命令执行 - Process
+    description: 使用 Process 类执行系统命令
+    language: csharp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - Process.Start(
+      - ProcessStartInfo(
+      - new ProcessStartInfo(
+      - process.Start(
+      - System.Diagnostics.Process
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - command_injection
+
+  - id: csharp-rce-powershell
+    name: C# 命令执行 - PowerShell
+    description: 使用 PowerShell 执行命令
+    language: csharp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - PowerShell.Create(
+      - AddScript(
+      - AddCommand(
+      - Invoke(
+      - System.Management.Automation
+    cwe_ids:
+      - CWE-78
+    tags:
+      - rce
+      - powershell
+
+  - id: csharp-rce-codedom
+    name: C# 代码执行 - CodeDom
+    description: 动态编译和执行代码
+    language: csharp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - CSharpCodeProvider(
+      - CompileAssemblyFromSource(
+      - CodeDomProvider.CreateProvider(
+      - GenerateCodeFromCompileUnit(
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - code_injection
+
+  - id: csharp-rce-reflection
+    name: C# 代码执行 - 反射
+    description: 使用反射动态调用方法
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Assembly.Load(
+      - Assembly.LoadFrom(
+      - Assembly.LoadFile(
+      - Activator.CreateInstance(
+      - Type.GetType(
+      - MethodInfo.Invoke(
+      - method.Invoke(
+      - type.InvokeMember(
+    cwe_ids:
+      - CWE-470
+    tags:
+      - rce
+      - reflection
+
+  - id: csharp-rce-expression
+    name: C# 表达式执行
+    description: 动态表达式编译执行
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Expression.Compile(
+      - DynamicExpression.Parse(
+      - CSharpScript.EvaluateAsync(
+      - Roslyn.Scripting
+    cwe_ids:
+      - CWE-94
+    tags:
+      - rce
+      - expression
+
+  # ==================== SQL 注入 ====================
+  - id: csharp-sqli-ado
+    name: C# SQL 注入 - ADO.NET
+    description: 使用 SqlCommand 执行拼接的 SQL
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - SqlCommand(
+      - new SqlCommand(
+      - command.CommandText
+      - SqlDataAdapter(
+      - OleDbCommand(
+      - OdbcCommand(
+      - ExecuteReader(
+      - ExecuteNonQuery(
+      - ExecuteScalar(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+
+  - id: csharp-sqli-ef
+    name: C# SQL 注入 - Entity Framework
+    description: Entity Framework 原始 SQL 查询
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - FromSqlRaw(
+      - ExecuteSqlRaw(
+      - FromSqlInterpolated(
+      - ExecuteSqlInterpolated(
+      - Database.SqlQuery(
+      - DbContext.Database.ExecuteSqlCommand(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - entity_framework
+
+  - id: csharp-sqli-dapper
+    name: C# SQL 注入 - Dapper
+    description: Dapper ORM 查询
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - Query(
+      - QueryAsync(
+      - QueryFirst(
+      - QueryFirstOrDefault(
+      - Execute(
+      - ExecuteAsync(
+    cwe_ids:
+      - CWE-89
+    tags:
+      - sql_injection
+      - dapper
+
+  # ==================== 文件操作 ====================
+  - id: csharp-file-read
+    name: C# 任意文件读取
+    description: 文件读取操作
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - File.ReadAllText(
+      - File.ReadAllBytes(
+      - File.ReadAllLines(
+      - File.OpenRead(
+      - File.Open(
+      - FileStream(
+      - new FileStream(
+      - StreamReader(
+      - new StreamReader(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_read
+      - path_traversal
+
+  - id: csharp-file-write
+    name: C# 任意文件写入
+    description: 文件写入操作
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - File.WriteAllText(
+      - File.WriteAllBytes(
+      - File.WriteAllLines(
+      - File.AppendAllText(
+      - File.Create(
+      - File.Copy(
+      - File.Move(
+      - StreamWriter(
+      - new StreamWriter(
+    cwe_ids:
+      - CWE-22
+    tags:
+      - file_write
+
+  - id: csharp-file-upload
+    name: C# 文件上传
+    description: ASP.NET 文件上传处理
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - IFormFile
+      - SaveAs(
+      - CopyTo(
+      - CopyToAsync(
+      - HttpPostedFile
+      - Request.Files
+    cwe_ids:
+      - CWE-434
+    tags:
+      - file_upload
+
+  # ==================== 反序列化 ====================
+  - id: csharp-deserialize-binary
+    name: C# 反序列化 - BinaryFormatter
+    description: BinaryFormatter 反序列化不可信数据可能导致 RCE
+    language: csharp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - BinaryFormatter(
+      - new BinaryFormatter(
+      - binaryFormatter.Deserialize(
+      - BinaryFormatter.Deserialize(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: csharp-deserialize-soap
+    name: C# 反序列化 - SoapFormatter
+    description: SoapFormatter 反序列化
+    language: csharp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - SoapFormatter(
+      - new SoapFormatter(
+      - soapFormatter.Deserialize(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: csharp-deserialize-netdatacontract
+    name: C# 反序列化 - NetDataContractSerializer
+    description: NetDataContractSerializer 反序列化
+    language: csharp
+    rule_type: sink
+    risk_level: critical
+    patterns:
+      - NetDataContractSerializer(
+      - new NetDataContractSerializer(
+      - ReadObject(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - rce
+
+  - id: csharp-deserialize-json
+    name: C# 反序列化 - JSON
+    description: JSON 反序列化
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - JsonConvert.DeserializeObject(
+      - JsonSerializer.Deserialize(
+      - JavaScriptSerializer.Deserialize(
+      - DataContractJsonSerializer(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - json
+
+  - id: csharp-deserialize-xml
+    name: C# 反序列化 - XML
+    description: XML 反序列化
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - XmlSerializer.Deserialize(
+      - XmlDocument.Load(
+      - XmlReader.Create(
+      - XDocument.Load(
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - xml
+
+  - id: csharp-deserialize-viewstate
+    name: C# 反序列化 - ViewState
+    description: ViewState 反序列化
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - LosFormatter(
+      - ObjectStateFormatter(
+      - ViewState
+    cwe_ids:
+      - CWE-502
+    tags:
+      - deserialization
+      - viewstate
+
+  # ==================== SSRF ====================
+  - id: csharp-ssrf-webclient
+    name: C# SSRF - WebClient
+    description: WebClient 请求 URL 可控
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - WebClient(
+      - new WebClient(
+      - DownloadString(
+      - DownloadData(
+      - DownloadFile(
+      - UploadString(
+      - UploadData(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: csharp-ssrf-httpclient
+    name: C# SSRF - HttpClient
+    description: HttpClient 请求 URL 可控
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - HttpClient(
+      - new HttpClient(
+      - GetAsync(
+      - PostAsync(
+      - PutAsync(
+      - DeleteAsync(
+      - SendAsync(
+      - GetStringAsync(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  - id: csharp-ssrf-webrequest
+    name: C# SSRF - WebRequest
+    description: WebRequest 请求 URL 可控
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - WebRequest.Create(
+      - HttpWebRequest(
+      - GetResponse(
+    cwe_ids:
+      - CWE-918
+    tags:
+      - ssrf
+
+  # ==================== XXE ====================
+  - id: csharp-xxe-xmldocument
+    name: C# XXE - XmlDocument
+    description: XmlDocument 未禁用 DTD 可能导致 XXE
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - XmlDocument(
+      - new XmlDocument(
+      - xmlDocument.Load(
+      - xmlDocument.LoadXml(
+      - XmlResolver
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  - id: csharp-xxe-xmlreader
+    name: C# XXE - XmlReader
+    description: XmlReader 配置不当可能导致 XXE
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - XmlReader.Create(
+      - XmlReaderSettings(
+      - DtdProcessing.Parse
+      - ProhibitDtd
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+
+  - id: csharp-xxe-xslt
+    name: C# XXE - XSLT
+    description: XSLT 转换可能导致 XXE/RCE
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - XslCompiledTransform(
+      - XsltSettings.TrustedXslt
+      - EnableScript
+      - Transform(
+    cwe_ids:
+      - CWE-611
+    tags:
+      - xxe
+      - xslt
+
+  # ==================== XSS ====================
+  - id: csharp-xss-response
+    name: C# XSS - Response 输出
+    description: 直接输出用户输入可能导致 XSS
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Response.Write(
+      - HttpResponse.Write(
+      - HtmlString(
+      - new HtmlString(
+      - Html.Raw(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+
+  - id: csharp-xss-razor
+    name: C# XSS - Razor
+    description: Razor 模板未转义输出
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - "@Html.Raw("
+      - WriteLiteral(
+      - WriteUnencodedString(
+    cwe_ids:
+      - CWE-79
+    tags:
+      - xss
+      - razor
+
+  # ==================== LDAP 注入 ====================
+  - id: csharp-ldap-injection
+    name: C# LDAP 注入
+    description: LDAP 查询参数可控
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - DirectorySearcher(
+      - new DirectorySearcher(
+      - searcher.Filter
+      - DirectoryEntry(
+      - new DirectoryEntry(
+    cwe_ids:
+      - CWE-90
+    tags:
+      - ldap_injection
+
+  # ==================== 加密相关 ====================
+  - id: csharp-weak-crypto
+    name: C# 弱加密算法
+    description: 使用弱加密算法
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - MD5.Create(
+      - SHA1.Create(
+      - DES.Create(
+      - TripleDES.Create(
+      - RC2.Create(
+      - new MD5CryptoServiceProvider(
+      - new SHA1CryptoServiceProvider(
+      - new DESCryptoServiceProvider(
+    cwe_ids:
+      - CWE-327
+    tags:
+      - weak_crypto
+
+  - id: csharp-weak-random
+    name: C# 弱随机数
+    description: 使用不安全的随机数生成器
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - new Random(
+      - Random.Next(
+      - random.Next(
+    cwe_ids:
+      - CWE-330
+    tags:
+      - weak_random
+
+  # ==================== 硬编码凭据 ====================
+  - id: csharp-hardcoded-credentials
+    name: C# 硬编码凭据
+    description: 代码中硬编码密码/密钥
+    language: csharp
+    rule_type: sink
+    risk_level: high
+    patterns:
+      - prefix:password
+      - prefix:Password
+      - prefix:secret
+      - prefix:Secret
+      - prefix:apiKey
+      - prefix:ApiKey
+      - prefix:connectionString
+      - prefix:ConnectionString
+    cwe_ids:
+      - CWE-798
+    tags:
+      - hardcoded_credentials
+
+  # ==================== 开放重定向 ====================
+  - id: csharp-open-redirect
+    name: C# 开放重定向
+    description: 重定向目标可控
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - Response.Redirect(
+      - Redirect(
+      - RedirectToAction(
+      - RedirectToRoute(
+      - RedirectPermanent(
+      - LocalRedirect(
+    cwe_ids:
+      - CWE-601
+    tags:
+      - open_redirect
+
+  # ==================== 日志注入 ====================
+  - id: csharp-log-injection
+    name: C# 日志注入
+    description: 用户输入直接写入日志
+    language: csharp
+    rule_type: sink
+    risk_level: low
+    patterns:
+      - _logger.LogInformation(
+      - _logger.LogError(
+      - _logger.LogWarning(
+      - _logger.LogDebug(
+      - Log.Information(
+      - Log.Error(
+      - Trace.WriteLine(
+      - Debug.WriteLine(
+    cwe_ids:
+      - CWE-117
+    tags:
+      - log_injection
+
+  # ==================== 正则表达式 DoS ====================
+  - id: csharp-redos
+    name: C# ReDoS
+    description: 正则表达式可能导致 ReDoS
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - new Regex(
+      - Regex.Match(
+      - Regex.Matches(
+      - Regex.Replace(
+      - Regex.IsMatch(
+    cwe_ids:
+      - CWE-1333
+    tags:
+      - redos
+      - dos
+
+  # ==================== 输入源 (Source) ====================
+  - id: csharp-source-request
+    name: C# ASP.NET 请求参数
+    description: ASP.NET 请求参数
+    language: csharp
+    rule_type: source
+    risk_level: info
+    patterns:
+      - Request.QueryString
+      - Request.Form
+      - Request.Params
+      - Request.Headers
+      - Request.Cookies
+      - Request.Body
+      - HttpContext.Request
+    tags:
+      - source
+
+  - id: csharp-source-aspnetcore
+    name: C# ASP.NET Core 请求参数
+    description: ASP.NET Core 控制器参数
+    language: csharp
+    rule_type: source
+    risk_level: info
+    patterns:
+      - "[FromBody]"
+      - "[FromQuery]"
+      - "[FromRoute]"
+      - "[FromForm]"
+      - "[FromHeader]"
+      - HttpRequest.Query
+      - HttpRequest.Form
+    tags:
+      - source
+      - aspnetcore
+
+  - id: csharp-source-env
+    name: C# 环境变量
+    description: 环境变量
+    language: csharp
+    rule_type: source
+    risk_level: info
+    patterns:
+      - Environment.GetEnvironmentVariable(
+      - ConfigurationManager.AppSettings
+      - Configuration.GetSection(
+      - IConfiguration.GetValue(
+    tags:
+      - source
+      - environment
+
+  # ==================== 清理函数 (Sanitizer) ====================
+  - id: csharp-sanitizer-escape
+    name: C# 转义函数
+    description: HTML/URL 转义函数
+    language: csharp
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - HttpUtility.HtmlEncode(
+      - WebUtility.HtmlEncode(
+      - HttpUtility.UrlEncode(
+      - WebUtility.UrlEncode(
+      - AntiXssEncoder.HtmlEncode(
+      - Encoder.HtmlEncode(
+    tags:
+      - sanitizer
+      - escape
+
+  - id: csharp-sanitizer-parameterized
+    name: C# 参数化查询
+    description: 使用参数化查询防止 SQL 注入
+    language: csharp
+    rule_type: sanitizer
+    risk_level: info
+    patterns:
+      - SqlParameter(
+      - new SqlParameter(
+      - AddWithValue(
+      - Parameters.Add(
+      - command.Parameters
+    tags:
+      - sanitizer
+      - sql
+
+  # ==================== 认证/授权 ====================
+  - id: csharp-auth-identity
+    name: C# ASP.NET Identity
+    description: ASP.NET Identity 认证
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - SignInManager.PasswordSignInAsync(
+      - UserManager.CreateAsync(
+      - UserManager.FindByNameAsync(
+      - ClaimsPrincipal
+      - "[Authorize]"
+      - "[AllowAnonymous]"
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+
+  - id: csharp-auth-jwt
+    name: C# JWT 处理
+    description: JWT 令牌处理
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - JwtSecurityTokenHandler(
+      - ValidateToken(
+      - CreateToken(
+      - ReadJwtToken(
+      - SecurityTokenDescriptor(
+    cwe_ids:
+      - CWE-287
+    tags:
+      - authentication
+      - jwt
+
+  # ==================== 不安全配置 ====================
+  - id: csharp-insecure-config
+    name: C# 不安全配置
+    description: 不安全的配置选项
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - ValidateInput = false
+      - RequestValidationMode
+      - EnableViewStateMac = false
+      - AllowHtml
+      - "[ValidateInput(false)]"
+    cwe_ids:
+      - CWE-16
+    tags:
+      - insecure_config
+
+  # ==================== 内存安全 ====================
+  - id: csharp-unsafe-code
+    name: C# Unsafe 代码
+    description: 使用 unsafe 关键字的代码
+    language: csharp
+    rule_type: sink
+    risk_level: medium
+    patterns:
+      - unsafe
+      - fixed(
+      - stackalloc
+      - Marshal.Copy(
+      - Marshal.PtrToStructure(
+      - IntPtr
+      - UIntPtr
+    cwe_ids:
+      - CWE-787
+    tags:
+      - memory_safety
+      - unsafe
