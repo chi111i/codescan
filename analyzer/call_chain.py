@@ -330,6 +330,21 @@ class CallChainAnalyzer:
             # 尝试找到被调用的节点
             callee_nodes = self.call_graph.get_nodes_by_name(called_name)
 
+            # Go 语言特殊处理：方法调用 variable.Method 需要用方法名匹配
+            # 因为调用提取得到 u.GetUser，但节点索引中是 GetUser 或 Controller.GetUser
+            if not callee_nodes and unit.language == "go" and "." in called_name:
+                # 跳过 go/defer 前缀
+                clean_name = called_name
+                for prefix in ("go ", "defer "):
+                    if clean_name.startswith(prefix):
+                        clean_name = clean_name[len(prefix):]
+                        break
+
+                # 提取方法名部分（最后一个点之后）
+                method_name = clean_name.rsplit(".", 1)[-1]
+                if method_name:
+                    callee_nodes = self.call_graph.get_nodes_by_name(method_name)
+
             if callee_nodes:
                 # 优先选择同文件、同语言的节点
                 best_match = None
@@ -630,13 +645,13 @@ class CallChainAnalyzer:
             callers = self.call_graph._callers.get(node_id, set())
 
             if not callers:
-                # 没有调用者，可能是顶层函数
-                if len(current_path) > 1:
-                    reversed_path = list(reversed(current_path))
-                    path_tuple = tuple(reversed_path)
-                    if path_tuple not in visited_paths:
-                        visited_paths.add(path_tuple)
-                        paths.append(reversed_path)
+                # 没有调用者，可能是顶层函数或直接暴露的入口
+                # 修复：即使路径长度为 1，也返回该路径（表示 sink 本身可直接触达）
+                reversed_path = list(reversed(current_path))
+                path_tuple = tuple(reversed_path)
+                if path_tuple not in visited_paths:
+                    visited_paths.add(path_tuple)
+                    paths.append(reversed_path)
             else:
                 for caller_id in callers:
                     if caller_id not in current_path:
