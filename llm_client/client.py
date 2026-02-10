@@ -271,11 +271,12 @@ class OpenAICompatibleClient(BaseLLMClient):
             http2=True,
         )
 
-        # 嵌入模型的 HTTP 客户端（使用更短的超时以便更快回退到本地嵌入）
+        # 嵌入模型的 HTTP 客户端
         # 注意：禁用 HTTP/2 以避免在网络不稳定时的 SSL EOF 错误
-        embedding_timeout = min(self.timeout, 15)  # 嵌入请求最多 15 秒
+        # Qwen3-Embedding-8B 处理大批量需要较长时间，设置 120 秒超时
+        embedding_timeout = min(self.timeout, 120)
         self._embedding_client = httpx.Client(
-            timeout=httpx.Timeout(embedding_timeout, connect=5.0),
+            timeout=httpx.Timeout(embedding_timeout, connect=10.0),
             headers=self._get_embedding_headers(),
             limits=limits,
             http2=False,  # 禁用 HTTP/2 以提高网络稳定性

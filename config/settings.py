@@ -127,7 +127,7 @@ class ScanConfig:
     ])
     max_file_size_kb: int = 500
     max_concurrent: int = 4
-    chunk_size: int = 2000  # 每个代码块的最大 token 数
+    chunk_size: int = 6000  # 每个代码块的最大 token 数（增大以减少分块数量）
 
     # 扫描模式
     mode: str = "full"  # fast-rule, llm-deep, full, hotspot
