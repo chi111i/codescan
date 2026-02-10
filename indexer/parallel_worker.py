@@ -104,21 +104,32 @@ def parse_file_worker(
             except Exception as e:
                 return (file_path, [], "", f"Failed to read file: {e}")
 
-        # Get parser for file
-        from indexer.parser import get_parser_for_file
-        parser = get_parser_for_file(file_path)
+        # Get parser for file - 优先使用 UnifiedParser（支持所有语言）
+        from indexer.treesitter.unified_parser import UnifiedParser
+        unified_parser = UnifiedParser()
 
-        if not parser:
-            return (file_path, [], "", None)  # No parser available, not an error
-
-        # Calculate relative path
+        units = []
         try:
-            rel_path = str(file_path_obj.relative_to(root_path_obj)).replace("\\", "/")
-        except ValueError:
-            rel_path = file_path_obj.name
+            units = unified_parser.parse_file(file_path)
+        except Exception:
+            pass
 
-        # Parse file
-        units = parser.parse_file(rel_path, content)
+        if not units:
+            # 回退到旧解析器
+            from indexer.parser import get_parser_for_file
+            parser = get_parser_for_file(file_path)
+
+            if not parser:
+                return (file_path, [], "", None)  # No parser available, not an error
+
+            # Calculate relative path
+            try:
+                rel_path = str(file_path_obj.relative_to(root_path_obj)).replace("\\", "/")
+            except ValueError:
+                rel_path = file_path_obj.name
+
+            # Parse file
+            units = parser.parse_file(rel_path, content)
 
         # Convert CodeUnit objects to serializable dictionaries
         units_data = []
@@ -213,8 +224,8 @@ def reconstruct_code_unit(unit_dict: Dict[str, Any]) -> 'CodeUnit':
         span=span,
         code=unit_dict["code"],
         docstring=unit_dict.get("docstring"),
-        calls=set(unit_dict.get("calls", [])),
-        called_by=set(unit_dict.get("called_by", [])),
+        calls=list(unit_dict.get("calls", [])),
+        called_by=list(unit_dict.get("called_by", [])),
         parent_class=unit_dict.get("parent_class"),
         decorators=unit_dict.get("decorators", []),
         imports=unit_dict.get("imports", []),
@@ -291,8 +302,9 @@ class ParallelFileProcessor:
         Returns:
             Tuple of (list of CodeUnits, list of failed file paths)
         """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
         import multiprocessing
+        import os
 
         total_files = len(files)
         if total_files == 0:
@@ -307,6 +319,14 @@ class ParallelFileProcessor:
 
         # Determine optimal worker count
         effective_workers = min(self.max_workers, total_files, multiprocessing.cpu_count())
+
+        # Windows: ProcessPoolExecutor with spawn mode can hang during module imports
+        # Use ThreadPoolExecutor instead for better stability
+        use_threads = os.name == 'nt' or os.environ.get("CODESCAN_USE_THREADS", "").lower() in ("1", "true", "yes")
+
+        if use_threads:
+            logger.info(f"[ThreadPool] Using ThreadPoolExecutor with {effective_workers} workers (Windows/env override)")
+            return self._process_with_threads(files, root_path, effective_workers, progress_callback)
 
         try:
             # Get multiprocessing context (avoid fork issues on some platforms)
@@ -361,6 +381,66 @@ class ParallelFileProcessor:
         except Exception as e:
             logger.warning(f"ProcessPoolExecutor failed ({e}), falling back to sequential")
             return self._process_sequential(files, root_path, progress_callback)
+
+        return all_units, failed_files
+
+    def _process_with_threads(
+        self,
+        files: List[Path],
+        root_path: Path,
+        max_workers: int,
+        progress_callback: Optional[callable] = None,
+    ) -> Tuple[List['CodeUnit'], List[str]]:
+        """Process files using ThreadPoolExecutor.
+
+        Safer alternative to ProcessPoolExecutor on Windows where spawn mode
+        can cause hangs during module imports with complex dependencies.
+
+        Args:
+            files: List of file paths
+            root_path: Root directory
+            max_workers: Number of threads
+            progress_callback: Optional progress callback
+
+        Returns:
+            Tuple of (units, failed_files)
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        all_units = []
+        failed_files = []
+        total = len(files)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(parse_file_worker, str(f), str(root_path)): f
+                for f in files
+            }
+
+            processed = 0
+            for future in as_completed(futures):
+                file_path = futures[future]
+                try:
+                    result_path, units_data, language, error = future.result()
+
+                    if error:
+                        failed_files.append(result_path)
+                        logger.warning(f"Failed to parse {result_path}: {error}")
+                    else:
+                        for unit_dict in units_data:
+                            try:
+                                unit = reconstruct_code_unit(unit_dict)
+                                all_units.append(unit)
+                            except Exception as e:
+                                logger.warning(f"Failed to reconstruct unit: {e}")
+
+                except Exception as e:
+                    failed_files.append(str(file_path))
+                    logger.error(f"Thread worker failed for {file_path}: {e}")
+
+                processed += 1
+                if progress_callback and (processed % 10 == 0 or processed == total):
+                    progress_callback(processed, total)
 
         return all_units, failed_files
 

@@ -739,17 +739,21 @@ class CachedEmbeddingGenerator:
     def generate_embeddings(
         self,
         texts: List[str],
-        batch_size: int = 50
+        batch_size: int = 50,
+        max_concurrent: int = 5
     ) -> List[List[float]]:
-        """生成嵌入 (带缓存)
+        """生成嵌入 (带缓存 + 并行请求)
 
         Args:
             texts: 文本列表
-            batch_size: 批处理大小
+            batch_size: 每批文本数量 (默认50)
+            max_concurrent: 最大并发请求数 (默认5，适配 SiliconFlow 3000 RPM)
 
         Returns:
             嵌入向量列表
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         # 计算所有文本的哈希
         hashes = [EmbeddingCache.compute_hash(t) for t in texts]
 
@@ -772,20 +776,50 @@ class CachedEmbeddingGenerator:
 
         logger.debug(f"Cache hits: {self._cache_hits}, misses: {self._cache_misses}")
 
-        # 批量计算新的嵌入
+        # 批量计算新的嵌入（并行请求）
         if texts_to_compute:
-            new_embeddings = []
+            # 准备所有批次
+            batches = []
             for i in range(0, len(texts_to_compute), batch_size):
                 batch_texts = texts_to_compute[i:i + batch_size]
+                batch_indices = list(range(i, min(i + batch_size, len(texts_to_compute))))
+                batches.append((batch_texts, batch_indices))
+
+            logger.info(f"[Embedding] 并行处理 {len(batches)} 批次，每批 {batch_size} 个，并发数 {max_concurrent}")
+
+            # 并行执行嵌入请求
+            new_embeddings = [None] * len(texts_to_compute)
+
+            def process_batch(batch_data):
+                batch_texts, batch_indices = batch_data
                 response = self.llm_client.embed(batch_texts)
-                new_embeddings.extend(response.embeddings)
+                return batch_indices, response.embeddings
+
+            with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+                futures = {executor.submit(process_batch, batch): batch for batch in batches}
+                completed = 0
+                for future in as_completed(futures):
+                    try:
+                        batch_indices, batch_embeddings = future.result()
+                        for idx, emb in zip(batch_indices, batch_embeddings):
+                            new_embeddings[idx] = emb
+                        completed += 1
+                        if completed % 5 == 0 or completed == len(batches):
+                            logger.info(f"[Embedding] 进度: {completed}/{len(batches)} 批次完成")
+                    except Exception as e:
+                        logger.error(f"[Embedding] 批次处理失败: {e}")
+                        # 填充空向量
+                        batch_texts, batch_indices = futures[future]
+                        for idx in batch_indices:
+                            new_embeddings[idx] = [0.0] * 4096
 
             # 填充结果并缓存
             cache_items = []
             for idx, emb, text in zip(indices_to_compute, new_embeddings, texts_to_compute):
-                embeddings[idx] = emb
-                h = hashes[idx]
-                cache_items.append((h, emb, {"text_length": len(text)}))
+                if emb is not None:
+                    embeddings[idx] = emb
+                    h = hashes[idx]
+                    cache_items.append((h, emb, {"text_length": len(text)}))
 
             self.cache.set_batch(cache_items)
 

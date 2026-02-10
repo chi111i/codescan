@@ -27,6 +27,17 @@ if TYPE_CHECKING:
 from functools import lru_cache
 from .models import CodeUnit
 from .parser import get_parser_for_file, BaseLanguageParser
+from .treesitter.unified_parser import UnifiedParser
+
+# 全局 UnifiedParser 实例（支持所有语言）
+_unified_parser: Optional[UnifiedParser] = None
+
+def _get_unified_parser() -> UnifiedParser:
+    """获取或创建 UnifiedParser 单例"""
+    global _unified_parser
+    if _unified_parser is None:
+        _unified_parser = UnifiedParser()
+    return _unified_parser
 # Use unified vector store interface (replaces legacy)
 from .vector_store import (
     VectorStoreInterface,
@@ -345,6 +356,9 @@ class CodeIndexer:
         # 当前索引的目标路径（在 index_directory 时更新）
         self._current_target_path: Optional[Path] = None
 
+        # CodeReader 实例（在索引完成后初始化）
+        self.code_reader = None
+
         # 初始化嵌入缓存（使用单例模式避免多进程锁定）
         if config.vector_store.enable_cache:
             self.embedding_cache = embedding_cache or get_embedding_cache(
@@ -405,6 +419,19 @@ class CodeIndexer:
         )
         # Enable parallel processing for large projects (>= 20 files)
         self._parallel_threshold = 20
+
+    def _init_code_reader(self, project_path: Path) -> None:
+        """初始化 CodeReader 实例
+
+        Args:
+            project_path: 项目根路径
+        """
+        from .code_reader import CodeReader
+        self.code_reader = CodeReader(
+            project_path=str(project_path),
+            indexer=self,
+        )
+        logger.info(f"[CodeReader] 已初始化，项目路径: {project_path}")
 
     @property
     def code_units(self) -> Dict[str, 'CodeUnit']:
@@ -507,7 +534,23 @@ class CodeIndexer:
             logger.debug("[SCAN] 排除示例: %s", excluded_examples)
 
     def _parse_file(self, file_path: Path, root_path: Path) -> List[CodeUnit]:
-        """解析单个文件"""
+        """解析单个文件（使用 UnifiedParser 支持所有语言）"""
+        # 优先使用 UnifiedParser（支持 Go、Java、Rust 等所有语言）
+        unified_parser = _get_unified_parser()
+
+        try:
+            units = unified_parser.parse_file(str(file_path))
+            if units:
+                logger.debug(
+                    "[PARSE] UnifiedParser 解析 %s: %d 个代码单元",
+                    file_path.name,
+                    len(units)
+                )
+                return units
+        except Exception as e:
+            logger.debug("[PARSE] UnifiedParser 解析失败，回退到旧解析器: %s", e)
+
+        # 回退到旧解析器（Python、JavaScript、PHP）
         parser = get_parser_for_file(str(file_path))
         if not parser:
             logger.debug("[PARSE] 没有找到解析器: %s", file_path)
@@ -964,6 +1007,9 @@ class CodeIndexer:
         total_count = self.vector_store.count()
         logger.info(f"[索引完成] 向量数据库总计: {total_count} 个代码单元")
 
+        # 索引完成后初始化 CodeReader
+        self._init_code_reader(path)
+
         return len(chunked_units)
 
     def index_directory_incremental(
@@ -1064,6 +1110,9 @@ class CodeIndexer:
 
         total_count = self.vector_store.count()
         logger.info(f"Incremental index complete. Total units: {total_count}, Stats: {stats}")
+
+        # 增量索引完成后初始化/更新 CodeReader
+        self._init_code_reader(path)
 
         return stats
 

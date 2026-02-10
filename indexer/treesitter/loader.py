@@ -92,22 +92,32 @@ class LanguageLoader:
             # 动态导入语言包
             module = __import__(package_name)
 
+            # 获取语言 capsule
+            capsule = None
+
             # 处理 TypeScript 的特殊情况（有 typescript 和 tsx 两个子语言）
             if language_name == "typescript":
                 if hasattr(module, 'language_typescript'):
-                    return module.language_typescript()
+                    capsule = module.language_typescript()
                 elif hasattr(module, 'language'):
-                    return module.language()
+                    capsule = module.language()
             elif language_name == "tsx":
                 if hasattr(module, 'language_tsx'):
-                    return module.language_tsx()
+                    capsule = module.language_tsx()
+            elif hasattr(module, 'language'):
+                capsule = module.language()
 
-            # 标准加载方式
-            if hasattr(module, 'language'):
-                return module.language()
+            if capsule is None:
+                logger.error(f"语言包 {package_name} 没有 language() 函数")
+                return None
 
-            logger.error(f"语言包 {package_name} 没有 language() 函数")
-            return None
+            # tree-sitter 0.25.x 返回 PyCapsule，需要用 Language() 包装
+            # 检查是否已经是 Language 对象
+            if isinstance(capsule, Language):
+                return capsule
+            else:
+                # 新版本 API：capsule 需要包装成 Language 对象
+                return Language(capsule)
 
         except ImportError as e:
             logger.warning(f"语言包 {package_name} 未安装: {e}")
