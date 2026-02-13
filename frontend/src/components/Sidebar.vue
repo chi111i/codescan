@@ -199,12 +199,8 @@ onMounted(() => {
   transform: translateY(-50%) scaleY(1);
 }
 
-.nav-item.highlight {
-  @apply bg-violet-500/10;
-}
-
-.nav-item.highlight:not(.active) {
-  @apply bg-violet-500/10;
+.nav-item.highlight.active {
+  @apply bg-violet-500/15;
 }
 
 .nav-icon {

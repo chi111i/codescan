@@ -1525,9 +1525,8 @@ const toggleCallGraph = async () => {
 const loadCallGraph = async (scanId) => {
   addLog('正在加载调用图数据...', 'info')
   try {
-    const result = await api.analyzeCallGraph({
+    const result = await api.getCallGraph({
       target_path: config.targetPath,
-      max_depth: config.maxChainDepth,
       languages: config.languages.length > 0 ? config.languages : null,
     })
     if (result.success && result.data) {

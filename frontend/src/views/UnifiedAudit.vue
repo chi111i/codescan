@@ -974,7 +974,7 @@ const loadCallGraphData = async (targetPath) => {
 
   try {
     console.log('开始加载调用图数据...')
-    const result = await api.analyzeCallGraph({
+    const result = await api.getCallGraph({
       target_path: targetPath,
       languages: scanConfig.languages.length > 0 ? scanConfig.languages : null,
     })
