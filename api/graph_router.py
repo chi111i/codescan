@@ -1,6 +1,9 @@
 """
-Code Graph API Router
+Code Graph API Router (Experimental)
 Provides API endpoints for building and analyzing code property graphs (CPG).
+
+WARNING: 当前为实验性实现，使用内存存储，服务重启后数据丢失。
+不应在生产环境中依赖此模块的数据持久性。
 """
 
 from fastapi import APIRouter, HTTPException
@@ -9,10 +12,14 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
 import ast
+import logging
 
-router = APIRouter(prefix="/graph", tags=["graph"])
+logger = logging.getLogger(__name__)
 
-# In-memory storage for graphs (in production, use database)
+router = APIRouter(prefix="/graph", tags=["graph-experimental"])
+
+# In-memory storage - 实验性实现，重启后数据丢失
+# TODO: 迁移到 SQLite 持久化存储
 _graphs_store: Dict[str, Dict[str, Any]] = {}
 
 

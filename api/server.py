@@ -129,13 +129,34 @@ _graph_manager = None
 
 
 def get_variant_analyzer():
-    """获取变体分析器实例（单例）"""
+    """获取变体分析器实例（单例）
+
+    优先尝试构建真实的 VariantAnalyzer（需要 vector_store, llm_client, embedding_client）。
+    如果依赖不可用，回退到 MockVariantAnalyzer 并记录警告。
+    """
     global _variant_analyzer
     if _variant_analyzer is None:
-        from analyzer.variant_analysis import VariantAnalyzer
-        # 这里需要实际的依赖注入
-        # 目前使用 mock 模式
-        _variant_analyzer = MockVariantAnalyzer()
+        # 尝试从 app_state 获取真实依赖
+        try:
+            from api.main import app_state
+            if (hasattr(app_state, 'vector_store') and app_state.vector_store
+                    and hasattr(app_state, 'llm_client') and app_state.llm_client):
+                from analyzer.variant_analysis import VariantAnalyzer
+                _variant_analyzer = VariantAnalyzer(
+                    vector_store=app_state.vector_store,
+                    llm_client=app_state.llm_client,
+                    embedding_client=app_state.llm_client,  # 复用 llm_client 做嵌入
+                )
+                logger.info("变体分析器已使用真实依赖初始化")
+            else:
+                logger.warning(
+                    "变体分析器依赖不可用 (vector_store/llm_client)，"
+                    "回退到 MockVariantAnalyzer - 返回的是演示数据，非真实分析结果"
+                )
+                _variant_analyzer = MockVariantAnalyzer()
+        except Exception as e:
+            logger.warning(f"构建真实 VariantAnalyzer 失败，回退到 Mock: {e}")
+            _variant_analyzer = MockVariantAnalyzer()
     return _variant_analyzer
 
 
@@ -159,7 +180,12 @@ def reset_graph_manager():
 
 
 class MockVariantAnalyzer:
-    """Mock 变体分析器（用于演示）"""
+    """Mock 变体分析器（用于演示）
+
+    WARNING: 返回的是硬编码演示数据，不是真实代码分析结果。
+    仅在真实 VariantAnalyzer 依赖不可用时作为降级方案使用。
+    """
+    is_mock = True  # 标记为 mock 实现，供调用方检查
 
     def __init__(self):
         self.patterns = {}

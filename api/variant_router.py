@@ -1,20 +1,32 @@
 """
-Variant Analysis API Router
+Variant Analysis API Router (Experimental)
 Provides API endpoints for vulnerability variant analysis and pattern management.
+
+WARNING: 当前为实验性实现，使用内存存储，服务重启后数据丢失。
+不应在生产环境中依赖此模块的数据持久性。
 """
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
+import logging
 
-router = APIRouter(prefix="/variant", tags=["variant"])
+logger = logging.getLogger(__name__)
 
-# In-memory storage (in production, use database)
+router = APIRouter(prefix="/variant", tags=["variant-experimental"])
+
+# In-memory storage - 实验性实现，重启后数据丢失
+# TODO: 迁移到 SQLite 持久化存储
 _patterns_store: Dict[str, Dict[str, Any]] = {}
 _variants_store: Dict[str, Dict[str, Any]] = {}
 _rules_store: Dict[str, Dict[str, Any]] = {}
+
+_EXPERIMENTAL_WARNING = (
+    "This endpoint is experimental. Data is stored in-memory and will be lost on restart."
+)
 
 
 # ============ Pydantic Models ============

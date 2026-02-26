@@ -292,6 +292,9 @@ class AppState:
         self.indexer: Optional[CodeIndexer] = None
         self.rule_manager: Optional[RuleManager] = None
 
+        # 初始化错误状态（None 表示正常，非 None 表示降级模式）
+        self.initialization_error: Optional[str] = None
+
         # 数据库与仓库
         self.db: Optional[DatabaseManager] = None
         self.scan_repo: Optional[ScanRepository] = None
@@ -385,10 +388,12 @@ async def lifespan(app: FastAPI):
             print(f"[INIT] 规则总数: {app_state.rule_manager.count()}")
     except Exception as e:
         import traceback
-        logger.error(f"初始化失败: {e}")
-        print(f"[INIT ERROR] 初始化失败: {e}")
+        logger.error(f"核心初始化失败: {e}\n{traceback.format_exc()}")
+        print(f"[INIT ERROR] 核心初始化失败: {e}")
         print(f"[INIT ERROR] 堆栈: {traceback.format_exc()}")
-        # 不要 re-raise，让服务器继续运行但记录错误
+        # 记录初始化错误状态，供健康检查和 API 端点使用
+        app_state.initialization_error = str(e)
+        # 服务继续运行但处于降级模式，关键 API 会返回明确错误
 
     # 启动后台任务处理交互日志广播队列
     broadcast_task = asyncio.create_task(process_interaction_broadcast_queue())
@@ -480,10 +485,24 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS 配置
+    # CORS 配置 - 默认仅允许本地开发环境，生产环境通过 CORS_ORIGINS 环境变量配置
+    cors_origins = os.environ.get("CORS_ORIGINS", "").strip()
+    if cors_origins:
+        allowed_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    else:
+        # 开发环境默认值：仅允许本地前端
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ]
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -515,13 +534,17 @@ app.include_router(interactive_router)
 from .agent_router import router as agent_router
 app.include_router(agent_router)
 
-# 注册代码属性图路由
+# 注册代码属性图路由 (实验性 - 内存存储，重启丢失)
 from .graph_router import router as graph_router
 app.include_router(graph_router)
 
-# 注册变体分析路由
+# 注册变体分析路由 (实验性 - 内存存储，重启丢失)
 from .variant_router import router as variant_router
 app.include_router(variant_router)
+
+logger.warning(
+    "实验性路由已挂载: /graph, /variant - 使用内存存储，数据不持久化"
+)
 
 
 # ============ 静态文件 ============
@@ -549,9 +572,11 @@ async def serve_frontend():
 @app.get("/api/health")
 async def health_check():
     """健康检查"""
+    is_degraded = app_state.initialization_error is not None
     return {
-        "status": "healthy",
+        "status": "degraded" if is_degraded else "healthy",
         "timestamp": datetime.now().isoformat(),
+        "initialization_error": app_state.initialization_error,
         "components": {
             "llm_client": app_state.llm_client is not None,
             "vector_store": app_state.vector_store is not None,
@@ -667,6 +692,8 @@ async def run_index_task(index_id: str, target_path: Path, clear_existing: bool)
 
         # 用于线程安全的进度更新队列
         progress_queue = asyncio.Queue()
+        # 获取当前事件循环引用，用于线程安全的跨线程投递
+        _loop = asyncio.get_running_loop()
 
         # 解析阶段进度回调（在线程池中执行）
         def on_parse_progress(processed: int, total: int):
@@ -674,11 +701,8 @@ async def run_index_task(index_id: str, target_path: Path, clear_existing: bool)
             progress.total_files = total
             progress.progress = 0.1 + 0.3 * (processed / max(total, 1))
             progress.current_step = f"解析文件: {processed}/{total}"
-            # 将广播请求放入队列
-            try:
-                progress_queue.put_nowait(("parse", processed, total))
-            except asyncio.QueueFull:
-                pass  # 忽略队列满的情况
+            # 线程安全地将广播请求放入队列
+            _loop.call_soon_threadsafe(progress_queue.put_nowait, ("parse", processed, total))
 
         # 嵌入阶段进度回调
         def on_embed_progress(processed: int, total: int, msg: str = ""):
@@ -687,10 +711,7 @@ async def run_index_task(index_id: str, target_path: Path, clear_existing: bool)
             progress.embedding_progress = processed / max(total, 1)
             progress.progress = 0.4 + 0.5 * (processed / max(total, 1))
             progress.current_step = msg or f"生成嵌入: {processed}/{total}"
-            try:
-                progress_queue.put_nowait(("embed", processed, total))
-            except asyncio.QueueFull:
-                pass
+            _loop.call_soon_threadsafe(progress_queue.put_nowait, ("embed", processed, total))
 
         # 启动进度广播协程
         async def progress_broadcaster():
@@ -767,10 +788,10 @@ async def index_project(request: IndexRequest, background_tasks: BackgroundTasks
 
     try:
         if request.clear_existing:
-            app_state.indexer.clear_index()
+            await asyncio.to_thread(app_state.indexer.clear_index)
 
-        count = app_state.indexer.index_directory(str(target_path))
-        stats = app_state.indexer.get_stats()
+        count = await asyncio.to_thread(app_state.indexer.index_directory, str(target_path))
+        stats = await asyncio.to_thread(app_state.indexer.get_stats)
 
         # 索引完成后使统计缓存失效
         app_state.invalidate_stats_cache()
@@ -994,20 +1015,28 @@ async def cleanup_expired_cache():
 @app.post("/api/search", response_model=APIResponse)
 async def search_code(request: SearchRequest):
     """搜索代码"""
+    if not request.query or not request.query.strip():
+        raise HTTPException(status_code=400, detail="查询不能为空")
+
+    if not (1 <= request.top_k <= 100):
+        raise HTTPException(status_code=400, detail="top_k 必须在 1-100 之间")
+
     if not app_state.indexer:
         raise HTTPException(status_code=500, detail="索引器未初始化")
 
     try:
         results = app_state.indexer.search(
-            query=request.query,
+            query=request.query.strip(),
             top_k=request.top_k,
             language=request.language,
             file_pattern=request.file_pattern,
         )
 
-        # 转换为 schema
+        # 转换为 schema（防守 None span）
         code_units = []
         for unit in results:
+            if unit is None or unit.span is None:
+                continue
             code_units.append(CodeUnitSchema(
                 id=unit.id,
                 language=unit.language,
@@ -1016,10 +1045,10 @@ async def search_code(request: SearchRequest):
                 unit_type=unit.unit_type.value,
                 signature=unit.signature,
                 span=CodeSpanSchema(
-                    start_line=unit.span.start_line,
-                    end_line=unit.span.end_line,
-                    start_col=unit.span.start_col,
-                    end_col=unit.span.end_col,
+                    start_line=unit.span.start_line or 0,
+                    end_line=unit.span.end_line or 0,
+                    start_col=unit.span.start_col or 0,
+                    end_col=unit.span.end_col or 0,
                 ),
                 code=unit.code,
                 docstring=unit.docstring,
@@ -3841,19 +3870,6 @@ async def update_settings(request: SettingsRequest):
 
     # 更新搜索配置
     if request.search is not None:
-        # 确保 search 配置对象存在
-        if not hasattr(app_state.config, 'search') or app_state.config.search is None:
-            from dataclasses import dataclass, field
-            @dataclass
-            class SearchConfig:
-                mode: str = "hybrid"
-                rrf_k: int = 60
-                vector_weight: float = 1.0
-                enable_smart_cutoff: bool = True
-                enable_security_rerank: bool = True
-                security_boost: float = 1.5
-            app_state.config.search = SearchConfig()
-
         search_config = app_state.config.search
 
         if request.search.mode is not None:

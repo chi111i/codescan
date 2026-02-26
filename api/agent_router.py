@@ -218,6 +218,11 @@ async def create_session(request: CreateUnifiedSessionRequest):
         try:
             from api.server import get_variant_analyzer
             variant_analyzer = get_variant_analyzer()
+            if getattr(variant_analyzer, 'is_mock', False):
+                logger.warning(
+                    f"[Session {session_id}] 变体分析器为 Mock 实现，"
+                    "相关工具返回的是演示数据而非真实分析结果"
+                )
         except Exception as e:
             logger.warning(f"[Session {session_id}] 变体分析器初始化失败，部分工具将不可用: {e}")
 
