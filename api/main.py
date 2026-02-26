@@ -536,14 +536,14 @@ app.include_router(agent_router)
 
 # 注册代码属性图路由 (实验性 - 内存存储，重启丢失)
 from .graph_router import router as graph_router
-app.include_router(graph_router)
+app.include_router(graph_router, prefix="/api")
 
 # 注册变体分析路由 (实验性 - 内存存储，重启丢失)
 from .variant_router import router as variant_router
-app.include_router(variant_router)
+app.include_router(variant_router, prefix="/api")
 
 logger.warning(
-    "实验性路由已挂载: /graph, /variant - 使用内存存储，数据不持久化"
+    "实验性路由已挂载: /api/graph, /api/variant - 使用内存存储，数据不持久化"
 )
 
 
@@ -3588,39 +3588,6 @@ async def list_rules(
     )
 
 
-@app.get("/api/rules/{rule_id}", response_model=APIResponse)
-async def get_rule(rule_id: str):
-    """获取单个规则"""
-    if not app_state.rule_manager:
-        raise HTTPException(status_code=500, detail="规则管理器未初始化")
-
-    rule = app_state.rule_manager.get_rule(rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="规则不存在")
-
-    return APIResponse(
-        success=True,
-        message="获取成功",
-        data=RuleSchema(
-            id=rule.id,
-            name=rule.name,
-            rule_type=rule.rule_type.value,
-            category=rule.category.value,
-            risk_level=rule.risk_level.value,
-            languages=rule.languages,
-            patterns=rule.patterns,
-            frameworks=rule.frameworks,
-            description=rule.description,
-            example=rule.example,
-            attack_scenario=rule.attack_scenario,
-            fix_suggestion=rule.fix_suggestion,
-            cwe_ids=rule.cwe_ids,
-            owasp_ids=rule.owasp_ids,
-            tags=rule.tags,
-        ).model_dump(),
-    )
-
-
 @app.get("/api/rules/stats", response_model=APIResponse)
 async def get_rules_stats():
     """获取规则统计信息
@@ -3665,6 +3632,39 @@ async def get_rules_stats():
         success=True,
         message=f"共 {len(rules)} 条规则",
         data=stats.model_dump(),
+    )
+
+
+@app.get("/api/rules/{rule_id}", response_model=APIResponse)
+async def get_rule(rule_id: str):
+    """获取单个规则"""
+    if not app_state.rule_manager:
+        raise HTTPException(status_code=500, detail="规则管理器未初始化")
+
+    rule = app_state.rule_manager.get_rule(rule_id)
+    if not rule:
+        raise HTTPException(status_code=404, detail="规则不存在")
+
+    return APIResponse(
+        success=True,
+        message="获取成功",
+        data=RuleSchema(
+            id=rule.id,
+            name=rule.name,
+            rule_type=rule.rule_type.value,
+            category=rule.category.value,
+            risk_level=rule.risk_level.value,
+            languages=rule.languages,
+            patterns=rule.patterns,
+            frameworks=rule.frameworks,
+            description=rule.description,
+            example=rule.example,
+            attack_scenario=rule.attack_scenario,
+            fix_suggestion=rule.fix_suggestion,
+            cwe_ids=rule.cwe_ids,
+            owasp_ids=rule.owasp_ids,
+            tags=rule.tags,
+        ).model_dump(),
     )
 
 
@@ -3769,6 +3769,14 @@ async def get_settings():
                 "provider": config.vector_store.provider,
                 "host": config.vector_store.host,
                 "port": config.vector_store.port,
+            },
+            "search": {
+                "mode": config.search.mode,
+                "rrf_k": config.search.rrf_k,
+                "vector_weight": config.search.vector_weight,
+                "enable_smart_cutoff": config.search.enable_smart_cutoff,
+                "enable_security_rerank": config.search.enable_security_rerank,
+                "security_boost": config.search.security_boost,
             },
         },
     )
