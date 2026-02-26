@@ -2846,7 +2846,9 @@ Step 5: 输出结构化发现报告
             target_normalized = os.path.normpath(os.path.abspath(target_path)).lower()
 
             # 检查请求的路径是否在允许的项目目录内
-            if not target_normalized.startswith(allowed_normalized):
+            # BUG #5 Fix: 追加 os.sep 防止同前缀目录绕过（如 /project vs /project-evil）
+            if not (target_normalized == allowed_normalized
+                    or target_normalized.startswith(allowed_normalized + os.sep)):
                 return {
                     "success": False,
                     "error": f"安全限制：只允许索引会话绑定的目标项目 '{allowed_project_path}'，"

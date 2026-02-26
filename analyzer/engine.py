@@ -403,6 +403,7 @@ class SecurityAnalyzer:
         max_llm_calls: int = 30,
         vuln_types: Optional[List[str]] = None,
         progress_callback: Optional[callable] = None,
+        use_llm: bool = True,
     ) -> List[Finding]:
         """统一的链级分析入口（P0 目标推荐流程）
 
@@ -411,7 +412,7 @@ class SecurityAnalyzer:
         2. P0-2: 构建调用图
         3. P0-3: 枚举调用链（带爆炸控制）
         4. P0-4: ChainContextCollector 收集调用链上下文
-        5. P0-5: LLM 链级分析（输出结构化结果）+ 输出验证
+        5. P0-5: LLM 链级分析（输出结构化结果）+ 输出验证（use_llm=True 时）
 
         Args:
             code_units: 代码单元列表
@@ -422,6 +423,7 @@ class SecurityAnalyzer:
             max_llm_calls: 最大 LLM 调用次数（防止失控）
             vuln_types: 要检测的漏洞类型列表（如 ['command_injection', 'logic_flaw']）
             progress_callback: 可选的进度回调函数 (progress: float, step: str) -> None
+            use_llm: 是否使用 LLM 深度分析（False 时只返回确定性扫描结果）
 
         Returns:
             Finding 列表
@@ -577,6 +579,17 @@ class SecurityAnalyzer:
         report_progress(0.49, f"收集了 {len(chain_contexts)} 个调用链上下文")
 
         # ============================================================
+        # use_llm=False: 跳过 LLM 分析，返回确定性扫描结果
+        # ============================================================
+        if not use_llm:
+            logger.info(f"[P0] use_llm=False，跳过 LLM 分析，生成确定性 Finding")
+            report_progress(0.90, "生成确定性扫描结果（无 LLM）...")
+            findings = self._generate_deterministic_findings(sink_sites, chain_contexts)
+            findings = self._filter_and_sort_findings(findings)
+            logger.info(f"[P0] 确定性扫描完成，发现 {len(findings)} 个潜在安全问题")
+            return findings
+
+        # ============================================================
         # P0-5: LLM 链级分析（限制调用次数）
         # ============================================================
         # 限制 LLM 调用次数，防止无限分析
@@ -620,6 +633,91 @@ class SecurityAnalyzer:
         findings = self._filter_and_sort_findings(findings)
 
         logger.info(f"[P0] 链级分析完成，发现 {len(findings)} 个安全问题")
+        return findings
+
+    def _generate_deterministic_findings(
+        self,
+        sink_sites: List[SinkCallSite],
+        chain_contexts: list,
+    ) -> List[Finding]:
+        """生成确定性 Finding（不调用 LLM）
+
+        基于 sink 匹配和调用链信息生成 Finding，用于 use_llm=False 模式。
+
+        Args:
+            sink_sites: 危险函数触发点列表
+            chain_contexts: 调用链上下文列表
+
+        Returns:
+            Finding 列表
+        """
+        findings = []
+
+        # 建立 sink_site -> chain_contexts 的映射
+        site_chains: Dict[str, list] = {}
+        for ctx in chain_contexts:
+            key = f"{ctx.sink_site.file_path}:{ctx.sink_site.line_start}:{ctx.sink_site.symbol}"
+            if key not in site_chains:
+                site_chains[key] = []
+            site_chains[key].append(ctx)
+
+        for site in sink_sites:
+            key = f"{site.file_path}:{site.line_start}:{site.symbol}"
+            chains = site_chains.get(key, [])
+
+            # 生成确定性 Finding ID
+            content_for_hash = f"{self.scan_id}:{site.file_path}:{site.line_start}:{site.symbol}"
+            finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
+            finding_id = f"f-{finding_hash}"
+
+            # 构建调用链路径描述
+            chain_desc = ""
+            if chains:
+                chain_paths = []
+                for ctx in chains[:3]:  # 最多展示 3 条链
+                    if ctx.chain_nodes:
+                        path_str = " -> ".join([n.symbol for n in ctx.chain_nodes])
+                        chain_paths.append(path_str)
+                if chain_paths:
+                    chain_desc = f"\n调用链路径:\n" + "\n".join(f"  - {p}" for p in chain_paths)
+
+            # 基于 sink category 推断严重性
+            high_severity_categories = {
+                SinkCategory.CODE_EXEC, SinkCategory.COMMAND_EXEC,
+                SinkCategory.DESERIALIZATION, SinkCategory.SQL_INJECTION,
+            }
+            severity = Severity.HIGH if site.sink_category in high_severity_categories else Severity.MEDIUM
+
+            finding = Finding(
+                id=finding_id,
+                title=f"[确定性扫描] {site.sink_category.value}: {site.symbol}",
+                file_path=site.file_path,
+                line_start=site.line_start,
+                line_end=site.line_end,
+                symbol=site.symbol,
+                severity=severity,
+                confidence=0.5,  # 未经 LLM 验证，置信度设为中等
+                category=site.sink_category.value,
+                summary=f"检测到危险函数调用 {site.call_snippet[:80] if site.call_snippet else site.symbol}，"
+                        f"匹配规则: {', '.join(site.matched_rule_ids) if site.matched_rule_ids else 'N/A'}。"
+                        f"（未经 LLM 深度分析，建议人工审查）{chain_desc}",
+                details="此结果由确定性扫描生成（use_llm=False），仅基于 sink 模式匹配和调用链分析，未经 LLM 深度验证。",
+                evidence=[Evidence(
+                    file_path=site.file_path,
+                    line_start=site.line_start,
+                    line_end=site.line_end,
+                    code_snippet=site.call_snippet,
+                    description=f"触发点: {site.symbol}"
+                )],
+                rule_ids=site.matched_rule_ids,
+                metadata={
+                    "analysis_mode": "deterministic_no_llm",
+                    "sink_category": site.sink_category.value,
+                    "chain_count": len(chains),
+                }
+            )
+            findings.append(finding)
+
         return findings
 
     def _analyze_sink_sites_fallback(
@@ -1413,6 +1511,7 @@ class SecurityAnalyzer:
         vuln_types: Optional[List[str]] = None,
         max_llm_calls: int = 30,
         progress_callback: Optional[callable] = None,
+        use_llm: bool = True,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -1428,13 +1527,14 @@ class SecurityAnalyzer:
             vuln_types: 要检测的漏洞类型列表（如 ['command_injection', 'logic_flaw']）
             max_llm_calls: 最大 LLM 调用次数
             progress_callback: 可选的进度回调函数 (progress: float, step: str) -> None
+            use_llm: 是否使用 LLM 深度分析（False 时只返回确定性扫描结果）
 
         Returns:
             Finding 列表
         """
         # P0-3: chain_analysis 开关优先级最高
         # 无论是否提供 code_units，都应该尊重 use_chain_analysis 参数
-        logger.info(f"[Analyze] Mode: {'chain' if use_chain_analysis else 'simple'}")
+        logger.info(f"[Analyze] Mode: {'chain' if use_chain_analysis else 'simple'}, use_llm={use_llm}")
 
         # 如果没有提供 code_units，从索引器获取
         if code_units is None:
@@ -1459,6 +1559,7 @@ class SecurityAnalyzer:
                 max_llm_calls=max_llm_calls,
                 vuln_types=vuln_types,
                 progress_callback=progress_callback,
+                use_llm=use_llm,
             )
         else:
             # 不使用链级分析时，根据 use_agent 决定使用哪种模式
@@ -2385,7 +2486,7 @@ class SecurityAnalyzer:
                 line_start=sink_site.line_start,
                 line_end=sink_site.line_end,
                 symbol=sink_site.symbol,
-                severity=Severity(result.get("severity", "medium")),
+                severity=Severity.from_string(result.get("severity", "medium")),
                 confidence=result.get("confidence", 0.7),
                 category=sink_site.sink_category.value,
                 summary=result.get("summary", ""),
@@ -2487,7 +2588,7 @@ class SecurityAnalyzer:
                 line_start=sink_site.line_start,
                 line_end=sink_site.line_end,
                 symbol=sink_site.symbol,
-                severity=Severity(result.get("severity", "medium")),
+                severity=Severity.from_string(result.get("severity", "medium")),
                 confidence=result.get("confidence", 0.7),
                 category=sink_site.sink_category.value,
                 summary=result.get("summary", ""),

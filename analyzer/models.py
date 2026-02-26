@@ -88,8 +88,8 @@ class Finding:
             格式: f-{timestamp_hex}-{random_hex} 或 f-{content_hash}
         """
         if scan_id and context:
-            # 基于内容的哈希 ID（同一扫描中相同位置的发现会有相同 ID）
-            content = f"{scan_id}:{context}:{time.time_ns()}"
+            # BUG #9 Fix: 移除 time.time_ns()，仅用 scan_id:context 做哈希，确保去重有效
+            content = f"{scan_id}:{context}"
             return f"f-{hashlib.sha256(content.encode()).hexdigest()[:16]}"
         else:
             # 完全随机的唯一 ID

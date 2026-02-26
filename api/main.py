@@ -1091,16 +1091,18 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         print(f"[SCAN] 目标路径: {target_path}, skip_index={request.skip_index}, use_llm={request.use_llm}")
         logger.warning(f"开始扫描任务 {scan_id}, 目标路径: {target_path}")
 
-        # 检查 LLM 配置
-        if not app_state.config.llm.api_key:
-            logger.error("扫描任务失败: LLM API Key 未配置")
-            task.status = ScanStatus.FAILED
-            task.error_message = "LLM API Key 未配置，请先在设置中配置 API Key"
-            task.current_step = "错误: API Key 未配置"
-            await broadcast_scan_progress(scan_id, task)
-            return
-
-        logger.info(f"LLM 配置: model={app_state.config.llm.model}, base_url={app_state.config.llm.base_url}")
+        # 检查 LLM 配置（仅在需要 LLM 时检查）
+        if request.use_llm:
+            if not app_state.config.llm.api_key:
+                logger.error("扫描任务失败: LLM API Key 未配置")
+                task.status = ScanStatus.FAILED
+                task.error_message = "LLM API Key 未配置，请先在设置中配置 API Key"
+                task.current_step = "错误: API Key 未配置"
+                await broadcast_scan_progress(scan_id, task)
+                return
+            logger.info(f"LLM 配置: model={app_state.config.llm.model}, base_url={app_state.config.llm.base_url}")
+        else:
+            logger.info(f"扫描任务 {scan_id}: use_llm=False，跳过 LLM 配置检查")
 
         # 更新状态：索引中
         task.status = ScanStatus.INDEXING
@@ -1127,7 +1129,24 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
 
             # 检查是否需要重新索引
             stats = await asyncio.to_thread(app_state.indexer.get_stats)
-            if stats["total_units"] == 0 or request.reindex:
+            need_reindex = request.reindex or stats["total_units"] == 0
+
+            # 校验已有索引的 target_path 是否匹配当前请求
+            if not need_reindex and stats["total_units"] > 0:
+                current_indexed_path = await asyncio.to_thread(
+                    app_state.indexer.get_current_target_path
+                )
+                if current_indexed_path:
+                    indexed_resolved = current_indexed_path.resolve()
+                    request_resolved = target_path.resolve()
+                    if indexed_resolved != request_resolved:
+                        logger.warning(
+                            f"扫描任务 {scan_id}: 已有索引路径 {indexed_resolved} "
+                            f"与请求路径 {request_resolved} 不匹配，自动重新索引"
+                        )
+                        need_reindex = True
+
+            if need_reindex:
                 logger.info(f"扫描任务 {scan_id}: 索引目录 {target_path}")
                 # 使用线程池执行同步的索引操作
                 await asyncio.to_thread(app_state.indexer.index_directory, str(target_path))
@@ -1271,6 +1290,7 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                 vuln_type_strs,  # vuln_types - 用户选择的漏洞类型
                 30,  # max_llm_calls - 最大 LLM 调用次数
                 analysis_progress_callback,  # progress_callback - 进度回调
+                request.use_llm,  # use_llm - 是否使用 LLM 深度分析
             )
         finally:
             # 停止进度处理任务
@@ -1489,13 +1509,14 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         # 更新数据库中的失败状态
         if app_state.scan_repo:
             try:
-                app_state.scan_repo.update_status(
+                # BUG #11 Fix: 使用 asyncio.to_thread 包装同步 DB I/O
+                await asyncio.to_thread(
+                    app_state.scan_repo.update_status,
                     scan_id, "failed",
                     error_message=str(e)
                 )
             except Exception as db_err:
                 logger.error(f"更新数据库状态失败: {db_err}")
-
 
 async def broadcast_scan_progress(scan_id: str, task: ScanResultSchema):
     """广播扫描进度
@@ -1874,8 +1895,10 @@ async def save_scan_results_to_db(
         return
 
     try:
+        # BUG #11 Fix: 使用 asyncio.to_thread 包装同步 DB I/O，避免阻塞事件循环
         # 更新扫描任务状态
-        app_state.scan_repo.update_status(
+        await asyncio.to_thread(
+            app_state.scan_repo.update_status,
             scan_id,
             status="completed",
             progress=1.0,
@@ -1930,11 +1953,17 @@ async def save_scan_results_to_db(
             ))
 
         if db_findings:
-            app_state.finding_repo.create_many(db_findings)
+            # BUG #11 Fix: 使用 asyncio.to_thread 包装同步 DB I/O
+            await asyncio.to_thread(app_state.finding_repo.create_many, db_findings)
             logger.info(f"扫描 {scan_id} 的 {len(db_findings)} 个发现已保存到数据库")
 
     except Exception as e:
+        # BUG #7 Fix: 入库失败时更新任务状态为 COMPLETED_WITH_ERRORS，并通知前端
         logger.error(f"保存扫描结果到数据库失败: {e}")
+        task.status = ScanStatus.COMPLETED_WITH_ERRORS
+        task.error_message = f"扫描已完成但结果保存失败: {e}"
+        task.current_step = "结果保存失败"
+        await broadcast_scan_progress(scan_id, task)
 
 
 @app.post("/api/scan", response_model=APIResponse)
@@ -2910,6 +2939,8 @@ async def run_selected_analysis_task(scan_id: str, request: SelectedAnalysisRequ
             task.progress = 1.0
             task.completed_at = datetime.now()
             await broadcast_scan_progress(scan_id, task)
+            # BUG #4 Fix: 未命中时也要写回数据库完成状态
+            await save_scan_results_to_db(scan_id, task, [], [])
             return
 
         logger.info(f"选择性分析任务 {scan_id}: 找到 {len(selected_sites)} 个选中的触发点")
@@ -2976,6 +3007,19 @@ async def run_selected_analysis_task(scan_id: str, request: SelectedAnalysisRequ
                 "sink_symbol": current_sink_symbol["value"],
                 "message": message,
             })
+
+        # BUG #20 Fix: 在进度回调中提取当前 sink symbol 并更新 current_sink_symbol
+        _original_progress_callback = analysis_progress_callback
+
+        def analysis_progress_callback_with_sink_tracking(progress: float, step: str):
+            # 从 step 中提取 sink symbol（格式: "正在分析触发点 (x/y): symbol_name"）
+            if "正在分析触发点" in step and ": " in step:
+                symbol_part = step.split(": ", 1)[-1]
+                current_sink_symbol["value"] = symbol_part
+            _original_progress_callback(progress, step)
+
+        # 替换回调
+        analysis_progress_callback = analysis_progress_callback_with_sink_tracking
 
         async def process_progress_updates():
             while True:

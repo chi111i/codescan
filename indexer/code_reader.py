@@ -411,8 +411,12 @@ class CodeReader:
                     matched.append(unit)
 
             # 按文件过滤
+            # BUG #15 Fix: 规范化路径后精确匹配或 endswith 边界检查
             if file_path:
-                matched = [u for u in matched if file_path in u.file_path]
+                normalized_fp = os.path.normpath(file_path)
+                matched = [u for u in matched
+                           if os.path.normpath(u.file_path) == normalized_fp
+                           or os.path.normpath(u.file_path).endswith(os.sep + normalized_fp)]
 
             if not matched:
                 return {
@@ -587,8 +591,12 @@ class CodeReader:
 
             if not units:
                 # 尝试模糊匹配
+                # BUG #15 Fix: 规范化路径后精确匹配或 endswith 边界检查
                 all_units = self.indexer.get_all_units(limit=5000)
-                units = [u for u in all_units if file_path in u.file_path]
+                normalized_fp = os.path.normpath(file_path)
+                units = [u for u in all_units
+                         if os.path.normpath(u.file_path) == normalized_fp
+                         or os.path.normpath(u.file_path).endswith(os.sep + normalized_fp)]
 
             outline = []
             for unit in units:

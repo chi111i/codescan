@@ -17,6 +17,7 @@
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -246,6 +247,9 @@ class IndexingPipeline:
         """
         self._progress_callback = progress_callback
         self._stats = PipelineStats()
+        # BUG #14 Fix: 多次运行时清空旧的 chunk 映射，避免残留数据
+        self._chunk_parent_map.clear()
+        self._chunk_siblings.clear()
         start_time = time.time()
 
         logger.info(f"[Pipeline] Starting 6-stage indexing: {root_path}")
@@ -550,6 +554,9 @@ class IndexingPipeline:
 
         batch_size = self.config.storage_batch_size
 
+        # BUG #12 Fix: 累加实际成功存储的数量，而非直接设为 total
+        stored_count = 0
+
         for i in range(0, total, batch_size):
             batch_chunks = chunks[i:i + batch_size]
             batch_embeddings = embeddings[i:i + batch_size]
@@ -560,8 +567,9 @@ class IndexingPipeline:
                     batch_chunks,
                     batch_embeddings
                 )
+                stored_count += len(batch_chunks)
             except Exception as e:
-                logger.error(f"Storage batch failed: {e}")
+                logger.error(f"Storage batch failed (batch {i//batch_size + 1}): {e}")
 
             self._report_progress(
                 self.STAGE_STORE,
@@ -571,14 +579,14 @@ class IndexingPipeline:
             )
 
         self._stats.store_time = time.time() - start
-        self._stats.vectors_stored = total
+        self._stats.vectors_stored = stored_count
 
         self._report_progress(
             self.STAGE_STORE, total, total,
-            f"Stored {total} vectors"
+            f"Stored {stored_count}/{total} vectors"
         )
         logger.info(
-            f"[Stage 5/6] Store: {total} vectors "
+            f"[Stage 5/6] Store: {stored_count}/{total} vectors "
             f"in {self._stats.store_time:.2f}s"
         )
 
@@ -604,7 +612,12 @@ class IndexingPipeline:
                     mtime = file_path.stat().st_mtime
 
                     # Get chunks for this file
-                    file_chunks = [c for c in chunks if c.file_path in path_str]
+                    # BUG #13 Fix: 规范化路径后精确匹配，避免子串包含误匹配
+                    normalized_path = os.path.normpath(path_str)
+                    file_chunks = [
+                        c for c in chunks
+                        if os.path.normpath(c.file_path) == normalized_path
+                    ]
                     chunk_ids = [c.id for c in file_chunks]
 
                     # Compute content hash

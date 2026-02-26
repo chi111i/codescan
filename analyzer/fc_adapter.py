@@ -465,8 +465,12 @@ class FCSecurityTools:
         file_path = file_path.replace("\\", "/")
 
         units = []
+        # BUG #16 Fix: 规范化路径后精确匹配或 endswith 边界检查，避免子串误匹配
+        normalized_fp = file_path.replace("\\", "/")
         for path, file_units in self._file_map.items():
-            if file_path in path.replace("\\", "/"):
+            normalized_path = path.replace("\\", "/")
+            if (normalized_path == normalized_fp
+                    or normalized_path.endswith("/" + normalized_fp)):
                 for unit in file_units:
                     units.append({
                         "symbol": unit.symbol,

@@ -889,7 +889,10 @@ class TaintAnalyzer:
         sink_category: SinkCategory,
         language: str
     ) -> Tuple[bool, List[str]]:
-        """检查是否存在消毒处理"""
+        """检查是否存在消毒处理
+
+        BUG #17 Fix: 消毒判定需要关联污点变量，而非仅检查消毒函数是否出现在代码中。
+        """
         found_sanitizers = []
 
         for sanitizer in SANITIZERS:
@@ -899,9 +902,32 @@ class TaintAnalyzer:
                 continue
 
             for pattern in sanitizer.patterns:
-                # 检查消毒函数是否应用于污点变量
-                if re.search(pattern, code, re.IGNORECASE):
-                    found_sanitizers.append(sanitizer.description)
+                match = re.search(pattern, code, re.IGNORECASE)
+                if match:
+                    # 获取匹配位置所在行及前后各 1 行的上下文
+                    match_start = match.start()
+                    match_end = match.end()
+
+                    # 找到匹配所在行的范围
+                    line_start = code.rfind('\n', 0, match_start) + 1
+                    line_end = code.find('\n', match_end)
+                    if line_end == -1:
+                        line_end = len(code)
+
+                    # 扩展到前后各 1 行
+                    prev_line_start = code.rfind('\n', 0, max(0, line_start - 1)) + 1
+                    next_line_end = code.find('\n', line_end + 1)
+                    if next_line_end == -1:
+                        next_line_end = len(code)
+
+                    context_window = code[prev_line_start:next_line_end]
+
+                    # 检查污点变量是否出现在消毒函数的上下文窗口中
+                    if var_name and var_name in context_window:
+                        found_sanitizers.append(sanitizer.description)
+                    elif not var_name:
+                        # 如果没有指定变量名，保持原有行为（兼容）
+                        found_sanitizers.append(sanitizer.description)
 
         return len(found_sanitizers) > 0, found_sanitizers
 

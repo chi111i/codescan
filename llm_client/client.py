@@ -61,11 +61,15 @@ class ToolCall:
             try:
                 arguments = json.loads(arguments)
             except json.JSONDecodeError as e:
+                # BUG #18 Fix: 解析失败时标记错误而非静默置空，避免后续使用空参数执行
                 logger.warning(
                     f"工具调用参数 JSON 解析失败, tool={func.get('name', '?')}, "
                     f"error={e}, raw_arguments={arguments!r}"
                 )
-                arguments = {}
+                arguments = {
+                    "_parse_error": str(e),
+                    "_raw_arguments": arguments,
+                }
         return cls(
             id=data.get("id", ""),
             name=func.get("name", ""),
@@ -384,7 +388,9 @@ class OpenAICompatibleClient(BaseLLMClient):
 
         # 记录请求详情
         logger.info(f"准备发送请求: {method} {url}")
-        logger.info(f"  - 使用 API Key: {api_key_to_check[:8]}...{api_key_to_check[-4:] if len(api_key_to_check) > 12 else '****'}")
+        # BUG #19 Fix: 仅显示 API Key 前 4 位，避免泄露过多信息
+        masked_key = f"{api_key_to_check[:4]}****" if len(api_key_to_check) > 4 else "****"
+        logger.info(f"  - 使用 API Key: {masked_key}")
         logger.info(f"  - 模型: {json_data.get('model', 'N/A')}")
 
         # 嵌入请求使用更少的重试次数以便更快回退到本地嵌入

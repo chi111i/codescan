@@ -23,6 +23,7 @@ class ScanStatus(str, Enum):
     INDEXING = "indexing"
     ANALYZING = "analyzing"
     COMPLETED = "completed"
+    COMPLETED_WITH_ERRORS = "completed_with_errors"
     FAILED = "failed"
 
 

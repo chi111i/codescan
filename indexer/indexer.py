@@ -13,6 +13,7 @@ import hashlib
 import logging
 import os
 import sqlite3
+import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -411,6 +412,8 @@ class CodeIndexer:
         self._raw_unit_cache: OrderedDict[str, CodeUnit] = OrderedDict()
         # LRU 缓存大小
         self._raw_unit_cache_max_size: int = 500
+        # BUG #6 Fix: 并发保护锁，保护 chunk 映射和缓存的写操作
+        self._chunk_map_lock = threading.Lock()
 
         # Parallel file processor (based on ACI design)
         self._parallel_processor = ParallelFileProcessor(
@@ -641,7 +644,9 @@ class CodeIndexer:
                 result.append(updated_unit)
             else:
                 # 需要分块 - 先缓存原始完整单元
-                self._raw_unit_cache[unit.id] = unit
+                # BUG #6 Fix: 加锁保护并发写操作
+                with self._chunk_map_lock:
+                    self._raw_unit_cache[unit.id] = unit
 
                 chunk_size = int(max_tokens / 0.3)  # 字符数
                 code = unit.code
@@ -687,7 +692,9 @@ class CodeIndexer:
                     chunk_ids.append(chunk_id)
 
                     # 记录 chunk -> parent 映射
-                    self._chunk_parent_map[chunk_id] = unit.id
+                    # BUG #6 Fix: 加锁保护并发写操作
+                    with self._chunk_map_lock:
+                        self._chunk_parent_map[chunk_id] = unit.id
 
                     # P0-3: 计算 chunk 的实际行号（兼容 CodeSpan 和 tuple）
                     orig_start_line = _get_span_attr(unit.span, "start_line", 1)
@@ -736,7 +743,9 @@ class CodeIndexer:
                     result.append(chunked_unit)
 
                 # 记录 parent -> [chunk_ids] 映射
-                self._chunk_siblings[unit.id] = chunk_ids
+                # BUG #6 Fix: 加锁保护并发写操作
+                with self._chunk_map_lock:
+                    self._chunk_siblings[unit.id] = chunk_ids
 
                 logger.debug(
                     f"[Chunk] {unit.symbol} 被分为 {total_chunks} 个块 "
@@ -1002,6 +1011,10 @@ class CodeIndexer:
         embeddings = self._generate_embeddings(chunked_units, embedding_callback)
         logger.info(f"[嵌入完成] 成功生成 {len(embeddings)} 个嵌入向量")
 
+        # BUG #10 Fix: 全量索引前清空向量库旧数据，避免已删除文件的残留向量
+        logger.info("[存储中] 全量索引：清空向量数据库旧数据...")
+        self.vector_store.clear()
+
         logger.info(f"[存储中] 正在将 {len(chunked_units)} 个代码单元写入向量数据库...")
         self.vector_store.add(chunked_units, embeddings)
 
@@ -1139,19 +1152,21 @@ class CodeIndexer:
                 except Exception as e:
                     logger.warning(f"Failed to delete old unit {unit_id}: {e}")
                 # 清理 chunk 映射
-                if unit_id in self._chunk_parent_map:
-                    parent_id = self._chunk_parent_map.pop(unit_id)
-                    if parent_id in self._chunk_siblings:
-                        siblings = self._chunk_siblings[parent_id]
-                        if unit_id in siblings:
-                            siblings.remove(unit_id)
-                        if not siblings:
-                            self._chunk_siblings.pop(parent_id, None)
-                            self._raw_unit_cache.pop(parent_id, None)
-                if unit_id in self._chunk_siblings:
-                    for chunk_id in self._chunk_siblings.pop(unit_id, []):
-                        self._chunk_parent_map.pop(chunk_id, None)
-                    self._raw_unit_cache.pop(unit_id, None)
+                # BUG #6 Fix: 加锁保护并发写操作
+                with self._chunk_map_lock:
+                    if unit_id in self._chunk_parent_map:
+                        parent_id = self._chunk_parent_map.pop(unit_id)
+                        if parent_id in self._chunk_siblings:
+                            siblings = self._chunk_siblings[parent_id]
+                            if unit_id in siblings:
+                                siblings.remove(unit_id)
+                            if not siblings:
+                                self._chunk_siblings.pop(parent_id, None)
+                                self._raw_unit_cache.pop(parent_id, None)
+                    if unit_id in self._chunk_siblings:
+                        for chunk_id in self._chunk_siblings.pop(unit_id, []):
+                            self._chunk_parent_map.pop(chunk_id, None)
+                        self._raw_unit_cache.pop(unit_id, None)
 
         # 解析文件
         units = self._parse_file(file_path, root_path)
@@ -1331,7 +1346,9 @@ class CodeIndexer:
         if parent_id in self._raw_unit_cache:
             logger.debug(f"[RawUnit] 缓存命中: {parent_id}")
             # LRU: 将命中的条目移到末尾（最近使用）
-            self._raw_unit_cache.move_to_end(parent_id)
+            # BUG #6 Fix: 加锁保护并发写操作
+            with self._chunk_map_lock:
+                self._raw_unit_cache.move_to_end(parent_id)
             return self._raw_unit_cache[parent_id]
 
         # 获取所有兄弟 chunk
@@ -1426,17 +1443,19 @@ class CodeIndexer:
         - 访问命中时在 get_raw_unit 中调用 move_to_end
         - 淘汰时使用 popitem(last=False) 移除最久未访问的条目
         """
-        # 如果已存在，先删除（确保重新插入到末尾）
-        if parent_id in self._raw_unit_cache:
-            del self._raw_unit_cache[parent_id]
-        # 如果缓存已满，移除最久未访问的条目（LRU）
-        elif len(self._raw_unit_cache) >= self._raw_unit_cache_max_size:
-            # popitem(last=False) 移除第一个条目（最久未使用）
-            oldest_key, _ = self._raw_unit_cache.popitem(last=False)
-            logger.debug(f"[RawUnit] LRU 缓存淘汰: {oldest_key}")
+        # BUG #6 Fix: 加锁保护并发写操作
+        with self._chunk_map_lock:
+            # 如果已存在，先删除（确保重新插入到末尾）
+            if parent_id in self._raw_unit_cache:
+                del self._raw_unit_cache[parent_id]
+            # 如果缓存已满，移除最久未访问的条目（LRU）
+            elif len(self._raw_unit_cache) >= self._raw_unit_cache_max_size:
+                # popitem(last=False) 移除第一个条目（最久未使用）
+                oldest_key, _ = self._raw_unit_cache.popitem(last=False)
+                logger.debug(f"[RawUnit] LRU 缓存淘汰: {oldest_key}")
 
-        # 添加到末尾（最近使用）
-        self._raw_unit_cache[parent_id] = unit
+            # 添加到末尾（最近使用）
+            self._raw_unit_cache[parent_id] = unit
 
     def get_raw_units_batch(self, unit_ids: List[str]) -> List[CodeUnit]:
         """批量获取完整的原始代码单元
@@ -1608,9 +1627,17 @@ class CodeIndexer:
         exact = self.vector_store.get_by_filter({"file_path": file_path}, limit=10000)
         if exact:
             return exact
-        # 回退：部分匹配（仅在精确匹配无结果时）
+        # 回退：规范化路径匹配（仅在精确匹配无结果时）
+        # BUG #15 Fix: 使用规范化路径精确匹配或 endswith 边界检查，避免子串误匹配
         all_units = self.get_all_units()
-        return [u for u in all_units if file_path in u.file_path]
+        normalized_fp = os.path.normpath(file_path)
+        result = [u for u in all_units if os.path.normpath(u.file_path) == normalized_fp]
+        if not result:
+            # 最后回退：endswith 匹配（处理相对路径 vs 绝对路径场景）
+            sep_prefixed = os.sep + normalized_fp
+            result = [u for u in all_units if os.path.normpath(u.file_path).endswith(sep_prefixed)
+                      or os.path.normpath(u.file_path) == normalized_fp]
+        return result
 
     def read_file(
         self,
