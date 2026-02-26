@@ -226,30 +226,39 @@ async def create_session(request: CreateUnifiedSessionRequest):
         except Exception as e:
             logger.warning(f"[Session {session_id}] 变体分析器初始化失败，部分工具将不可用: {e}")
 
+        # 创建会话级独立 indexer，避免与全局 indexer 数据串扰
+        from indexer.indexer import CodeIndexer
+        from indexer.vector_store import create_vector_store
+        session_vector_store = create_vector_store(
+            app_state.config.vector_store,
+            embedding_dim=app_state.config.llm.embedding_dim
+        )
+        session_indexer = CodeIndexer(
+            config=app_state.config,
+            llm_client=app_state.llm_client,
+            vector_store=session_vector_store,
+        )
+
         # 创建智能体
         agent = create_unified_agent(
             session_id=session_id,
             llm_client=app_state.llm_client,
-            indexer=app_state.indexer,
+            indexer=session_indexer,
             config=agent_config,
             call_chain_analyzer=call_chain_analyzer,
             variant_analyzer=variant_analyzer,
-            vector_store=app_state.vector_store if hasattr(app_state, 'vector_store') else None,
+            vector_store=session_vector_store,
             rule_manager=app_state.rule_manager,  # 传入规则管理器用于预扫描
         )
 
         # 【重要】先索引目标代码，然后再初始化智能体
         # 这样智能体初始化时可以获取到代码单元，进行预扫描
         if request.target_path:
-            # 清空旧索引，确保不同项目数据不混淆
-            logger.info(f"[Session {session_id}] 阶段1/3: 清空旧索引，准备索引新项目...")
-            await asyncio.to_thread(app_state.indexer.clear_index)
-
             logger.info(f"[Session {session_id}] 阶段1/3: 开始索引目标代码 - {request.target_path}")
             import time
             start_time = time.time()
             await asyncio.to_thread(
-                app_state.indexer.index_directory,
+                session_indexer.index_directory,
                 target_path=request.target_path,
             )
             elapsed = time.time() - start_time
@@ -918,14 +927,19 @@ async def index_project(session_id: str, request: IndexProjectRequest):
 
     target_path = request.target_path or session["target_path"]
 
+    # 使用会话级 indexer（如果有），否则回退到全局
+    agent = session.get("agent")
+    session_indexer = getattr(agent, 'indexer', None) or app_state.indexer
+
     try:
         # 执行索引
         await asyncio.to_thread(
-            app_state.indexer.index_directory,
+            session_indexer.index_directory,
             target_path=target_path,
         )
 
-        code_units_count = len(getattr(app_state.indexer, 'code_units', {}) or {})
+        stats = await asyncio.to_thread(session_indexer.get_stats)
+        code_units_count = stats.get("total_units", 0)
 
         return APIResponse(
             success=True,
