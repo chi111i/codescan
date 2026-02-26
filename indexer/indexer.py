@@ -11,6 +11,7 @@
 import fnmatch
 import hashlib
 import logging
+import os
 import sqlite3
 import time
 from collections import OrderedDict
@@ -1635,7 +1636,9 @@ class CodeIndexer:
             target_path = (base_path / file_path).resolve()
 
             # 路径遍历防护：确保解析后的路径在项目根目录内
-            if not str(target_path).startswith(str(base_path)):
+            # 追加 os.sep 防止同前缀目录绕过（如 codescan vs codescan_backup）
+            base_str = str(base_path) + os.sep
+            if target_path != base_path and not str(target_path).startswith(base_str):
                 logger.warning(f"路径遍历尝试被阻止: {file_path}")
                 return None
 

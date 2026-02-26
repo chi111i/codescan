@@ -11,6 +11,7 @@
 
 import fnmatch
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
@@ -103,7 +104,9 @@ class CodeReader:
                 full_path = (self.project_path / file_path).resolve()
 
             # 安全检查：确保路径在项目范围内
-            if not str(full_path).startswith(str(self.project_path)):
+            # 追加 os.sep 防止同前缀目录绕过
+            base_str = str(self.project_path) + os.sep
+            if full_path != self.project_path and not str(full_path).startswith(base_str):
                 logger.warning(f"Path outside project: {file_path}")
                 return None
 
