@@ -197,7 +197,16 @@ class SearchService:
         parsed = self._parse_query_modifiers(query)
         effective_filter = parsed.file_filter or file_filter
         effective_language = parsed.language_filter or language
-        search_query = parsed.clean_query or query
+        search_query = parsed.clean_query
+
+        # 全修饰符查询（无文本部分）：降级为纯过滤模式
+        if not search_query or not search_query.strip():
+            if effective_filter or parsed.exclude_patterns or effective_language:
+                logger.info("[Search] Pure filter query (no text), using keyword-only mode")
+                mode = SearchMode.KEYWORD
+                search_query = "*"  # 通配符，keyword 搜索会匹配所有
+            else:
+                search_query = query  # fallback 到原始查询
 
         will_rerank = use_rerank and self.reranker is not None
 
@@ -259,21 +268,23 @@ class SearchService:
         """
         import concurrent.futures
 
+        coro = self.search(query, limit, file_filter, language, mode, use_rerank)
+
         try:
-            # Check if we're already in an event loop
-            loop = asyncio.get_running_loop()
-            # We're in an async context, use thread pool
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(
-                    asyncio.run,
-                    self.search(query, limit, file_filter, language, mode, use_rerank)
-                )
-                return future.result()
+            asyncio.get_running_loop()
+            # Already in an event loop - run in a separate thread with its own loop
+            def _run_in_new_loop():
+                loop = asyncio.new_event_loop()
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(_run_in_new_loop).result(timeout=300)
         except RuntimeError:
             # No running loop, safe to use asyncio.run
-            return asyncio.run(
-                self.search(query, limit, file_filter, language, mode, use_rerank)
-            )
+            return asyncio.run(coro)
 
     # ─────────────────────────────────────────────────────────────────
     # Query Parsing
@@ -421,9 +432,8 @@ class SearchService:
                 # Try async first if available
                 if hasattr(self.vector_store, 'search_async'):
                     results = await self.vector_store.search_async(
-                        query_embedding=query_embedding,
-                        top_k=fetch_limit,
-                        filters=filters if filters else None,
+                        query_vector=query_embedding,
+                        limit=fetch_limit,
                     )
                 else:
                     # Fallback to sync in thread
@@ -580,8 +590,10 @@ class SearchService:
             return []
 
     def _extract_keywords(self, query: str) -> List[str]:
-        """Extract keywords from query for lexical search"""
-        # Remove common stop words and short words
+        """Extract keywords from query for lexical search
+
+        Supports both ASCII identifiers and CJK (Chinese) characters.
+        """
         stop_words = {
             "the", "a", "an", "is", "are", "was", "were", "be", "been",
             "being", "have", "has", "had", "do", "does", "did", "will",
@@ -596,14 +608,17 @@ class SearchService:
             "too", "very", "just", "and", "but", "if", "or", "because",
             "until", "while", "this", "that", "these", "those", "it",
             "its", "what", "which", "who", "whom", "find", "search",
-            "look", "get", "show", "code", "function", "class", "method",
+            "look", "get", "show",
         }
 
-        # Tokenize and filter
+        # ASCII identifiers
         words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', query.lower())
+        # CJK characters (2+ consecutive as a keyword unit)
+        words.extend(re.findall(r'[\u4e00-\u9fff]{2,}', query))
+
         keywords = [
             w for w in words
-            if w not in stop_words and len(w) >= 3
+            if w not in stop_words and len(w) >= 2
         ]
 
         return keywords

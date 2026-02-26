@@ -178,9 +178,18 @@ class HybridSearcher:
             if hasattr(self.embedding_client, 'embed_single'):
                 embedding = await self.embedding_client.embed_single(query_text)
             elif hasattr(self.embedding_client, 'embed'):
-                embedding = self.embedding_client.embed(query_text)
+                response = self.embedding_client.embed(query_text)
+                # embed() returns EmbedResponse, extract the vector
+                if hasattr(response, 'embeddings') and response.embeddings:
+                    embedding = response.embeddings[0]
+                else:
+                    embedding = response
             else:
                 logger.warning("Embedding client has no embed method")
+                return []
+
+            if embedding is None:
+                logger.warning("Embedding generation returned None")
                 return []
 
             if hasattr(self.vector_store, 'search_async'):

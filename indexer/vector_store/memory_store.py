@@ -254,12 +254,18 @@ class EnhancedInMemoryStore(VectorStoreInterface):
         scored.sort(key=lambda x: x[1], reverse=True)
         top_results = scored[:top_k]
 
-        # Convert to SearchResult
+        # Convert to SearchResult (skip deleted entries)
         results = []
         for idx, score in top_results:
             unit_id = self._ids[idx]
-            payload = self._payloads[unit_id]
-            results.append(self._payload_to_result(payload, score))
+            if unit_id not in self._id_to_idx:
+                continue  # 已删除的条目，跳过
+            payload = self._payloads.get(unit_id)
+            if not payload:
+                continue
+            result = self._payload_to_result(payload, score)
+            if result and result.code_unit is not None:
+                results.append(result)
 
         return results
 
@@ -275,7 +281,11 @@ class EnhancedInMemoryStore(VectorStoreInterface):
         matching = []
 
         for idx, unit_id in enumerate(self._ids):
-            payload = self._payloads[unit_id]
+            if unit_id not in self._id_to_idx:
+                continue  # 已删除的条目
+            payload = self._payloads.get(unit_id)
+            if not payload:
+                continue
             match = True
 
             for key, value in filters.items():
@@ -625,9 +635,16 @@ class EnhancedInMemoryStore(VectorStoreInterface):
 
         if self._use_numpy and self._vectors is not None:
             active_indices = [self._id_to_idx[uid] for uid in active_ids]
-            active_vectors = self._vectors[active_indices]
+            active_vectors_np = self._vectors[active_indices]
         else:
-            active_vectors = None
+            active_vectors_np = None
+
+        # 非 NumPy 模式：重建 _vectors_list
+        active_vectors_list = None
+        if not self._use_numpy:
+            active_vectors_list = [
+                self._vectors_list[self._id_to_idx[uid]] for uid in active_ids
+            ]
 
         # Reset and rebuild
         self._ids = active_ids
@@ -635,7 +652,9 @@ class EnhancedInMemoryStore(VectorStoreInterface):
         self._id_to_idx = {uid: i for i, uid in enumerate(active_ids)}
 
         if self._use_numpy:
-            self._vectors = active_vectors
+            self._vectors = active_vectors_np
+        else:
+            self._vectors_list = active_vectors_list or []
 
         # Rebuild FAISS if available
         if self._faiss_index is not None:

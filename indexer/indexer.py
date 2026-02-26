@@ -874,11 +874,11 @@ class CodeIndexer:
                                 except Exception as sub_e:
                                     logger.error(f"Sub-batch embedding failed: {sub_e}")
                                     # 填充空向量以保持索引对齐
-                                    all_embeddings.extend([[0.0] * 1536] * len(sub_batch))
+                                    all_embeddings.extend([[0.0] * (self.config.llm.embedding_dim or 1536)] * len(sub_batch))
                             break
                         else:
                             logger.error(f"Batch too small ({current_batch_size}), giving up")
-                            all_embeddings.extend([[0.0] * 1536] * len(batch_texts))
+                            all_embeddings.extend([[0.0] * (self.config.llm.embedding_dim or 1536)] * len(batch_texts))
                             break
                     elif attempt < max_retries - 1:
                         import time
@@ -887,7 +887,7 @@ class CodeIndexer:
                     else:
                         logger.error(f"Embedding failed after {max_retries} attempts: {e}")
                         # 填充空向量以保持索引对齐
-                        all_embeddings.extend([[0.0] * 1536] * len(batch_texts))
+                        all_embeddings.extend([[0.0] * (self.config.llm.embedding_dim or 1536)] * len(batch_texts))
 
             if progress_callback:
                 processed = min(i + batch_size, total)
@@ -1129,7 +1129,7 @@ class CodeIndexer:
         path_str = str(file_path)
         is_new = self.file_tracker.get_file_state(path_str) is None
 
-        # 如果文件已存在，先删除旧的代码单元
+        # 如果文件已存在，先删除旧的代码单元及其 chunk 映射
         if not is_new:
             old_unit_ids = self.file_tracker.get_unit_ids(path_str)
             for unit_id in old_unit_ids:
@@ -1137,6 +1137,20 @@ class CodeIndexer:
                     self.vector_store.delete(unit_id)
                 except Exception as e:
                     logger.warning(f"Failed to delete old unit {unit_id}: {e}")
+                # 清理 chunk 映射
+                if unit_id in self._chunk_parent_map:
+                    parent_id = self._chunk_parent_map.pop(unit_id)
+                    if parent_id in self._chunk_siblings:
+                        siblings = self._chunk_siblings[parent_id]
+                        if unit_id in siblings:
+                            siblings.remove(unit_id)
+                        if not siblings:
+                            self._chunk_siblings.pop(parent_id, None)
+                            self._raw_unit_cache.pop(parent_id, None)
+                if unit_id in self._chunk_siblings:
+                    for chunk_id in self._chunk_siblings.pop(unit_id, []):
+                        self._chunk_parent_map.pop(chunk_id, None)
+                    self._raw_unit_cache.pop(unit_id, None)
 
         # 解析文件
         units = self._parse_file(file_path, root_path)
@@ -1182,8 +1196,19 @@ class CodeIndexer:
             相关的 CodeUnit 列表
         """
         # 生成查询嵌入
-        response = self.llm_client.embed([query])
-        query_embedding = response.embeddings[0]
+        if not query or not query.strip():
+            logger.warning("[Search] 空查询")
+            return []
+
+        try:
+            response = self.llm_client.embed([query])
+            if not response or not response.embeddings:
+                logger.error("[Search] 嵌入 API 返回空结果")
+                return []
+            query_embedding = response.embeddings[0]
+        except Exception as e:
+            logger.error(f"[Search] 生成查询嵌入失败: {e}")
+            return []
 
         # 构建过滤器
         filters = {}
@@ -1573,11 +1598,16 @@ class CodeIndexer:
         """按文件路径获取代码单元
 
         Args:
-            file_path: 文件路径（支持部分匹配）
+            file_path: 文件路径（精确匹配优先，回退到部分匹配）
 
         Returns:
             CodeUnit 列表
         """
+        # 优先使用向量库的过滤功能（精确匹配）
+        exact = self.vector_store.get_by_filter({"file_path": file_path}, limit=10000)
+        if exact:
+            return exact
+        # 回退：部分匹配（仅在精确匹配无结果时）
         all_units = self.get_all_units()
         return [u for u in all_units if file_path in u.file_path]
 
