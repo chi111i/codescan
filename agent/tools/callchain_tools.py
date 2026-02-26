@@ -460,6 +460,7 @@ class CallChainToolExecutor:
         """执行 trace_taint_path 工具"""
         source_symbol = args.get("source_symbol")
         sink_symbol = args.get("sink_symbol")
+        file_path = args.get("file_path")
         max_depth = args.get("max_depth", 10)
         only_unsanitized = args.get("only_unsanitized", False)
         max_paths = args.get("max_paths", 20)
@@ -473,6 +474,17 @@ class CallChainToolExecutor:
         # 过滤
         filtered_paths = []
         for path in taint_paths:
+            # 按 file_path 过滤：路径中至少有一个节点属于指定文件/目录
+            if file_path:
+                path_in_scope = False
+                for node_id in path.path:
+                    node = self.analyzer.call_graph.get_node(node_id)
+                    if node and node.file_path and node.file_path.startswith(file_path):
+                        path_in_scope = True
+                        break
+                if not path_in_scope:
+                    continue
+
             # 按 source 过滤
             if source_symbol:
                 source_node = self.analyzer.call_graph.get_node(path.source_node)

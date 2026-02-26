@@ -60,7 +60,11 @@ class ToolCall:
         if isinstance(arguments, str):
             try:
                 arguments = json.loads(arguments)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"工具调用参数 JSON 解析失败, tool={func.get('name', '?')}, "
+                    f"error={e}, raw_arguments={arguments!r}"
+                )
                 arguments = {}
         return cls(
             id=data.get("id", ""),

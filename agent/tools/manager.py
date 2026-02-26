@@ -299,6 +299,64 @@ class AgentToolManager:
 
         return filtered
 
+    def _validate_arguments(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        definition: Optional[ToolDefinition],
+    ) -> Optional[str]:
+        """校验工具参数的 required 和基本类型约束
+
+        Args:
+            tool_name: 工具名称
+            arguments: 已过滤的参数
+            definition: 工具定义
+
+        Returns:
+            校验失败时返回错误描述，通过时返回 None
+        """
+        if not definition:
+            return None
+
+        schema = definition.parameters
+        if not schema:
+            return None
+
+        # 校验 required 字段
+        required = schema.get("required", [])
+        missing = [r for r in required if r not in arguments]
+        if missing:
+            return f"缺少必需参数: {missing}"
+
+        # 基本类型校验
+        properties = schema.get("properties", {})
+        type_map = {
+            "string": str,
+            "integer": int,
+            "number": (int, float),
+            "boolean": bool,
+            "array": list,
+            "object": dict,
+        }
+
+        type_errors = []
+        for key, value in arguments.items():
+            if key not in properties:
+                continue
+            expected_type_str = properties[key].get("type")
+            if not expected_type_str:
+                continue
+            expected_type = type_map.get(expected_type_str)
+            if expected_type and not isinstance(value, expected_type):
+                type_errors.append(
+                    f"{key}: 期望 {expected_type_str}, 实际 {type(value).__name__}"
+                )
+
+        if type_errors:
+            return f"参数类型错误: {'; '.join(type_errors)}"
+
+        return None
+
     def get_tool(self, name: str) -> Optional[ToolDefinition]:
         """获取工具定义"""
         return self._definitions.get(name)
@@ -381,6 +439,17 @@ class AgentToolManager:
         try:
             # 参数验证和过滤：移除未定义的参数
             filtered_arguments = self._filter_arguments(name, arguments, definition)
+
+            # 参数约束校验：required 和类型检查
+            validation_error = self._validate_arguments(name, filtered_arguments, definition)
+            if validation_error:
+                logger.warning(f"[ToolManager] 工具 {name} 参数校验失败: {validation_error}")
+                return ToolResult(
+                    tool_name=name,
+                    success=False,
+                    error=f"参数校验失败: {validation_error}",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
 
             # 如果需要上下文，注入上下文
             if definition and definition.requires_context and self._context_provider:
