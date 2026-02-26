@@ -788,10 +788,8 @@ class SecurityAnalyzer:
             # 生成调用链 ID（用于日志和关联）
             chain_id = f"chain-{sink_site.id}"
 
-            # 生成全局唯一的 Finding ID
-            # 使用 scan_id + 时间戳 + 内容哈希确保唯一性
-            timestamp = int(time.time() * 1000)  # 毫秒级时间戳
-            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            # 生成确定性 Finding ID（同一漏洞跨扫描可去重）
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}"
             finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
             finding_id = f"f-{finding_hash}"
 
@@ -2374,9 +2372,8 @@ class SecurityAnalyzer:
             if not result or not result.get("has_issue"):
                 return None
 
-            # 生成唯一的 Finding ID
-            timestamp = int(time.time() * 1000)
-            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            # 生成确定性 Finding ID（同一漏洞跨扫描可去重）
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}"
             finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
             finding_id = f"f-{finding_hash}"
 
@@ -2478,8 +2475,8 @@ class SecurityAnalyzer:
                 return None
 
             # 生成唯一的 Finding ID
-            timestamp = int(time.time() * 1000)
-            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            # 生成确定性 Finding ID（同一漏洞跨扫描可去重）
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}"
             finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
             finding_id = f"f-{finding_hash}"
 
@@ -2672,9 +2669,8 @@ class SecurityAnalyzer:
             # 从结果构建 Finding
             parsed = result.parsed_result
 
-            # 生成唯一 Finding ID
-            timestamp = int(time.time() * 1000)
-            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{timestamp}"
+            # 生成确定性 Finding ID（同一漏洞跨扫描可去重）
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}"
             finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
             finding_id = f"fc-{finding_hash}"
 

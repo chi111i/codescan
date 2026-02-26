@@ -171,8 +171,9 @@ class CallGraph:
     def add_node(self, node: CallNode) -> None:
         """添加节点"""
         self.nodes[node.id] = node
-        self._by_name[node.name].append(node.id)
-        if node.qualified_name != node.name:
+        if node.id not in self._by_name[node.name]:
+            self._by_name[node.name].append(node.id)
+        if node.qualified_name != node.name and node.id not in self._by_name[node.qualified_name]:
             self._by_name[node.qualified_name].append(node.id)
 
     def add_edge(self, edge: CallEdge) -> None:
