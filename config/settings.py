@@ -185,6 +185,17 @@ class RulesConfig:
 
 
 @dataclass
+class SearchConfig:
+    """搜索配置"""
+    mode: str = "hybrid"                          # 搜索模式: hybrid | vector | keyword
+    rrf_k: int = 60                               # RRF 平滑常数
+    vector_weight: float = 1.0                    # 向量搜索权重
+    enable_smart_cutoff: bool = True              # 智能截断
+    enable_security_rerank: bool = True           # 安全优先重排序
+    security_boost: float = 1.5                   # 安全提升因子
+
+
+@dataclass
 class SecurityConfig:
     """安全与隐私配置"""
     # API Key 安全
@@ -270,6 +281,7 @@ class AuditConfig:
     security: SecurityConfig = field(default_factory=SecurityConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
     agent_context: AgentContextConfig = field(default_factory=AgentContextConfig)
+    search: SearchConfig = field(default_factory=SearchConfig)
 
     # 全局设置
     debug: bool = False
@@ -407,6 +419,7 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
     security_dict = _filter_dataclass_fields(SecurityConfig, config_dict.get("security", {}))
     evaluation_dict = _filter_dataclass_fields(EvaluationConfig, config_dict.get("evaluation", {}))
     agent_context_dict = _filter_dataclass_fields(AgentContextConfig, config_dict.get("agent_context", {}))
+    search_dict = _filter_dataclass_fields(SearchConfig, config_dict.get("search", {}))
 
     return AuditConfig(
         llm=LLMConfig(**llm_dict) if llm_dict else LLMConfig(),
@@ -417,6 +430,7 @@ def _dict_to_config(config_dict: Dict[str, Any]) -> AuditConfig:
         security=SecurityConfig(**security_dict) if security_dict else SecurityConfig(),
         evaluation=EvaluationConfig(**evaluation_dict) if evaluation_dict else EvaluationConfig(),
         agent_context=AgentContextConfig(**agent_context_dict) if agent_context_dict else AgentContextConfig(),
+        search=SearchConfig(**search_dict) if search_dict else SearchConfig(),
         debug=config_dict.get("debug", False),
         log_level=config_dict.get("log_level", "INFO"),
     )

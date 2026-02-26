@@ -14,6 +14,8 @@ from .settings import (
     ReportConfig,
     SecurityConfig,
     EvaluationConfig,
+    AgentContextConfig,
+    SearchConfig,
     # 函数
     load_config,
     save_default_config,
@@ -43,6 +45,8 @@ __all__ = [
     "ReportConfig",
     "SecurityConfig",
     "EvaluationConfig",
+    "AgentContextConfig",
+    "SearchConfig",
     # 函数
     "load_config",
     "save_default_config",
