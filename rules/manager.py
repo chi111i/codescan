@@ -112,7 +112,11 @@ class RuleManager:
         return count
 
     def _add_rule(self, rule: SecurityRule) -> None:
-        """添加规则到索引"""
+        """添加规则到索引（幂等操作，重复添加会更新而非累积）"""
+        # 如果规则已存在，先从索引中移除旧条目再重新添加
+        if rule.id in self._rules:
+            self._remove_rule_from_indexes(rule.id)
+
         self._rules[rule.id] = rule
 
         # 按类别索引
@@ -150,6 +154,46 @@ class RuleManager:
         # 使缓存失效
         self._cache_version += 1
         self._invalidate_match_cache()
+
+    def _remove_rule_from_indexes(self, rule_id: str) -> None:
+        """从所有索引列表中移除指定规则（用于去重更新）"""
+        old_rule = self._rules.get(rule_id)
+        if not old_rule:
+            return
+
+        # 从类别索引移除
+        if old_rule.category in self._by_category:
+            self._by_category[old_rule.category] = [
+                r for r in self._by_category[old_rule.category] if r.id != rule_id
+            ]
+
+        # 从语言索引移除
+        for lang in old_rule.languages:
+            if lang in self._by_language:
+                self._by_language[lang] = [
+                    r for r in self._by_language[lang] if r.id != rule_id
+                ]
+
+            key = (lang, old_rule.rule_type)
+            if key in self._by_lang_type:
+                self._by_lang_type[key] = [
+                    r for r in self._by_lang_type[key] if r.id != rule_id
+                ]
+
+            for pattern in old_rule.patterns:
+                if not any(pattern.startswith(prefix) for prefix in
+                           ["regex:", "prefix:", "suffix:", "contains:"]):
+                    exact_key = (lang, old_rule.rule_type, pattern)
+                    if exact_key in self._exact_match_index:
+                        self._exact_match_index[exact_key] = [
+                            r for r in self._exact_match_index[exact_key] if r.id != rule_id
+                        ]
+
+        # 从类型索引移除
+        if old_rule.rule_type in self._by_type:
+            self._by_type[old_rule.rule_type] = [
+                r for r in self._by_type[old_rule.rule_type] if r.id != rule_id
+            ]
 
     def get_rule(self, rule_id: str) -> Optional[SecurityRule]:
         """获取指定规则"""
