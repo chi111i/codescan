@@ -1629,15 +1629,18 @@ class CodeIndexer:
         """
         try:
             # 优先使用当前索引路径，其次使用配置路径
-            base_path = self._current_target_path or Path(self.scan_config.target_path)
+            base_path = (self._current_target_path or Path(self.scan_config.target_path)).resolve()
 
-            # 尝试作为相对路径处理
-            target_path = base_path / file_path
+            # 仅允许相对路径，禁止绝对路径回退以防止任意文件读取
+            target_path = (base_path / file_path).resolve()
+
+            # 路径遍历防护：确保解析后的路径在项目根目录内
+            if not str(target_path).startswith(str(base_path)):
+                logger.warning(f"路径遍历尝试被阻止: {file_path}")
+                return None
+
             if not target_path.exists():
-                # 尝试作为绝对路径
-                target_path = Path(file_path)
-                if not target_path.exists():
-                    return None
+                return None
 
             content = target_path.read_text(encoding='utf-8', errors='ignore')
 

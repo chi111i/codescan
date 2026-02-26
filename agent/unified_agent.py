@@ -2331,6 +2331,10 @@ Step 5: 输出结构化发现报告
         if not file_path:
             return {"success": False, "error": "file_path 是必需参数"}
 
+        # 安全校验：拒绝绝对路径和明显的路径遍历
+        if os.path.isabs(file_path) or ".." in file_path.replace("\\", "/").split("/"):
+            return {"success": False, "error": "安全限制：仅允许项目内的相对路径，禁止绝对路径和路径遍历"}
+
         try:
             content = self.indexer.read_file(
                 file_path=file_path,

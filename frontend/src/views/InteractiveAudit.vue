@@ -1317,10 +1317,37 @@ const formatTime = (date) => {
 }
 
 const renderMarkdown = (text) => {
-  // 简单的 Markdown 渲染
+  // 简单的 Markdown 渲染（带 XSS 防护）
   if (!text) return ''
-  return text
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre class="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs"><code>$2</code></pre>')
+
+  // 先提取代码块，避免被 HTML 转义影响
+  const codeBlocks = []
+  let processed = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+    const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`
+    codeBlocks.push(code)
+    return placeholder
+  })
+
+  // HTML 实体转义，防止 XSS
+  processed = processed
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+  // 还原代码块（代码块内容也需要转义）
+  codeBlocks.forEach((code, i) => {
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    processed = processed.replace(
+      `__CODE_BLOCK_${i}__`,
+      `<pre class="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs"><code>${escapedCode}</code></pre>`
+    )
+  })
+
+  return processed
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded text-sm">$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\n/g, '<br>')
