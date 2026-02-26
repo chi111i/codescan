@@ -508,7 +508,7 @@ async def restore_session(session_id: str):
         history_messages = message_repo.get_by_session(session_id, limit=100)
 
         # 恢复消息历史到智能体
-        from agent.unified_agent import AgentMessage
+        from agent.unified_agent import AgentMessage, ToolCallEvent, ToolCallStatus
         from llm_client import ChatMessage
         for msg in history_messages:
             # 恢复智能体消息对象
@@ -523,6 +523,27 @@ async def restore_session(session_id: str):
                 role=msg.role,
                 content=msg.content,
             ))
+            # 恢复 tool_call_history
+            if msg.tool_calls:
+                for tc in msg.tool_calls:
+                    try:
+                        status_str = tc.get("status", "success")
+                        try:
+                            status = ToolCallStatus(status_str)
+                        except ValueError:
+                            status = ToolCallStatus.SUCCESS
+                        event = ToolCallEvent(
+                            id=tc.get("id", ""),
+                            tool_name=tc.get("tool_name", ""),
+                            arguments=tc.get("arguments", {}),
+                            status=status,
+                            result=tc.get("result"),
+                            error=tc.get("error"),
+                            duration_ms=tc.get("duration_ms", 0),
+                        )
+                        agent.tool_call_history.append(event)
+                    except Exception as e:
+                        logger.warning(f"恢复 tool_call_history 条目失败: {e}")
 
         now = datetime.now()
 
@@ -1036,8 +1057,23 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 agent = _active_agents[session_id]["agent"]
 
+                # 持久化：保存用户消息到数据库
+                ws_message_repo = get_message_repo()
+                ws_session_repo = get_session_repo()
+                try:
+                    ws_message_repo.create(
+                        session_id=session_id,
+                        role="user",
+                        content=message,
+                    )
+                except Exception as e:
+                    logger.warning(f"[WS] 保存用户消息失败: {e}")
+
                 if use_stream:
                     # 使用流式响应
+                    ws_tool_calls_data = []
+                    ws_final_content = ""
+                    ws_metadata = {}
                     try:
                         async for event in agent.chat_stream(message):
                             event_type = event.get("type", "")
@@ -1054,11 +1090,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     ).model_dump(mode='json')
                                 )
                             elif event_type == "tool_call_end":
+                                # 收集工具调用数据用于持久化
+                                tc_data = event.get("data", {})
+                                ws_tool_calls_data.append(tc_data)
                                 await _safe_send_json(websocket,
                                     WSEvent(
                                         type=WSEventType.TOOL_CALL_END,
                                         session_id=session_id,
-                                        data=event.get("data", {}),
+                                        data=tc_data,
                                     ).model_dump(mode='json')
                                 )
                             elif event_type == "chunk":
@@ -1072,11 +1111,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 )
                             elif event_type == "message":
                                 # 发送完成消息
+                                msg_data = event.get("data", {})
+                                ws_final_content = msg_data.get("content", "")
+                                ws_metadata = msg_data.get("metadata", {})
                                 await _safe_send_json(websocket,
                                     WSEvent(
                                         type=WSEventType.MESSAGE_COMPLETE,
                                         session_id=session_id,
-                                        data=event.get("data", {}),
+                                        data=msg_data,
                                     ).model_dump(mode='json')
                                 )
                             elif event_type == "error":
@@ -1087,6 +1129,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         data=event.get("data", {}),
                                     ).model_dump(mode='json')
                                 )
+
+                        # 持久化：保存助手消息和统计
+                        try:
+                            ws_message_repo.create(
+                                session_id=session_id,
+                                role="assistant",
+                                content=ws_final_content,
+                                tool_calls=ws_tool_calls_data if ws_tool_calls_data else None,
+                                metadata=ws_metadata if ws_metadata else None,
+                            )
+                            ws_session_repo.increment_stats(
+                                session_id=session_id,
+                                messages_delta=2,
+                                tool_calls_delta=len(ws_tool_calls_data),
+                            )
+                        except Exception as e:
+                            logger.warning(f"[WS] 保存助手消息失败: {e}")
+
                     except Exception as e:
                         import traceback
                         error_trace = traceback.format_exc()
@@ -1113,6 +1173,26 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             data=response.to_dict(),
                         ).model_dump(mode='json')
                     )
+
+                    # 持久化：保存助手消息和统计
+                    try:
+                        tool_calls_data = []
+                        for tc in response.tool_calls:
+                            tool_calls_data.append(to_jsonable(tc.to_dict() if hasattr(tc, 'to_dict') else tc))
+                        ws_message_repo.create(
+                            session_id=session_id,
+                            role="assistant",
+                            content=response.content,
+                            tool_calls=tool_calls_data if tool_calls_data else None,
+                            metadata=to_jsonable(response.metadata),
+                        )
+                        ws_session_repo.increment_stats(
+                            session_id=session_id,
+                            messages_delta=2,
+                            tool_calls_delta=len(tool_calls_data),
+                        )
+                    except Exception as e:
+                        logger.warning(f"[WS] 保存助手消息失败: {e}")
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket 连接断开: {session_id}")
