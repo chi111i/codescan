@@ -108,7 +108,8 @@ class AgentMessage:
 class UnifiedAgentConfig:
     """统一智能体配置"""
     # LLM 配置
-    max_tool_calls_per_turn: int = 10  # 每轮最大工具调用次数
+    max_tool_rounds: int = 10  # 工具调用最大循环轮数
+    max_tool_calls_per_turn: int = 10  # 单轮内最大工具调用次数
     max_conversation_turns: int = 50  # 最大对话轮数
     temperature: float = 0.1
     max_tokens: int = 4000
@@ -1211,38 +1212,41 @@ class UnifiedAuditAgent:
             tool_calls_this_turn: List[ToolCallEvent] = []
             final_response = ""
 
-            for turn in range(self.config.max_tool_calls_per_turn):
+            for turn in range(self.config.max_tool_rounds):
                 # 调用 LLM
                 response = await self._call_llm_with_tools(messages, tools)
                 self.total_llm_calls += 1
 
                 # 检查是否有工具调用
                 if response.tool_calls:
+                    # 截断为单轮最大工具调用数
+                    executed_calls = response.tool_calls[:self.config.max_tool_calls_per_turn]
                     # 执行工具调用
-                    tool_results = await self._execute_tool_calls(response.tool_calls)
+                    tool_results = await self._execute_tool_calls(executed_calls)
                     tool_calls_this_turn.extend(tool_results)
 
-                    # 将工具结果添加到消息
+                    # 将截断后的工具调用和结果添加到消息
                     messages.append(ChatMessage(
                         role="assistant",
                         content=response.content or "",
-                        tool_calls=response.tool_calls,
+                        tool_calls=executed_calls,
                     ))
 
-                    for tc, result in zip(response.tool_calls, tool_results):
+                    for tc, result in zip(executed_calls, tool_results):
                         messages.append(ChatMessage(
                             role="tool",
                             content=safe_json_dumps(result.result or {"error": result.error}),
-                            tool_call_id=tc.id,  # ToolCall 对象直接访问 id 属性
+                            tool_call_id=tc.id,
                         ))
                 else:
                     # 没有工具调用，获取最终响应
                     final_response = response.content or ""
                     break
 
-            # 如果循环结束仍有工具调用，再获取一次最终响应
+            # 如果循环结束仍有工具调用，再获取一次最终响应（不传 tools 强制文本输出）
             if not final_response and tool_calls_this_turn:
-                final_resp = await self._call_llm_with_tools(messages, tools)
+                final_resp = await self._call_llm_with_tools(messages, None)
+                self.total_llm_calls += 1
                 final_response = final_resp.content or ""
 
             # 构建响应消息
@@ -1334,16 +1338,16 @@ class UnifiedAuditAgent:
             # 多轮工具调用循环
             tool_calls_this_turn: List[ToolCallEvent] = []
             final_response = ""
-            accumulated_content = ""
 
-            for turn in range(self.config.max_tool_calls_per_turn):
-                # 检查是否使用流式响应（仅最后一轮无工具调用时使用流式）
+            for turn in range(self.config.max_tool_rounds):
                 response = await self._call_llm_with_tools(messages, tools)
                 self.total_llm_calls += 1
 
                 if response.tool_calls:
+                    # 截断为单轮最大工具调用数
+                    executed_calls = response.tool_calls[:self.config.max_tool_calls_per_turn]
                     # 执行工具调用（带实时推送）
-                    for tc in response.tool_calls:
+                    for tc in executed_calls:
                         event = ToolCallEvent(
                             id=tc.id,
                             tool_name=tc.name,
@@ -1370,40 +1374,32 @@ class UnifiedAuditAgent:
                         tool_calls_this_turn.append(event)
                         self.tool_call_history.append(event)
 
-                    # 更新消息
+                    # 将截断后的工具调用和结果添加到消息
                     messages.append(ChatMessage(
                         role="assistant",
                         content=response.content or "",
-                        tool_calls=response.tool_calls,
+                        tool_calls=executed_calls,
                     ))
 
-                    for tc, event in zip(response.tool_calls, tool_calls_this_turn[-len(response.tool_calls):]):
+                    for tc, event in zip(executed_calls, tool_calls_this_turn[-len(executed_calls):]):
                         messages.append(ChatMessage(
                             role="tool",
                             content=safe_json_dumps(event.result or {"error": event.error}),
                             tool_call_id=tc.id,
                         ))
                 else:
-                    # 没有工具调用，使用流式响应获取最终结果
-                    if self.config.enable_streaming and hasattr(self.llm_client, 'chat_completion_stream'):
-                        # 使用流式响应
-                        async for chunk in self._stream_final_response(messages, tools):
-                            if chunk.get("type") == "chunk":
-                                accumulated_content += chunk.get("content", "")
-                                yield chunk
-                        final_response = accumulated_content
-                    else:
-                        final_response = response.content or ""
-                        # 分块返回（模拟流式效果）
-                        chunk_size = self.config.stream_chunk_size
-                        for i in range(0, len(final_response), chunk_size):
-                            yield {"type": "chunk", "content": final_response[i:i+chunk_size]}
-                            await asyncio.sleep(0)  # 让出控制权
+                    # 没有工具调用，直接使用已有响应内容分块返回（不再重复调用 LLM）
+                    final_response = response.content or ""
+                    chunk_size = self.config.stream_chunk_size
+                    for i in range(0, len(final_response), chunk_size):
+                        yield {"type": "chunk", "content": final_response[i:i+chunk_size]}
+                        await asyncio.sleep(0)
                     break
 
-            # 如果循环结束仍有工具调用，再获取最终响应
+            # 如果循环结束仍有工具调用，再获取一次最终响应（不传 tools 强制文本输出）
             if not final_response and tool_calls_this_turn:
-                final_resp = await self._call_llm_with_tools(messages, tools)
+                final_resp = await self._call_llm_with_tools(messages, None)
+                self.total_llm_calls += 1
                 final_response = final_resp.content or ""
                 # 分块返回
                 chunk_size = self.config.stream_chunk_size
@@ -1454,15 +1450,11 @@ class UnifiedAuditAgent:
             self._is_processing = False
 
     async def _stream_final_response(self, messages: List[ChatMessage], tools: List[Dict[str, Any]]):
-        """使用 LLM 流式接口获取最终响应"""
+        """使用 LLM 获取最终响应并分块返回（内部方法，当前未被调用）"""
         try:
-            # 使用 asyncio.to_thread 包装同步调用
-            response = await asyncio.to_thread(
-                self.llm_client.chat_completion,
-                messages=messages,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-            )
+            # 使用统一封装调用 LLM（不传 tools 强制文本输出）
+            response = await self._call_llm_with_tools(messages, None)
+            self.total_llm_calls += 1
 
             # 分块返回完整响应
             content = response.content or ""
@@ -1472,11 +1464,8 @@ class UnifiedAuditAgent:
                 await asyncio.sleep(0)
 
         except Exception as e:
-            logger.warning(f"[UnifiedAgent] 流式响应失败，回退到普通响应: {e}")
-            # 回退到普通调用
-            response = await self._call_llm_with_tools(messages, tools)
-            content = response.content or ""
-            yield {"type": "chunk", "content": content}
+            logger.warning(f"[UnifiedAgent] 流式响应失败: {e}")
+            yield {"type": "chunk", "content": f"响应生成失败: {e}"}
 
     def _build_llm_messages(self, user_message: str) -> List[ChatMessage]:
         """构建 LLM 消息列表
@@ -1760,8 +1749,9 @@ Step 5: 输出结构化发现报告
 
         # === 请求日志 ===
         logger.info(f"[UnifiedAgent][{call_id}] 开始 LLM 调用")
-        print(f"[{timestamp}] [UnifiedAgent][{call_id}] 开始 LLM 调用: messages={len(messages)}, tools={len(tools)}")  # 强制输出
-        logger.info(f"[UnifiedAgent][{call_id}] 请求参数: messages={len(messages)}, tools={len(tools)}, temp={self.config.temperature}, max_tokens={self.config.max_tokens}")
+        tools_count = len(tools) if tools else 0
+        print(f"[{timestamp}] [UnifiedAgent][{call_id}] 开始 LLM 调用: messages={len(messages)}, tools={tools_count}")  # 强制输出
+        logger.info(f"[UnifiedAgent][{call_id}] 请求参数: messages={len(messages)}, tools={tools_count}, temp={self.config.temperature}, max_tokens={self.config.max_tokens}")
 
         # === 触发 LLM 调用开始回调 ===
         if self.config.on_llm_call_start:
@@ -1778,7 +1768,7 @@ Step 5: 输出结构化发现报告
                     "call_id": call_id,
                     "session_id": self.session_id,
                     "messages_count": len(messages),
-                    "tools_count": len(tools),
+                    "tools_count": tools_count,
                     "timestamp": timestamp,
                     "current_question": last_user_msg,
                 }
