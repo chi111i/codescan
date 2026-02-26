@@ -636,7 +636,10 @@ class FunctionCallingAdapter:
 
             # 通知 LLM 开始思考
             if self.config.on_llm_thinking:
-                self.config.on_llm_thinking(f"第 {turn + 1} 轮分析中...")
+                try:
+                    self.config.on_llm_thinking(f"第 {turn + 1} 轮分析中...")
+                except Exception as e:
+                    logger.warning(f"[FCAdapter] on_llm_thinking 回调异常: {e}")
 
             # 调用 LLM
             try:
@@ -665,21 +668,26 @@ class FunctionCallingAdapter:
             if response.content and self.config.on_llm_thinking:
                 # 仅在有工具调用时推送中间思考
                 if response.tool_calls:
-                    self.config.on_llm_thinking(response.content[:500])
+                    try:
+                        self.config.on_llm_thinking(response.content[:500])
+                    except Exception as e:
+                        logger.warning(f"[FCAdapter] on_llm_thinking 回调异常: {e}")
 
             # 检查是否有工具调用
             if response.tool_calls:
+                # 截断为单轮最大工具调用数
+                executed_tool_calls = response.tool_calls[:self.config.max_tool_calls_per_turn]
                 # 执行工具调用
-                tool_results = self._execute_tool_calls(response.tool_calls, all_tool_calls)
+                tool_results = self._execute_tool_calls(executed_tool_calls, all_tool_calls)
 
-                # 将工具调用和结果添加到消息历史
+                # 将截断后的工具调用和结果添加到消息历史
                 messages.append(ChatMessage(
                     role="assistant",
                     content=response.content or "",
-                    tool_calls=response.tool_calls,
+                    tool_calls=executed_tool_calls,
                 ))
 
-                for tool_call, result in zip(response.tool_calls, tool_results):
+                for tool_call, result in zip(executed_tool_calls, tool_results):
                     messages.append(ChatMessage(
                         role="tool",
                         content=json.dumps(result, ensure_ascii=False, default=str),
@@ -687,10 +695,9 @@ class FunctionCallingAdapter:
                     ))
 
                 # 检查是否调用了 report_finding
-                for tc in response.tool_calls:
+                for tc in executed_tool_calls:
                     if tc.name == "report_finding":
                         try:
-                            # arguments 已经是 dict，不需要 json.loads
                             parsed_result = tc.arguments if isinstance(tc.arguments, dict) else json.loads(tc.arguments)
                         except:
                             pass
@@ -705,9 +712,31 @@ class FunctionCallingAdapter:
 
                 # 通知回调
                 if self.config.on_llm_response:
-                    self.config.on_llm_response(final_content)
+                    try:
+                        self.config.on_llm_response(final_content)
+                    except Exception as e:
+                        logger.warning(f"[FCAdapter] on_llm_response 回调异常: {e}")
 
                 break
+
+        # 如果循环结束仍无最终内容（max_turns 耗尽），再调用一次 LLM 获取总结（不传 tools）
+        if not final_content and all_tool_calls:
+            try:
+                logger.info(f"[FCAdapter] max_turns 耗尽，请求最终总结")
+                summary_response = self.llm_client.chat_completion(
+                    messages=messages,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
+                )
+                self.total_llm_calls += 1
+                if summary_response.usage:
+                    self.total_tokens += summary_response.usage.get("total_tokens", 0)
+                final_content = summary_response.content or ""
+                if not parsed_result:
+                    parsed_result = self._parse_json_response(final_content)
+            except Exception as e:
+                logger.error(f"[FCAdapter] 最终总结调用失败: {e}")
+                final_content = f"分析已完成 {len(all_tool_calls)} 次工具调用，但未能生成最终总结。"
 
         # 确定是否有问题
         has_issue = False
@@ -748,7 +777,10 @@ class FunctionCallingAdapter:
 
             # 回调
             if self.config.on_tool_call_start:
-                self.config.on_tool_call_start(fc_call)
+                try:
+                    self.config.on_tool_call_start(fc_call)
+                except Exception as e:
+                    logger.warning(f"[FCAdapter] on_tool_call_start 回调异常: {e}")
 
             # 执行
             try:
@@ -765,7 +797,10 @@ class FunctionCallingAdapter:
 
             # 回调
             if self.config.on_tool_call_end:
-                self.config.on_tool_call_end(fc_call)
+                try:
+                    self.config.on_tool_call_end(fc_call)
+                except Exception as e:
+                    logger.warning(f"[FCAdapter] on_tool_call_end 回调异常: {e}")
 
             results.append(result)
 
