@@ -11,10 +11,13 @@
 import asyncio
 import json
 import logging
+import os
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import List, Optional, Dict, Any, Callable, Union
 
 from llm_client import BaseLLMClient, ChatMessage, ToolCall
@@ -557,6 +560,10 @@ class UnifiedAuditAgent:
                         "type": "string",
                         "description": "文件路径（相对于项目根目录）"
                     },
+                    "path": {
+                        "type": "string",
+                        "description": "file_path 的别名（兼容旧调用）"
+                    },
                     "start_line": {
                         "type": "integer",
                         "description": "起始行号（从 1 开始）"
@@ -565,8 +572,7 @@ class UnifiedAuditAgent:
                         "type": "integer",
                         "description": "结束行号"
                     }
-                },
-                "required": ["file_path"]
+                }
             },
             executor=self._execute_read_file,
             category="code_navigation",
@@ -1079,17 +1085,28 @@ class UnifiedAuditAgent:
                         "type": "string",
                         "description": "入口点函数名（如 'handle_upload'）"
                     },
+                    "entry_name": {
+                        "type": "string",
+                        "description": "entry_point 的别名（兼容旧调用）"
+                    },
                     "sink_site_id": {
                         "type": "string",
                         "description": "目标 Sink 触发点 ID"
+                    },
+                    "site_id": {
+                        "type": "string",
+                        "description": "sink_site_id 的别名（兼容旧调用）"
+                    },
+                    "sink_name": {
+                        "type": "string",
+                        "description": "Sink 函数名（若未提供 sink_site_id，将尝试按名称自动匹配）"
                     },
                     "include_intermediate_code": {
                         "type": "boolean",
                         "description": "是否包含中间节点代码",
                         "default": True
                     }
-                },
-                "required": ["entry_point", "sink_site_id"]
+                }
             },
             executor=self._execute_analyze_entry_to_sink,
             category="deep_analysis",
@@ -1184,9 +1201,6 @@ class UnifiedAuditAgent:
         Returns:
             AgentMessage: 智能体响应（包含工具调用记录）
         """
-        if not self._initialized:
-            await self.initialize()
-
         if self._is_processing:
             return AgentMessage(
                 role="assistant",
@@ -1194,10 +1208,22 @@ class UnifiedAuditAgent:
                 metadata={"error": "busy"},
             )
 
+        interaction_mode = self._route_user_message(user_message)
         self._is_processing = True
-        logger.info(f"[UnifiedAgent] 收到消息: {user_message[:50]}...")
+        logger.info(f"[UnifiedAgent] 收到消息: {user_message[:50]}... (mode={interaction_mode})")
 
         try:
+            # 闲聊/普通对话模式：不进入工具循环
+            if interaction_mode != "audit":
+                return await self._handle_chat_only_turn(
+                    user_message=user_message,
+                    interaction_mode=interaction_mode,
+                )
+
+            # 审计模式：按原有流程进行工具调用
+            if not self._initialized:
+                await self.initialize()
+
             # 添加用户消息
             user_msg = AgentMessage(role="user", content=user_message)
             self.messages.append(user_msg)
@@ -1240,14 +1266,20 @@ class UnifiedAuditAgent:
                         ))
                 else:
                     # 没有工具调用，获取最终响应
-                    final_response = response.content or ""
+                    final_response = await self._ensure_plain_final_response(
+                        messages=messages,
+                        candidate_response=response.content or "",
+                    )
                     break
 
             # 如果循环结束仍有工具调用，再获取一次最终响应（不传 tools 强制文本输出）
             if not final_response and tool_calls_this_turn:
                 final_resp = await self._call_llm_with_tools(messages, None)
                 self.total_llm_calls += 1
-                final_response = final_resp.content or ""
+                final_response = await self._ensure_plain_final_response(
+                    messages=messages,
+                    candidate_response=final_resp.content or "",
+                )
 
             # 构建响应消息
             assistant_msg = AgentMessage(
@@ -1257,6 +1289,7 @@ class UnifiedAuditAgent:
                 metadata={
                     "llm_calls": self.total_llm_calls,
                     "tool_calls_count": len(tool_calls_this_turn),
+                    "interaction_mode": "audit",
                 },
             )
 
@@ -1316,17 +1349,32 @@ class UnifiedAuditAgent:
                 - {"type": "chunk", "content": "..."}  # 内容块
                 - {"type": "message", "data": {...}}  # 完整消息
         """
-        if not self._initialized:
-            await self.initialize()
-
         if self._is_processing:
             yield {"type": "error", "data": {"error": "正在处理上一个请求，请稍候..."}}
             return
 
+        interaction_mode = self._route_user_message(user_message)
         self._is_processing = True
         yield {"type": "start", "data": {"timestamp": datetime.now().isoformat()}}
+        logger.info(f"[UnifiedAgent] 收到流式消息: {user_message[:50]}... (mode={interaction_mode})")
 
         try:
+            # 闲聊/普通对话模式：不进入工具循环
+            if interaction_mode != "audit":
+                assistant_msg = await self._handle_chat_only_turn(
+                    user_message=user_message,
+                    interaction_mode=interaction_mode,
+                )
+                chunk_size = self.config.stream_chunk_size
+                for i in range(0, len(assistant_msg.content), chunk_size):
+                    yield {"type": "chunk", "content": assistant_msg.content[i:i+chunk_size]}
+                    await asyncio.sleep(0)
+                yield {"type": "message", "data": assistant_msg.to_dict()}
+                return
+
+            if not self._initialized:
+                await self.initialize()
+
             # 添加用户消息
             user_msg = AgentMessage(role="user", content=user_message)
             self.messages.append(user_msg)
@@ -1360,7 +1408,10 @@ class UnifiedAuditAgent:
                         try:
                             result = await self.tool_manager.execute(tc.name, event.arguments)
                             event.status = ToolCallStatus.SUCCESS if result.success else ToolCallStatus.FAILED
-                            event.result = result.data
+                            event.result = result.data if result.success else {
+                                "success": False,
+                                "error": result.error or "工具执行失败",
+                            }
                             event.error = result.error
                             event.finished_at = datetime.now()
                             event.duration_ms = result.duration_ms
@@ -1368,6 +1419,7 @@ class UnifiedAuditAgent:
                         except Exception as e:
                             event.status = ToolCallStatus.FAILED
                             event.error = str(e)
+                            event.result = {"success": False, "error": str(e)}
                             event.finished_at = datetime.now()
 
                         yield {"type": "tool_call_end", "data": event.to_dict()}
@@ -1389,7 +1441,10 @@ class UnifiedAuditAgent:
                         ))
                 else:
                     # 没有工具调用，直接使用已有响应内容分块返回（不再重复调用 LLM）
-                    final_response = response.content or ""
+                    final_response = await self._ensure_plain_final_response(
+                        messages=messages,
+                        candidate_response=response.content or "",
+                    )
                     chunk_size = self.config.stream_chunk_size
                     for i in range(0, len(final_response), chunk_size):
                         yield {"type": "chunk", "content": final_response[i:i+chunk_size]}
@@ -1400,7 +1455,10 @@ class UnifiedAuditAgent:
             if not final_response and tool_calls_this_turn:
                 final_resp = await self._call_llm_with_tools(messages, None)
                 self.total_llm_calls += 1
-                final_response = final_resp.content or ""
+                final_response = await self._ensure_plain_final_response(
+                    messages=messages,
+                    candidate_response=final_resp.content or "",
+                )
                 # 分块返回
                 chunk_size = self.config.stream_chunk_size
                 for i in range(0, len(final_response), chunk_size):
@@ -1415,6 +1473,7 @@ class UnifiedAuditAgent:
                 metadata={
                     "llm_calls": self.total_llm_calls,
                     "tool_calls_count": len(tool_calls_this_turn),
+                    "interaction_mode": "audit",
                 },
             )
 
@@ -1457,7 +1516,10 @@ class UnifiedAuditAgent:
             self.total_llm_calls += 1
 
             # 分块返回完整响应
-            content = response.content or ""
+            content = await self._ensure_plain_final_response(
+                messages=messages,
+                candidate_response=response.content or "",
+            )
             chunk_size = self.config.stream_chunk_size
             for i in range(0, len(content), chunk_size):
                 yield {"type": "chunk", "content": content[i:i+chunk_size]}
@@ -1466,6 +1528,229 @@ class UnifiedAuditAgent:
         except Exception as e:
             logger.warning(f"[UnifiedAgent] 流式响应失败: {e}")
             yield {"type": "chunk", "content": f"响应生成失败: {e}"}
+
+    def _route_user_message(self, user_message: str) -> str:
+        """路由用户消息：audit | chat_only | small_talk"""
+        if self._is_audit_intent_message(user_message) or self._is_followup_audit_message(user_message):
+            return "audit"
+        if self._is_small_talk_message(user_message):
+            return "small_talk"
+        return "chat_only"
+
+    def _is_audit_intent_message(self, user_message: str) -> bool:
+        """判断消息是否明确要求进入审计流程。"""
+        text = (user_message or "").strip().lower()
+        if not text:
+            return False
+
+        audit_keywords = (
+            "分析", "审计", "扫描", "检查", "排查", "漏洞", "风险", "触发点", "调用链", "污点",
+            "修复", "复现", "命令注入", "sql注入", "xss", "rce", "ssrf", "idor", "鉴权",
+            "sink", "entry", "taint", "finding", "report_finding", "call chain",
+            "analyze", "audit", "scan", "review", "security", "vulnerability", "vuln",
+        )
+        return any(keyword in text for keyword in audit_keywords)
+
+    def _is_followup_audit_message(self, user_message: str) -> bool:
+        """判断是否为审计过程中的跟进指令（如“继续”）。"""
+        text = (user_message or "").strip().lower()
+        if not text:
+            return False
+
+        # 只有存在审计上下文时，才把“继续/下一步”视为审计意图
+        has_audit_context = any(
+            m.role == "assistant" and m.metadata.get("tool_calls_count", 0) > 0
+            for m in reversed(self.messages[-10:])
+        ) or bool(self.tool_call_history)
+        if not has_audit_context:
+            return False
+
+        non_audit_hints = ("聊天", "闲聊", "打招呼")
+        if any(hint in text for hint in non_audit_hints):
+            return False
+
+        followup_keywords = (
+            "继续", "接着", "下一步", "下一个", "展开", "详细", "继续分析", "继续审计", "再看",
+        )
+        return any(keyword in text for keyword in followup_keywords)
+
+    def _is_small_talk_message(self, user_message: str) -> bool:
+        """识别问候/寒暄类消息，避免直接触发全量审计。"""
+        text = (user_message or "").strip()
+        if not text:
+            return True
+
+        normalized = re.sub(r"[\s\u3000`~!@#$%^&*()_+\-=\[\]{}|;:'\",.<>/?，。！？、；：“”‘’（）【】《》]+", "", text.lower())
+        greetings = {
+            "你好", "您好", "嗨", "哈喽", "hello", "hi", "hey",
+            "在吗", "在不在", "有人吗", "早上好", "中午好", "下午好", "晚上好", "早安", "晚安",
+            "谢谢", "感谢", "thanks", "thankyou", "thx",
+        }
+
+        if normalized in greetings:
+            return True
+
+        if len(normalized) <= 6 and (
+            normalized.startswith("你好")
+            or normalized.startswith("您好")
+            or normalized.startswith("hello")
+            or normalized.startswith("hi")
+        ):
+            return True
+
+        return False
+
+    def _build_small_talk_response(self, user_message: str) -> str:
+        """生成轻量寒暄回复。"""
+        text = (user_message or "").lower()
+        if any(word in text for word in ("谢谢", "感谢", "thanks", "thx")):
+            return "不客气。我在这边，随时可以继续审计。"
+        return (
+            "你好，我在。你可以像和普通 LLM 对话一样下指令，我会按需审计代码。"
+            "例如：分析 source/high.php、继续上一个触发点、只检查命令注入。"
+        )
+
+    def _build_chat_only_messages(self, user_message: str) -> List[ChatMessage]:
+        """构建纯对话消息（禁用工具），用于需求澄清或普通问答。"""
+        system_prompt = (
+            "你是代码安全审计助手。当前处于对话模式：\n"
+            "1) 先回答用户当前问题，不要主动发起全量审计流程。\n"
+            "2) 不要输出 DSML/function_calls/invoke/parameter/XML 标签。\n"
+            "3) 如果用户尚未明确审计目标，请用一句话引导其提供文件、漏洞类型或入口点。\n"
+            "4) 使用中文，简洁直接。"
+        )
+        messages: List[ChatMessage] = [ChatMessage(role="system", content=system_prompt)]
+        messages.extend(self.conversation_history[-6:])
+        messages.append(ChatMessage(role="user", content=user_message))
+        return messages
+
+    async def _record_dialogue_turn(self, user_message: str, assistant_message: str, compress: bool = True):
+        """记录对话轮次并维护历史。"""
+        self.conversation_history.append(ChatMessage(role="user", content=user_message))
+        self.conversation_history.append(ChatMessage(role="assistant", content=assistant_message))
+        self._trim_conversation_history()
+        if compress:
+            await self._compress_conversation_history()
+
+    async def _handle_chat_only_turn(self, user_message: str, interaction_mode: str) -> AgentMessage:
+        """处理非审计消息（small_talk/chat_only）。"""
+        user_msg = AgentMessage(role="user", content=user_message)
+        self.messages.append(user_msg)
+
+        if interaction_mode == "small_talk":
+            final_response = self._build_small_talk_response(user_message)
+        else:
+            messages = self._build_chat_only_messages(user_message)
+            response = await self._call_llm_with_tools(messages, None)
+            self.total_llm_calls += 1
+            final_response = await self._ensure_plain_final_response(
+                messages=messages,
+                candidate_response=response.content or "",
+            )
+            final_response = self._strip_tool_markup(final_response).strip()
+            if not final_response:
+                final_response = "请告诉我你想审计的目标（文件、漏洞类型或入口点），我再开始分析。"
+
+        assistant_msg = AgentMessage(
+            role="assistant",
+            content=final_response,
+            metadata={
+                "llm_calls": self.total_llm_calls,
+                "tool_calls_count": 0,
+                "interaction_mode": interaction_mode,
+            },
+        )
+        self.messages.append(assistant_msg)
+
+        # small_talk 不触发历史压缩，避免额外消耗
+        await self._record_dialogue_turn(
+            user_message=user_message,
+            assistant_message=final_response,
+            compress=(interaction_mode != "small_talk"),
+        )
+        return assistant_msg
+
+    def _is_tool_markup_response(self, text: str) -> bool:
+        """判断响应是否为 DSML/函数调用标记文本（而非可展示结论）。"""
+        if not text:
+            return False
+
+        lower = text.lower()
+        # 常见 OpenAI 兼容层“文本化工具调用”标记
+        if "dsml" in lower and "function_calls" in lower:
+            return True
+        if "<｜dsml｜invoke" in lower or "<|dsml|invoke" in lower:
+            return True
+        if "invoke name=" in lower and "function_calls" in lower:
+            return True
+        return False
+
+    def _strip_tool_markup(self, text: str) -> str:
+        """移除 DSML 工具调用标记，保留可展示自然语言。"""
+        if not text:
+            return ""
+
+        # 先移除完整 function_calls 块
+        cleaned = re.sub(
+            r"<[｜|]?DSML[｜|]?function_calls>[\s\S]*?</[｜|]?DSML[｜|]?function_calls>",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # 再做逐行兜底过滤，防止部分标签残留
+        blocked_tokens = (
+            "DSML",
+            "function_calls",
+            "invoke name=",
+            "parameter name=",
+            "</invoke>",
+            "</parameter>",
+        )
+        kept_lines = []
+        for line in cleaned.splitlines():
+            if any(token in line for token in blocked_tokens):
+                continue
+            kept_lines.append(line)
+
+        return "\n".join(kept_lines).strip()
+
+    async def _ensure_plain_final_response(
+        self,
+        messages: List[ChatMessage],
+        candidate_response: str,
+    ) -> str:
+        """确保最终响应是可展示纯文本，避免 DSML/function_calls 泄漏到前端。"""
+        if not self._is_tool_markup_response(candidate_response):
+            return candidate_response
+
+        logger.warning("[UnifiedAgent] 检测到文本化工具调用标记，尝试转为纯文本最终结论")
+
+        # 首先尝试本地清洗（避免额外消耗）
+        stripped = self._strip_tool_markup(candidate_response)
+        if stripped:
+            return stripped
+
+        # 清洗后为空时，补一次“无工具总结”重试
+        retry_prompt = (
+            "你上一条回复误输出了工具调用标记。"
+            "请基于已获得信息直接给出最终分析结论，"
+            "禁止输出任何 DSML/function_calls/invoke/parameter/XML 标签。"
+        )
+        retry_messages = list(messages)
+        retry_messages.append(ChatMessage(role="assistant", content=candidate_response))
+        retry_messages.append(ChatMessage(role="user", content=retry_prompt))
+
+        try:
+            retry_resp = await self._call_llm_with_tools(retry_messages, None)
+            self.total_llm_calls += 1
+            retry_content = self._strip_tool_markup(retry_resp.content or "")
+            if retry_content:
+                return retry_content
+        except Exception as e:
+            logger.warning(f"[UnifiedAgent] 纯文本重试失败: {e}")
+
+        return "工具调用已完成，但模型未返回可展示的最终文本。请重试或缩小分析范围。"
 
     def _build_llm_messages(self, user_message: str) -> List[ChatMessage]:
         """构建 LLM 消息列表
@@ -1689,6 +1974,12 @@ Step 5: 输出结构化发现报告
 
 3. **不确定时**，明确标注"需要进一步验证"
 
+## 交互策略（必须遵守）
+
+1. 如果用户仅问候/寒暄（例如“你好”），先简短回复，不要直接开始项目审计。
+2. 只有当用户明确提出审计需求（如“分析/扫描/检查/继续分析”）时，才进入工具调用流程。
+3. 如果用户意图不明确，先用一句话澄清目标范围（文件、漏洞类型或入口点），再执行审计。
+
 ## 会话信息
 
 - 会话 ID: {self.session_id}
@@ -1716,7 +2007,7 @@ Step 5: 输出结构化发现报告
 
 2. **入口点到 Sink 链路分析**
    ```
-   analyze_entry_to_sink(entry_name="handle_request", sink_name="os.system")
+   analyze_entry_to_sink(entry_point="<script:high.php>", sink_site_id="sink-xxxx")
    ```
    分析数据如何从 HTTP 入口流向危险函数，评估可利用性。
 
@@ -1961,7 +2252,10 @@ Step 5: 输出结构化发现报告
             try:
                 result = await self.tool_manager.execute(event.tool_name, event.arguments)
                 event.status = ToolCallStatus.SUCCESS if result.success else ToolCallStatus.FAILED
-                event.result = result.data
+                event.result = result.data if result.success else {
+                    "success": False,
+                    "error": result.error or "工具执行失败",
+                }
                 event.error = result.error
                 event.finished_at = datetime.now()
                 event.duration_ms = result.duration_ms
@@ -1970,6 +2264,7 @@ Step 5: 输出结构化发现报告
                 logger.error(f"[UnifiedAgent] 工具执行失败 {event.tool_name}: {e}")
                 event.status = ToolCallStatus.FAILED
                 event.error = str(e)
+                event.result = {"success": False, "error": str(e)}
                 event.finished_at = datetime.now()
 
             # 异步通知回调（完成状态）
@@ -1987,6 +2282,7 @@ Step 5: 输出结构化发现报告
                 event = events[i][1]
                 event.status = ToolCallStatus.FAILED
                 event.error = str(result)
+                event.result = {"success": False, "error": str(result)}
                 event.finished_at = datetime.now()
                 final_results.append(event)
             else:
@@ -2001,7 +2297,10 @@ Step 5: 输出结构化发现报告
             try:
                 result = await self.tool_manager.execute(event.tool_name, event.arguments)
                 event.status = ToolCallStatus.SUCCESS if result.success else ToolCallStatus.FAILED
-                event.result = result.data
+                event.result = result.data if result.success else {
+                    "success": False,
+                    "error": result.error or "工具执行失败",
+                }
                 event.error = result.error
                 event.finished_at = datetime.now()
                 event.duration_ms = result.duration_ms
@@ -2010,6 +2309,7 @@ Step 5: 输出结构化发现报告
                 logger.error(f"[UnifiedAgent] 工具执行失败 {event.tool_name}: {e}")
                 event.status = ToolCallStatus.FAILED
                 event.error = str(e)
+                event.result = {"success": False, "error": str(e)}
                 event.finished_at = datetime.now()
 
             # 异步通知回调（完成状态）
@@ -2303,6 +2603,42 @@ Step 5: 输出结构化发现报告
                 if len(code_results) >= top_k:
                     break
 
+            # 回退：当向量检索无结果时，使用本地字符串匹配兜底
+            if not code_results:
+                import fnmatch
+
+                query_lower = query.lower()
+                for unit in self._get_code_units().values():
+                    # 语言过滤
+                    if language and unit.language != language:
+                        continue
+
+                    # 文件模式过滤
+                    if file_pattern:
+                        normalized_fp = unit.file_path.replace("\\", "/")
+                        if not (
+                            fnmatch.fnmatch(Path(normalized_fp).name, file_pattern)
+                            or fnmatch.fnmatch(normalized_fp, file_pattern)
+                        ):
+                            continue
+
+                    haystack = f"{unit.symbol}\n{unit.file_path}\n{unit.code}".lower()
+                    if query_lower not in haystack:
+                        continue
+
+                    code_results.append({
+                        "file_path": unit.file_path,
+                        "symbol": unit.symbol,
+                        "language": unit.language,
+                        "line_start": unit.span.start_line,
+                        "line_end": unit.span.end_line,
+                        "score": 0.0,
+                        "code_preview": (unit.code or "")[:500],
+                        "source": "fallback_text_match",
+                    })
+                    if len(code_results) >= top_k:
+                        break
+
             return {
                 "success": True,
                 "results": code_results,
@@ -2314,7 +2650,7 @@ Step 5: 输出结构化发现报告
 
     def _execute_read_file(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """执行文件读取"""
-        file_path = args.get("file_path", "")
+        file_path = args.get("file_path") or args.get("path") or ""
         start_line = args.get("start_line")
         end_line = args.get("end_line")
 
@@ -3156,12 +3492,14 @@ Step 5: 输出结构化发现报告
 
             # 触发分析进度回调（使用安全的跨线程调度）
             if target_site and self.config.on_analysis_progress:
+                # 兼容旧字段 sink_name（历史对象）和当前字段 symbol（SinkCallSite）
+                sink_name = getattr(target_site, "sink_name", None) or target_site.symbol
                 progress_data = {
                     "current": current_index,
                     "total": total_sites,
                     "current_site": {
                         "id": site_id,
-                        "sink_name": target_site.sink_name,
+                        "sink_name": sink_name,
                         "file_path": target_site.file_path,
                         "line": target_site.line_start,
                     },
@@ -3303,23 +3641,41 @@ Step 5: 输出结构化发现报告
 
     def _execute_analyze_entry_to_sink(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """分析从入口点到 Sink 的完整数据流路径"""
-        entry_point = args.get("entry_point", "")
-        sink_site_id = args.get("sink_site_id", "")
+        entry_point = args.get("entry_point") or args.get("entry_name") or ""
+        sink_site_id = args.get("sink_site_id") or args.get("site_id") or ""
+        sink_name = args.get("sink_name") or ""
         include_intermediate_code = args.get("include_intermediate_code", True)
 
-        if not entry_point or not sink_site_id:
-            return {"success": False, "error": "entry_point 和 sink_site_id 是必需参数"}
+        if not entry_point:
+            return {"success": False, "error": "entry_point 是必需参数（兼容别名: entry_name）"}
 
         # 获取 Sink 信息
         sink_site = None
         if self.prescan_result:
-            for s in self.prescan_result.filtered_sites:
-                if s.id == sink_site_id:
-                    sink_site = s
-                    break
+            if sink_site_id:
+                for s in self.prescan_result.filtered_sites:
+                    if s.id == sink_site_id:
+                        sink_site = s
+                        break
+
+            # 兼容：仅提供 sink_name 时，尝试自动匹配触发点
+            if not sink_site and sink_name:
+                sink_name_lower = sink_name.lower()
+                for s in self.prescan_result.filtered_sites:
+                    snippet = (s.call_snippet or "").lower()
+                    patterns = [p.lower() for p in (s.matched_patterns or [])]
+                    if (
+                        sink_name_lower == s.symbol.lower()
+                        or sink_name_lower in snippet
+                        or any(sink_name_lower in p for p in patterns)
+                    ):
+                        sink_site = s
+                        break
 
         if not sink_site:
-            return {"success": False, "error": f"未找到 Sink 触发点: {sink_site_id}"}
+            if sink_site_id:
+                return {"success": False, "error": f"未找到 Sink 触发点: {sink_site_id}"}
+            return {"success": False, "error": "未找到 Sink 触发点，请提供 sink_site_id（或可匹配的 sink_name）"}
 
         if not self.call_chain_analyzer:
             return {"success": False, "error": "调用链分析器未配置"}
@@ -3327,6 +3683,10 @@ Step 5: 输出结构化发现报告
         try:
             # 查找入口点和 Sink 节点
             entry_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(entry_point)
+            # 兼容：当 entry_point 传的是文件名（如 high.php）时，尝试映射到脚本符号
+            if not entry_nodes and entry_point.lower().endswith(".php"):
+                script_symbol = f"<script:{Path(entry_point).name}>"
+                entry_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(script_symbol)
             sink_nodes = self.call_chain_analyzer.call_graph.get_nodes_by_name(sink_site.symbol)
 
             if not entry_nodes:
