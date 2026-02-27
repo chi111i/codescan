@@ -532,8 +532,8 @@ class TestGenericASTConversion(TestTreeSitterIntegration):
         self.assertGreater(len(CROSS_LANGUAGE_PATTERNS), 0)
 
         sinks = list_all_sinks()
-        self.assertIn("command_injection", sinks)
-        self.assertIn("sql_injection", sinks)
+        self.assertIn("command_exec", sinks)
+        self.assertIn("sql", sinks)
 
 
 class TestFallbackStrategy(TestTreeSitterIntegration):
@@ -562,13 +562,19 @@ class TestFallbackStrategy(TestTreeSitterIntegration):
         )
 
         result = PartialParseResult(
-            units=[unit],
-            errors=["Syntax error at line 10"],
-            warnings=["Deprecated syntax"],
+            successful_units=[unit],
+        )
+        # 通过 add_error 添加错误（errors 是 List[ParseError]，非字符串列表）
+        from indexer.treesitter.fallback.strategy import ParseErrorType
+        result.add_error(
+            error_type=ParseErrorType.SYNTAX_ERROR,
+            line=10,
+            column=0,
+            message="Syntax error at line 10",
         )
 
-        self.assertEqual(len(result.units), 1)
-        self.assertEqual(len(result.errors), 1)
+        self.assertEqual(len(result.successful_units), 1)
+        self.assertEqual(result.error_count, 1)
 
     def test_fallback_chain_creation(self):
         """测试回退链创建"""

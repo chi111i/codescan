@@ -1,890 +1,310 @@
-# CodeScan - LLM 驱动的代码安全审计工具
+# CodeScan
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.8+-blue.svg" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/Node.js-16+-green.svg" alt="Node.js 16+">
-  <img src="https://img.shields.io/badge/FastAPI-0.109+-orange.svg" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Vue-3.x-brightgreen.svg" alt="Vue 3">
-  <img src="https://img.shields.io/badge/Tree--sitter-Multi--lang-purple.svg" alt="Tree-sitter">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
-</p>
+LLM 驱动的代码安全审计平台原型，聚焦“确定性候选点 + 调用链上下文 + LLM 深度验证”的组合分析流程。
 
-一款基于大语言模型（LLM）的智能代码安全审计工具，专注于检测传统静态分析工具难以发现的**业务逻辑漏洞、权限控制问题和高危安全缺陷**（RCE、任意文件读写、反序列化、SSRF、鉴权绕过、IDOR、状态机绕过等）。
+- 后端：FastAPI + Python
+- 前端：Vue 3 + Vite + Pinia
+- 索引：向量检索（Qdrant/Memory）+ 增量索引
+- 分析：规则扫描、调用链分析、污点分析、LLM 辅助判断
 
-**v2.1 新特性**：Tree-sitter 多语言 AST 解析 | Semgrep 集成 | 增量索引优化 | 框架自动检测
+## 当前状态
 
-## 📑 目录
+项目已具备可运行的扫描、会话、交互式审计能力，但仍有原型特征：
 
-- [核心理念](#核心理念)
-- [功能特性](#功能特性)
-- [系统要求](#系统要求)
-- [快速开始](#快速开始)
-- [命令行使用](#命令行使用)
-- [API 接口](#api-接口)
-- [核心架构](#核心架构)
-- [项目结构](#项目结构)
-- [配置说明](#配置说明)
-- [LLM Agent 工具系统](#llm-agent-工具系统)
-- [常见问题](#常见问题)
+- `/api/graph/*` 与 `/api/variant/*` 为实验性模块（内存存储，重启丢失）
+- 变体分析链路在部分场景存在 mock 回退路径
+- 默认未提供完整认证与多租户隔离（对外部署前必须补齐）
+- Tree-sitter 解析依赖本地语法包安装情况，未安装时会降级
 
----
+## 核心能力
 
-## 核心理念
+### 安全分析
 
-### 🎯 北极星目标
+- 代码索引与语义检索
+- 安全规则扫描（sink/source/sanitizer）
+- 调用链构建与危险路径分析
+- 污点传播分析（Source -> Sink）
+- 两步扫描流程（先定位触发点，再按需深度分析）
+- LLM 辅助深度验证与结构化结论输出
 
-**核心使命**：挖掘深层次高危逻辑漏洞，通过：
+### 会话与交互
 
-1. **扫描所有危险函数（sinks）触发点**
-2. **找到每个 sink 的所有调用链**（入口点 → ... → 触发 sink 的函数）
-3. **自动收集调用链涉及的代码上下文**
-4. **交给 LLM 做链级逐步推理与结构化结论输出**
+- Interactive 会话（交互式代码审计）
+- Agent 会话（统一智能体 + 工具调用）
+- WebSocket 实时进度与消息推送
+- 扫描结果与会话数据持久化（SQLite）
 
-**衡量标准**：能否在中大型仓库里高召回地输出 sink 触发点、调用链路径、链上代码证据 + LLM 结构化审计结论。
+### 多语言解析
 
-## ✨ 功能特性
+- Python（AST + Tree-sitter）
+- JavaScript / TypeScript / PHP / Java / Go / Rust / C / C++ / C# / Ruby / Kotlin（Tree-sitter 为主，含回退策略）
 
-### 🔍 核心功能
+## 系统要求
 
-| 功能 | 描述 |
-|------|------|
-| **智能代码索引** | 向量数据库（Qdrant/内存）+ 增量索引 + 代码去重，支持语义搜索 |
-| **Tree-sitter 多语言解析** | 基于 AST 的精确解析，支持 10+ 语言（见下方语言支持表） |
-| **Semgrep 集成** | 作为候选点生成器，支持 SARIF 导入，补充 LLM 分析 |
-| **高危漏洞检测** | RCE、命令注入、SQL 注入、文件操作、SSRF、反序列化、XXE、SSTI 等 |
-| **业务逻辑分析** | 认证绕过、权限控制、IDOR、竞态条件、批量赋值等逻辑漏洞 |
-| **污点分析** | Source → Sink 数据流追踪，自动识别过滤函数 |
-| **调用链分析** | 函数调用图构建与危险路径识别，支持深度控制 |
-| **框架自动检测** | 识别 Web 框架（Flask/Django/Express/Spring 等）并提取路由 |
-| **LLM Agent** | 支持 Function Calling 的自主代码探索，模拟安全专家审计过程 |
-| **链级深度分析** | 以调用链为单位进行复杂漏洞验证，提供结构化 JSON 输出 |
+- Python 3.8+（推荐 3.10+）
+- Node.js 16+（前端开发）
+- 可选：Qdrant 1.7+（不用时可使用 memory 向量存储）
 
-### 🌐 语言支持
-
-| 语言 | 解析方式 | 框架支持 |
-|------|---------|---------|
-| **Python** | AST + Tree-sitter | Flask, Django, FastAPI |
-| **JavaScript** | Tree-sitter | Express, Koa, Next.js |
-| **TypeScript** | Tree-sitter | Express, NestJS |
-| **PHP** | Tree-sitter | Laravel, Symfony |
-| **Java** | Tree-sitter | Spring, Spring Boot |
-| **Go** | Tree-sitter | Gin, Echo, Fiber |
-| **Rust** | Tree-sitter | Actix, Axum |
-| **C/C++** | Tree-sitter | - |
-| **C#** | Tree-sitter | ASP.NET |
-| **Ruby** | Tree-sitter | Rails, Sinatra |
-| **Kotlin** | Tree-sitter | Spring, Ktor |
-
-### 🖥️ 界面特性
-
-| 功能 | 描述 |
-|------|------|
-| **风格 UI** | 专业简洁 UI，Vue 3 + Vite 构建 |
-| **实时扫描进度** | WebSocket 实时更新扫描状态和发现 |
-| **LLM 交互面板** | 显示 LLM 每一步分析过程和工具调用详情 |
-| **可视化仪表盘** | 安全评分、严重性分布、语言统计图表 |
-| **多格式报告** | 支持 JSON、Console、SARIF 输出格式 |
-
-## 📋 系统要求
-
-| 组件 | 版本要求 | 说明 |
-|------|---------|------|
-| Python | 3.8+ | 核心运行环境 |
-| Node.js | 16+ | 前端构建（可选） |
-| Qdrant | 1.7+ | 向量数据库（可选，支持内存模式） |
-
-### 核心依赖
-
-```
-pyyaml>=6.0          # 配置解析
-httpx>=0.25.0        # HTTP 客户端
-pydantic>=2.0.0      # 数据验证
-fastapi>=0.109.0     # Web API
-qdrant-client>=1.7.0 # 向量存储
-typer>=0.9.0         # CLI 框架
-rich>=13.0.0         # 终端美化
-```
-
-## 🚀 快速开始
-
-### 1. 安装依赖
+## 安装
 
 ```bash
-# 克隆项目
-git clone https://github.com/your-repo/codescan.git
-cd codescan
-
 # 后端依赖
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
-# 前端依赖（可选）
-cd frontend && npm install
+# 前端依赖
+cd frontend
+npm install
+cd ..
 ```
 
-### 2. 配置
+### 可选依赖（建议）
 
-创建配置文件：
+`requirements.txt` 中 Tree-sitter 与测试工具是注释状态，按需安装：
 
 ```bash
-python -m codescan init -o audit.config.yaml
+python3 -m pip install tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-php tree-sitter-typescript
+python3 -m pip install pytest pytest-asyncio
 ```
 
-编辑 `audit.config.yaml`，设置 LLM API：
+## 快速开始
+
+### 1. 初始化配置
+
+```bash
+python3 -m codescan init -o audit.config.yaml
+```
+
+### 2. 配置 LLM
+
+建议通过环境变量注入密钥，不要在配置文件中保存明文 key。
 
 ```yaml
 llm:
-  provider: openai
-  base_url: https://api.openai.com/v1  # 或自定义 API 地址
-  api_key: your-api-key
+  base_url: https://api.openai.com/v1
+  api_key: ""
   model: gpt-4
-  embedding_model: text-embedding-ada-002
+  embedding_model: text-embedding-3-small
 
 vector_store:
-  provider: qdrant  # 或 memory
-  collection_name: code_audit
-  # Qdrant 配置（如使用）
-  host: localhost
-  port: 6333
+  provider: memory   # 或 qdrant
+```
+
+环境变量示例（Windows）：
+
+```bash
+setx AUDIT_LLM_API_KEY "your-key"
+# 或
+setx OPENAI_API_KEY "your-key"
 ```
 
 ### 3. 启动服务
 
-#### 方式一：同时启动前后端
-
 ```bash
-python start.py all
+# 同时启动前后端
+python3 start.py all
+
+# 仅后端
+python3 start.py api
+
+# 仅前端
+python3 start.py frontend
 ```
 
-#### 方式二：分别启动
+默认访问地址：
+
+- 后端 API：`http://localhost:8000`
+- 前端开发服务：`http://localhost:5173`
+- Swagger：`http://localhost:8000/docs`
+
+## CLI 使用
+
+命令入口：`python3 -m codescan ...`
+
+### 索引
 
 ```bash
-# 启动后端 API (端口 8000)
-python start.py api
-
-# 启动前端开发服务器 (端口 3000)
-python start.py frontend
+python3 -m codescan index ./your-project
+python3 -m codescan index ./your-project --clear
 ```
 
-#### 方式三：仅使用 CLI
+### 扫描
 
 ```bash
-# 索引代码
-python -m codescan index ./your-project
-
-# 执行扫描
-python -m codescan scan ./your-project
-
-# 高危漏洞扫描
-python -m codescan vulnscan ./your-project
-```
-
-### 4. 访问界面
-
-打开浏览器访问：http://localhost:3000
-
-## 命令行使用
-
-### 初始化配置
-
-```bash
-python -m codescan init -o audit.config.yaml
-```
-
-### 索引项目
-
-```bash
-python -m codescan index ./project-path
-python -m codescan index ./project-path --clear  # 清空后重建索引
-```
-
-### 安全扫描
-
-```bash
-# 基本扫描
-python -m codescan scan ./project-path
-
-# 指定语言和输出格式
-python -m codescan scan ./project-path -l python -f json -o report.json
-
-# 控制分析数量
-python -m codescan scan ./project-path -n 100 --reindex
+python3 -m codescan scan ./your-project
+python3 -m codescan scan ./your-project -l python -f json -o report.json
+python3 -m codescan scan ./your-project --chain --chain-depth 5
 ```
 
 ### 高危漏洞扫描
 
 ```bash
-# 完整扫描
-python -m codescan vulnscan ./project-path
-
-# 指定漏洞类型
-python -m codescan vulnscan ./project-path -t rce,sql_injection,file_read
-
-# 禁用 LLM 深度分析
-python -m codescan vulnscan ./project-path --no-llm
-
-# 仅模式匹配，不扫描逻辑漏洞
-python -m codescan vulnscan ./project-path --no-logic
+python3 -m codescan vulnscan ./your-project
+python3 -m codescan vulnscan ./your-project -t rce,sql_injection,ssrf
+python3 -m codescan vulnscan ./your-project --no-llm --logic
 ```
-
-支持的漏洞类型：
-- `rce` - 远程代码执行
-- `command_injection` - 命令注入
-- `sql_injection` - SQL 注入
-- `file_read` - 任意文件读取
-- `file_write` - 任意文件写入
-- `file_upload` - 文件上传漏洞
-- `path_traversal` - 路径穿越
-- `ssrf` - 服务端请求伪造
-- `xxe` - XML 外部实体注入
-- `deserialization` - 反序列化漏洞
-- `ssti` - 模板注入
-- `auth_bypass` - 认证绕过
-- `authz_bypass` - 授权绕过
-- `idor` - 不安全的直接对象引用
-- `logic_flaw` - 业务逻辑漏洞
-- `race_condition` - 竞态条件
-- `mass_assignment` - 批量赋值漏洞
 
 ### 调用链分析
 
 ```bash
-# 构建调用图并分析污点路径
-python -m codescan callgraph ./project-path
-
-# 设置最大深度
-python -m codescan callgraph ./project-path -d 15
-
-# 导出到指定文件
-python -m codescan callgraph ./project-path -o call_graph.json
+python3 -m codescan callgraph ./your-project -d 10
+python3 -m codescan callgraph ./your-project --taint --stats
 ```
 
-### 代码搜索
+### 搜索、规则、解释、存储
 
 ```bash
-# 语义搜索
-python -m codescan search "用户认证逻辑"
-
-# 限定语言和数量
-python -m codescan search "数据库查询" -l python -n 20
+python3 -m codescan search "auth bypass" -l python -n 20
+python3 -m codescan rules list
+python3 -m codescan rules show --id RULE-001
+python3 -m codescan explain FINDING-001 -r report.json
+python3 -m codescan storage stats
 ```
 
-### 规则管理
+### 交互式 Agent（CLI REPL）
 
 ```bash
-# 列出所有规则
-python -m codescan rules list
-
-# 按语言过滤
-python -m codescan rules list -l python
-
-# 查看规则详情
-python -m codescan rules show --id RULE-001
-
-# 规则统计
-python -m codescan rules stats
+python3 -m codescan agent ./your-project --show-tools
+python3 -m codescan agent ./your-project --offline
 ```
 
-### 查看发现详情
+## API 概览（主要端点）
 
-```bash
-python -m codescan explain FINDING-001 -r report.json
-```
+### 基础与索引
 
-### 存储管理
+- `GET /api/health`
+- `POST /api/index`
+- `POST /api/index/async`
+- `GET /api/index/{index_id}/progress`
+- `GET /api/index/stats`
+- `DELETE /api/index`
 
-```bash
-# 查看存储统计
-python -m codescan storage stats
+### 扫描与结果
 
-# 清空所有存储
-python -m codescan storage clear
-```
+- `POST /api/scan`
+- `GET /api/scan/{scan_id}`
+- `DELETE /api/scan/{scan_id}`
+- `GET /api/scan/{scan_id}/findings`
+- `GET /api/scans`
+- `GET /api/findings/recent`
+- `GET /api/scan/{scan_id}/interactions`
+- `GET /api/scan/{scan_id}/timeline`
+- `GET /api/scan/{scan_id}/interactions/latest`
+- `GET /api/scan/{scan_id}/stats`
 
-## API 接口
+### 两步扫描与调用图
 
-### 健康检查
+- `POST /api/scan/sink-sites`
+- `GET /api/scan/{scan_id}/sink-sites`
+- `GET /api/scan/{scan_id}/sink-sites/{site_id}/chains`
+- `POST /api/analyze/selected`
+- `POST /api/callgraph`
+- `POST /api/callgraph/analyze`
+- `GET /api/callgraph/chains/{sink_id}`
 
-```
-GET /api/health
-```
+### 规则、设置、代码单元
 
-### 索引管理
+- `GET /api/rules`
+- `GET /api/rules/stats`
+- `GET /api/rules/{rule_id}`
+- `POST /api/rules/reload`
+- `GET /api/settings`
+- `POST /api/settings`
+- `POST /api/settings/test-connection`
+- `POST /api/settings/test-embedding`
+- `GET /api/units`
+- `GET /api/units/{unit_id}`
 
-```
-POST /api/index          # 索引项目
-GET  /api/index/stats    # 获取索引统计
-```
+### Interactive 会话
 
-### 扫描
+前缀：`/api/interactive`
 
-```
-POST /api/scan                    # 创建扫描任务
-GET  /api/scan/{scan_id}          # 获取扫描结果
-GET  /api/scan/{scan_id}/findings # 获取扫描发现
-GET  /api/scans                   # 列出所有扫描任务
-```
+- 会话：`/session/start`, `/session/{id}`, `/sessions`
+- 代码与上下文：`/code-units`, `/sink-sites`, `/chain-contexts`
+- 分析：`/analyze`, `/chat`, `/dig-deeper`, `/session/{id}/summarize`, `/session/{id}/stop`
+- 发现管理：`/session/{id}/findings`, `/confirm`, `/reject`, `/notes`
 
-### 调用图
+### Agent 会话
 
-```
-POST /api/callgraph    # 分析调用图
-```
+前缀：`/api/agent`
 
-### 规则
+- 会话：`/session/create`, `/session/{id}`, `/session/{id}/restore`, `/sessions`, `/sessions/active`
+- 对话：`/session/{id}/chat`, `/messages`, `/tool-calls`, `/clear-history`
+- 工具与统计：`/tools`, `/stats`, `/index`
 
-```
-GET /api/rules              # 列出规则
-GET /api/rules/{rule_id}    # 获取规则详情
-```
+### 实验性模块
 
-### 代码单元
+- `/api/graph/*`：实验性，内存存储
+- `/api/variant/*`：实验性，内存存储，部分逻辑含 mock 路径
 
-```
-GET /api/units              # 列出代码单元
-GET /api/units/{unit_id}    # 获取代码单元详情
-```
+## WebSocket
 
-### 搜索
+- `WS /ws/scan/{scan_id}`：扫描进度
+- `WS /ws/index/{index_id}`：索引进度
+- `WS /api/interactive/ws/{session_id}`：Interactive 会话
+- `WS /api/agent/ws/{session_id}`：Agent 会话
 
-```
-POST /api/search    # 搜索代码
-```
+## 配置优先级
 
-### WebSocket
+`默认值 < 项目配置(audit.config.yaml) < 用户配置(.user_config.yaml) < 环境变量 < 运行参数`
 
-```
-WS /ws/scan/{scan_id}    # 实时扫描进度
-```
+常用环境变量：
 
-## 核心架构
-
-### 技术栈
-
-```
-后端: Python 3.x + FastAPI + Qdrant
-前端: Vue 3 + Vite + Pinia
-```
-
-### 核心数据流
-
-```
-目标代码 → indexer/parser.py (AST解析)
-        → indexer/indexer.py (生成 CodeUnit)
-        → llm_client/client.py (嵌入向量)
-        → indexer/vector_store.py (Qdrant/内存存储)
-        → analyzer/call_chain.py (构建调用图)
-        → analyzer/engine.py (候选点发现 + LLM 分析)
-        → api/main.py (WebSocket 进度推送)
-        → 前端展示
-```
-
-### 核心抽象
-
-| 概念 | 文件 | 职责 |
-|------|------|------|
-| **CodeUnit** | `indexer/models.py` | 代码分析单元（函数/方法/类），包含 id、symbol、calls、span、code |
-| **SecurityRule** | `rules/models.py` | 安全规则（sink/source/sanitizer），支持 patterns、risk_level、CWE |
-| **Finding** | `analyzer/models.py` | 分析发现结果，包含 severity、confidence、evidence、attack_scenario |
-| **CallGraph** | `analyzer/call_chain.py` | 函数调用图，用于求入口点到 sink 的路径 |
-| **TaintPath** | `analyzer/taint_analysis.py` | 污点传播路径 source → sink |
-
-## 📁 项目结构
-
-```
-codescan/
-├── agent/                    # LLM Agent 系统
-│   ├── tools/               # Function Calling 工具
-│   │   ├── registry.py      # 工具定义管理
-│   │   └── executor.py      # 工具调用执行
-│   ├── code_agent.py        # 代码审计专用 Agent（36KB）
-│   ├── context_manager.py   # 上下文管理器（21KB）
-│   ├── enhanced_agent.py    # 增强型 Agent
-│   ├── logged_agent.py      # 带日志的安全审计 Agent
-│   ├── logged_enhanced_agent.py # 增强日志 Agent
-│   ├── tools.py             # Agent 工具集定义
-│   └── unified_agent.py     # 统一 Agent 入口（138KB 核心）
-├── analyzer/                 # 核心分析引擎
-│   ├── engine.py            # 安全分析器（115KB 核心）
-│   ├── call_chain.py        # 调用链分析（32KB）
-│   ├── chain_context.py     # 调用链上下文收集（28KB）
-│   ├── taint_analysis.py    # 污点分析（56KB）
-│   ├── sink_scanner.py      # Sink 确定性扫描
-│   ├── vuln_detector.py     # 漏洞检测器（39KB）
-│   ├── multi_stage_verifier.py # 多阶段验证器（31KB）
-│   ├── variant_analysis.py  # 变体分析（21KB）
-│   ├── business_logic.py    # 业务逻辑分析（21KB）
-│   ├── fc_adapter.py        # Function Calling 适配器
-│   ├── interactive_agent.py # 交互式 Agent
-│   ├── session_manager.py   # 会话管理
-│   ├── validator.py         # 结果验证器
-│   ├── enhancer.py          # 结果增强器
-│   ├── prescan.py           # 预扫描模块
-│   ├── optimized_algorithms.py # 优化算法
-│   ├── models.py            # 数据模型
-│   └── prompts.py           # LLM 提示词
-├── api/                      # FastAPI 后端
-│   ├── main.py              # 主应用（142KB 核心 API）
-│   ├── server.py            # 服务器配置
-│   ├── schemas.py           # Pydantic 模型
-│   ├── schemas_agent.py     # Agent API 模型
-│   ├── schemas_interactive.py # 交互式 API 模型
-│   ├── agent_router.py      # Agent API 路由（42KB）
-│   ├── graph_router.py      # 调用图 API 路由
-│   ├── interactive_router.py # 交互式分析路由
-│   └── variant_router.py    # 变体分析路由
-├── cli/                      # 命令行接口
-│   └── main.py              # CLI 入口（47KB，typer 框架）
-├── config/                   # 配置管理
-│   ├── settings.py          # 配置加载（YAML + 环境变量）
-│   └── validator.py         # 配置验证
-├── frontend/                 # Vue 3 前端
-│   ├── src/
-│   │   ├── views/           # 页面组件
-│   │   ├── components/      # 通用组件
-│   │   ├── stores/          # Pinia 状态管理
-│   │   ├── api/             # API 调用
-│   │   └── style.css        # 全局样式（磨砂玻璃效果）
-│   └── package.json
-├── indexer/                  # 代码索引
-│   ├── indexer.py           # 索引器（62KB，支持增量索引）
-│   ├── parser.py            # 语言解析器（38KB，AST/正则）
-│   ├── code_reader.py       # 代码读取器（39KB）
-│   ├── code_graph.py        # 代码图构建（38KB）
-│   ├── incremental.py       # 增量索引支持
-│   ├── file_filter.py       # 文件过滤器
-│   ├── storage.py           # 存储层
-│   ├── vector_store/        # 向量存储（Qdrant/内存）
-│   ├── chunker/             # 代码分块器
-│   ├── embedding/           # 嵌入模块
-│   ├── search/              # 搜索模块
-│   ├── embedding_cache.py   # 嵌入缓存（28KB，LRU + 压缩）
-│   └── models.py            # 代码单元模型
-├── llm_client/               # LLM 客户端
-│   ├── client.py            # OpenAI 兼容 API 封装
-│   └── output_validator.py  # 输出验证
-├── prompts/                  # 提示词模板
-├── reporting/                # 报告生成
-│   └── reporter.py          # 多格式报告器
-├── rules/                    # 安全规则
-│   ├── manager.py           # 规则管理器
-│   ├── models.py            # 规则模型
-│   └── data/                # 内置规则（YAML）
-├── scanners/                 # 外部扫描器集成（新增）
-│   ├── semgrep_runner.py    # Semgrep 扫描器集成（14KB）
-│   └── sarif_importer.py    # SARIF 结果导入（18KB）
-├── storage/                  # 数据持久化
-│   ├── database.py          # SQLite 连接管理
-│   ├── scan_repository.py   # 扫描任务 CRUD
-│   ├── finding_repository.py    # 发现结果 CRUD
-│   └── interaction_repository.py # LLM 交互日志
-├── tests/                    # 测试用例
-├── utils/                    # 工具函数
-├── examples/                 # 示例代码
-├── scripts/                  # 辅助脚本
-├── requirements.txt          # Python 依赖
-├── start.py                  # 启动脚本
-├── pytest.ini               # 测试配置
-└── __main__.py              # CLI 入口
-```
-
-## 配置说明
-
-### LLM 配置
-
-```yaml
-llm:
-  provider: openai          # openai, azure, custom
-  base_url: https://api.openai.com/v1
-  api_key: sk-xxx
-  model: gpt-4              # 分析模型
-  embedding_model: text-embedding-ada-002  # 嵌入模型
-  temperature: 0            # 推荐使用 0 获得稳定结果
-  max_tokens: 4096
-  timeout: 120
-```
-
-### 向量存储配置
-
-```yaml
-vector_store:
-  provider: qdrant          # qdrant, memory
-  collection_name: code_audit
-  host: localhost
-  port: 6333
-  embedding_dim: 1536       # 与嵌入模型匹配
-```
-
-### 扫描配置
-
-```yaml
-scan:
-  target_path: .
-  include_patterns:
-    - "*.py"
-    - "*.js"
-    - "*.ts"
-    - "*.php"
-  exclude_patterns:
-    - "node_modules/**"
-    - "venv/**"
-    - "__pycache__/**"
-    - "*.min.js"
-  max_file_size: 1048576    # 1MB
-  max_workers: 4
-```
-
-### 报告配置
-
-```yaml
-report:
-  output_path: ./audit_report.json
-  output_format: json       # json, console, sarif
-  include_code: true
-  max_code_lines: 20
-```
-
-## 安全规则
-
-规则存储在 `rules/data/` 目录下，支持 YAML 格式：
-
-```yaml
-- id: RULE-PYTHON-001
-  name: eval 函数使用
-  rule_type: sink
-  category: injection
-  risk_level: critical
-  languages:
-    - python
-  patterns:
-    - "eval("
-    - "exec("
-  description: 使用 eval/exec 执行动态代码可能导致代码注入
-  fix_suggestion: 避免使用 eval/exec，使用安全的替代方案
-```
-
-## 输出示例
-
-### Console 输出
-
-```
-╭─────────────────────────────────────────────────────────────╮
-│           LLM 代码安全审计工具                                │
-│ 目标: ./my-project                                          │
-╰─────────────────────────────────────────────────────────────╯
-
-正在分析...
-发现 5 个潜在问题
-
-┌────────────┬─────────────┬────────┬─────────┬──────────────────────┐
-│ ID         │ 类型        │ 严重性  │ 置信度  │ 位置                  │
-├────────────┼─────────────┼────────┼─────────┼──────────────────────┤
-│ VULN-001   │ sql_injection│ critical│ 85%    │ app/models.py:45     │
-│ VULN-002   │ auth_bypass │ high    │ 72%    │ app/auth.py:128      │
-│ VULN-003   │ idor        │ high    │ 68%    │ app/views.py:234     │
-└────────────┴─────────────┴────────┴─────────┴──────────────────────┘
-```
-
-### JSON 输出
-
-```json
-{
-  "scan_id": "abc123",
-  "target_path": "./my-project",
-  "scan_time": "2024-01-15T10:30:00Z",
-  "summary": {
-    "total": 5,
-    "critical": 1,
-    "high": 2,
-    "medium": 2,
-    "low": 0
-  },
-  "findings": [
-    {
-      "id": "VULN-001",
-      "title": "SQL 注入漏洞",
-      "vuln_type": "sql_injection",
-      "severity": "critical",
-      "confidence": 0.85,
-      "file_path": "app/models.py",
-      "line_start": 45,
-      "line_end": 52,
-      "description": "用户输入直接拼接到 SQL 查询中",
-      "attack_scenario": "攻击者可通过构造恶意输入执行任意 SQL",
-      "fix_suggestion": "使用参数化查询或 ORM"
-    }
-  ]
-}
-```
-
-## LLM Agent 工具系统
-
-### 核心理念
-
-让 LLM 像人类安全专家使用 IDE 一样进行代码审计：可以主动搜索文件、查找函数定义、查看指定行号范围的代码、追踪调用链和数据流。
-
-### 已实现的 Function Calling 工具
-
-#### 代码导航工具
-
-| 工具名称 | 功能描述 |
-|---------|---------|
-| `search_code` | 语义搜索查找相关代码片段 |
-| `read_file` | 读取文件内容（支持行号范围） |
-| `get_function` | 获取函数/方法完整代码 |
-| `list_functions` | 列出文件中的所有函数和类 |
-| `get_callers` | 查找调用指定函数的位置 |
-| `get_callees` | 查找函数调用的其他函数 |
-
-#### 安全分析工具
-
-| 工具名称 | 功能描述 |
-|---------|---------|
-| `analyze_taint_path` | 分析 Source → Sink 的污点传播路径 |
-| `check_auth` | 检查函数是否有认证授权检查 |
-| `find_entry_points` | 查找项目入口点（HTTP 路由、API 端点） |
-
-### Agent 执行流程
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. 初始化：提供项目概览 + 安全规则 + 可用工具列表                │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. LLM 决策：分析当前信息，决定下一步                           │
-│    - 需要更多上下文？→ 调用工具                                 │
-│    - 发现问题？→ 调用 report_finding                           │
-│    - 分析完成？→ 结束循环                                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-           ┌──────────────────┼──────────────────┐
-           ▼                  ▼                  ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│ 调用工具      │   │ 报告发现      │   │ 结束分析      │
-│ - 执行工具    │   │ - 保存到 DB   │   │ - 汇总结果    │
-│ - 记录日志    │   │ - WebSocket   │   │ - 更新状态    │
-│ - 返回结果    │   │   推送        │   │               │
-└───────────────┘   └───────────────┘   └───────────────┘
-```
+- `AUDIT_LLM_BASE_URL`
+- `AUDIT_LLM_API_KEY`
+- `AUDIT_LLM_MODEL`
+- `AUDIT_LLM_EMBEDDING_MODEL`
+- `AUDIT_LLM_EMBEDDING_BASE_URL`
+- `AUDIT_LLM_EMBEDDING_API_KEY`
+- `AUDIT_LLM_EMBEDDING_DIM`
+- `AUDIT_VECTOR_HOST`
+- `AUDIT_VECTOR_PORT`
+- `AUDIT_VECTOR_API_KEY`
+- `AUDIT_SCAN_TARGET`
+- `AUDIT_DEBUG`
+- `AUDIT_LOG_LEVEL`
+- `OPENAI_API_KEY`（兼容）
 
 ## 数据持久化
 
-### 存储架构
+默认数据目录：
 
-扫描结果使用 SQLite 持久化存储，服务重启不丢失。
+- `.audit_data/audit.db`：扫描任务、发现、交互日志、agent 会话与消息、预扫描数据
+- `.audit_cache/`：索引与缓存数据
 
-| 模块 | 职责 |
-|------|------|
-| `database.py` | SQLite 连接管理，自动创建 schema |
-| `scan_repository.py` | 扫描任务 CRUD |
-| `finding_repository.py` | 发现结果 CRUD（支持分页、过滤） |
-| `interaction_repository.py` | LLM 交互日志 CRUD |
+## 项目结构（精简）
 
-### 数据库位置
-
-```
-.audit_data/audit.db    # 扫描结果、发现、交互日志
-.audit_cache/           # 嵌入缓存、文件追踪
-```
-
-## 实时展示系统
-
-### WebSocket 消息类型
-
-```typescript
-// 扫描进度
-{ type: 'progress', scan_id, status, progress, current_step }
-
-// LLM 交互（工具调用、思考过程）
-{ type: 'interaction', data: { type, tool_name, tool_input, tool_output, content } }
-
-// 新发现推送
-{ type: 'new_finding', finding: {...} }
+```text
+codescan/
+├── api/                 # FastAPI 主服务与路由
+├── analyzer/            # 规则分析、调用链、污点、会话管理
+├── indexer/             # 解析、索引、搜索、向量存储适配
+├── agent/               # 统一智能体与工具系统
+├── storage/             # SQLite + Repository
+├── rules/               # 规则模型与规则库
+├── llm_client/          # LLM 客户端
+├── frontend/            # Vue3 前端
+├── cli/                 # Typer CLI
+└── tests/               # 测试
 ```
 
-### 前端组件
+## 开发与测试
 
-- **LLM 交互面板**：显示 LLM 每一步分析过程
-- **工具调用日志**：显示每次工具调用的输入输出
-- **发现列表实时更新**：新发现自动添加到列表顶部
+```bash
+# Python 单测
+pytest -q
 
-## 向量搜索优化
-
-### 混合搜索 (Hybrid Search)
-
-CodeScan v2.0 引入了全新的混合搜索系统，结合向量语义搜索和关键词匹配：
-
-```yaml
-search:
-  # 搜索模式配置
-  mode: hybrid              # hybrid, vector, keyword
-
-  # RRF 融合参数
-  rrf_k: 60                 # RRF 平滑常数
-  vector_weight: 1.0        # 向量搜索权重
-  keyword_weight: 0.8       # 关键词搜索权重
-
-  # 智能 TopK 截断
-  enable_smart_cutoff: true
-  smart_ratio: 0.7          # 相对阈值比例
-  smart_delta: 0.2          # 最大分数差
-  smart_floor: 0.3          # 绝对分数下限
-  smart_min_k: 3            # 最小返回数量
-  smart_max_k: 50           # 最大返回数量
+# 前端构建
+npm --prefix frontend run build
 ```
 
-**查询修饰符语法**：
-- `path:*.py` - 限定文件路径
-- `-path:tests` - 排除路径
-- `lang:python` - 限定语言
-- `exclude:vendor` - 排除目录
+说明：当前分支可能存在部分测试失败（主要集中在 chunk 机制与 tree-sitter 兼容性相关），建议在 CI 中拆分测试分组并逐步收敛。
 
-示例：`SQL injection path:*.py -path:tests lang:python`
+## 安全部署注意事项
 
-### 嵌入缓存
+- 不要提交 `.user_config.yaml`、`.env`、密钥文件
+- 设置相关接口会写本地用户配置，生产部署前必须补齐认证与权限控制
+- 实验性路由默认不建议暴露到公网
 
-```yaml
-embedding_cache:
-  enabled: true
-  cache_dir: .audit_cache/embeddings
-  max_entries: 100000       # 最大缓存条目数
-  ttl_days: 30              # 缓存过期天数
-  compression: true         # 启用 zlib 压缩
-```
+## License
 
-特性：
-- **LRU 淘汰策略**: 基于 `accessed_at` 追踪访问时间
-- **压缩存储**: `struct.pack` + `zlib` 压缩嵌入向量（节省 60%+ 空间）
-- **持久化统计**: 命中率、淘汰次数等统计信息
-- **批量查询优化**: 一次性查询多个缓存键
-
-### 增量索引
-
-```yaml
-incremental:
-  enabled: true
-  use_content_hash: true    # 使用 SHA-256 内容哈希（更精确）
-  use_mtime: false          # 使用文件修改时间（更快）
-  db_path: .audit_cache/file_index.db
-```
-
-特性：
-- **FileChangeDetector**: 基于 SHA-256 内容哈希检测文件变更
-- **三种变更类型**: 新增、修改、删除文件
-- **6 阶段批量处理流水线**:
-  1. 文件发现与过滤
-  2. 并行文件解析
-  3. 代码单元提取
-  4. 批量嵌入生成
-  5. 向量存储写入
-  6. 索引状态更新
-
-### 安全优先重排序 (Security-First Reranker)
-
-```yaml
-reranker:
-  enabled: true
-  security_boost: 1.5       # 安全相关代码提升因子
-
-  # CWE 模式匹配
-  cwe_patterns:
-    - CWE-78   # 命令注入
-    - CWE-89   # SQL 注入
-    - CWE-94   # 代码注入
-    - CWE-502  # 反序列化
-```
-
-**SecurityFirstReranker** 评分因素：
-1. **高危模式检测**：exec/eval/SQL/文件操作等正则匹配（权重 0.4）
-2. **敏感符号名**：auth/login/password/admin/delete/payment（权重 0.25）
-3. **入口点识别**：handler/controller/route 等（权重 0.2）
-4. **代码长度偏好**：更短更聚焦的函数优先（权重 0.15）
-5. **CWE 关联**：匹配已知漏洞模式的代码优先
-
-## 关键设计原则
-
-### 候选点发现必须确定性
-
-- 使用 **SinkCallScanner** 做确定性扫描（AST/regex 匹配 sink patterns）
-- 向量检索仅用于**上下文补充**（相似代码、配置定义、变体分析）
-- 不依赖向量检索作为主召回手段
-
-### 调用链驱动的分析
-
-LLM 分析单位是**调用链**而非单个函数：
-- 链上下文包含：入口点 → 中间节点 → sink 触发点的所有函数代码
-- 链级 Finding 输出：chain_id、evidence（按节点列出）、exploitability_conditions
-- 爆炸控制：max_depth、max_chains_per_sink、路径去重
-
-### LLM 分析输出格式
-
-LLM 必须输出结构化 JSON：
-
-```json
-{
-  "has_issue": true,
-  "issue_type": "command_injection",
-  "severity": "critical",
-  "confidence": 0.85,
-  "summary": "用户输入直接传入 os.system",
-  "details": "...",
-  "evidence": [
-    {"file_path": "app.py", "line_start": 45, "code_snippet": "...", "reason": "..."}
-  ],
-  "attack_scenario": "高层次攻击思路（不含 payload）",
-  "fix_suggestion": "使用 subprocess + shlex.quote",
-  "notes": "需要确认的点"
-}
-```
-
-## 高危 Sink 类别
-
-| 类别 | Python 示例 | PHP 示例 |
-|------|-------------|----------|
-| RCE | `os.system`, `eval`, `exec`, `subprocess.*` | `exec`, `eval`, `system`, `shell_exec` |
-| 文件读 | `open`, `Path.read_text`, `send_file` | `file_get_contents`, `fopen`, `readfile` |
-| 文件写 | `open(..., 'w')`, `Path.write_text` | `file_put_contents`, `fwrite` |
-| 反序列化 | `pickle.loads`, `yaml.load` | `unserialize` |
-| SSRF | `requests.get`, `urllib.request.urlopen` | `curl_exec`, `file_get_contents` |
-| SQLi | `cursor.execute`, `raw()` | `mysql_query`, `mysqli_query` |
-
-## 常见问题
-
-### Q: 如何使用自建 LLM 服务？
-
-配置 `base_url` 指向你的服务地址，确保兼容 OpenAI API 格式：
-
-```yaml
-llm:
-  base_url: http://localhost:8080/v1
-  api_key: your-key
-  model: your-model
-```
-
-> **注意**：如果你的服务 URL 已包含 `/v1`，不要在配置中重复添加。
-
-### Q: 扫描速度很慢？
-
-- 减少 `max_candidates` 数量
-- 禁用 LLM 深度分析：`--no-llm`
-- 使用更快的嵌入模型
-- 增加并发数
-
-### Q: 误报太多？
-
-- 提高 `min_confidence` 阈值
-- 使用 `--no-logic` 跳过逻辑漏洞扫描
-- 自定义规则，排除特定模式
-
-### Q: 如何添加新的语言支持？
-
-在 `indexer/parser.py` 中添加新的解析器类，继承 `BaseLanguageParser`。
-
-## 许可证
-
-MIT License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+MIT

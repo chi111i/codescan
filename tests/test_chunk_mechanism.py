@@ -5,6 +5,7 @@
 import pytest
 import sys
 import os
+import threading
 from collections import OrderedDict
 
 # 添加项目根目录到 Python 路径
@@ -120,6 +121,7 @@ class TestChunkMechanism:
             indexer._chunk_siblings = {}
             indexer._raw_unit_cache = OrderedDict()
             indexer._raw_unit_cache_max_size = 500
+            indexer._chunk_map_lock = threading.Lock()
             indexer.scan_config = self.mock_config.scan
             indexer.vector_store = self.mock_vector_store
 
@@ -166,6 +168,7 @@ class TestChunkMechanism:
             }
             indexer._raw_unit_cache = OrderedDict()
             indexer._raw_unit_cache_max_size = 500
+            indexer._chunk_map_lock = threading.Lock()
             indexer.vector_store = self.mock_vector_store
 
             # 添加 chunk 到 mock store
@@ -221,6 +224,7 @@ class TestChunkMechanism:
             indexer._chunk_siblings = {}
             indexer._raw_unit_cache = OrderedDict()
             indexer._raw_unit_cache_max_size = 500
+            indexer._chunk_map_lock = threading.Lock()
             indexer.vector_store = self.mock_vector_store
 
             # 添加非分块单元
@@ -258,6 +262,7 @@ class TestChunkMechanism:
             }
             indexer._raw_unit_cache = OrderedDict()
             indexer._raw_unit_cache_max_size = 500
+            indexer._chunk_map_lock = threading.Lock()
             indexer.vector_store = self.mock_vector_store
 
             # 添加 chunks
@@ -323,6 +328,7 @@ class TestChunkMechanism:
             indexer._chunk_siblings = {
                 "parent_1": ["parent_1_chunk0"],
             }
+            indexer._chunk_map_lock = threading.Lock()
 
             assert indexer.is_chunked("parent_1_chunk0") is True
             assert indexer.is_chunked("parent_1") is True
@@ -342,6 +348,7 @@ class TestChunkMechanism:
             indexer._chunk_siblings = {
                 "parent_1": ["parent_1_chunk0", "parent_1_chunk1"],
             }
+            indexer._chunk_map_lock = threading.Lock()
 
             # 测试 chunk
             info = indexer.get_chunk_info("parent_1_chunk0")
@@ -371,6 +378,7 @@ class TestChunkMechanism:
             indexer._chunk_parent_map = {"chunk1": "parent1"}
             indexer._chunk_siblings = {"parent1": ["chunk1"]}
             indexer._raw_unit_cache = OrderedDict({"parent1": "some_unit"})
+            indexer._chunk_map_lock = threading.Lock()
             indexer.vector_store = self.mock_vector_store
 
             indexer.clear_index()
