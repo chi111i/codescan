@@ -886,7 +886,7 @@ async def get_index_stats():
 
     # 使用异步线程避免阻塞
     def compute_distribution():
-        all_units = app_state.indexer.get_all_units(limit=10000)
+        all_units = app_state.indexer.get_all_units()  # BUG #9 Fix: 不截断
         lang_counts = {}
         type_counts = {}
         for unit in all_units:
@@ -1099,6 +1099,16 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                 task.error_message = "LLM API Key 未配置，请先在设置中配置 API Key"
                 task.current_step = "错误: API Key 未配置"
                 await broadcast_scan_progress(scan_id, task)
+                # BUG #12 Fix: 早期失败也落库
+                try:
+                    if app_state.scan_repo:
+                        await asyncio.to_thread(
+                            app_state.scan_repo.update_status,
+                            scan_id, "failed",
+                            error_message=task.error_message
+                        )
+                except Exception as db_err:
+                    logger.error(f"更新数据库状态失败: {db_err}")
                 return
             logger.info(f"LLM 配置: model={app_state.config.llm.model}, base_url={app_state.config.llm.base_url}")
         else:
@@ -1203,6 +1213,16 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             task.error_message = "规则管理器未初始化，请重启服务器"
             task.current_step = "错误: 规则管理器未初始化"
             await broadcast_scan_progress(scan_id, task)
+            # BUG #12 Fix: 早期失败也落库
+            try:
+                if app_state.scan_repo:
+                    await asyncio.to_thread(
+                        app_state.scan_repo.update_status,
+                        scan_id, "failed",
+                        error_message=task.error_message
+                    )
+            except Exception as db_err:
+                logger.error(f"更新数据库状态失败: {db_err}")
             return
 
         print(f"[SCAN] rule_manager 规则数: {app_state.rule_manager.count()}")
@@ -1250,7 +1270,9 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                     # 非阻塞地检查队列
                     try:
                         progress, step = progress_queue.get_nowait()
-                        task.progress = progress
+                        # BUG #15 Fix: 进度单调递增，防止回退
+                        if progress > task.progress:
+                            task.progress = progress
                         task.current_step = step
                         await broadcast_scan_progress(scan_id, task)
                     except queue.Empty:
@@ -1261,7 +1283,9 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                     while not progress_queue.empty():
                         try:
                             progress, step = progress_queue.get_nowait()
-                            task.progress = progress
+                            # BUG #15 Fix: 进度单调递增
+                            if progress > task.progress:
+                                task.progress = progress
                             task.current_step = step
                             await broadcast_scan_progress(scan_id, task)
                         except queue.Empty:
@@ -1279,7 +1303,7 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
         try:
             findings = await asyncio.to_thread(
                 analyzer.analyze,
-                request.languages[0] if request.languages else None,  # language
+                request.languages[0] if request.languages else None,  # language（向后兼容）
                 None,  # file_pattern
                 request.max_issues,  # max_candidates
                 2,  # max_workers
@@ -1291,6 +1315,7 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
                 30,  # max_llm_calls - 最大 LLM 调用次数
                 analysis_progress_callback,  # progress_callback - 进度回调
                 request.use_llm,  # use_llm - 是否使用 LLM 深度分析
+                request.languages if request.languages else None,  # BUG #1 Fix: languages - 多语言列表
             )
         finally:
             # 停止进度处理任务
@@ -1367,19 +1392,13 @@ async def run_scan_task(scan_id: str, request: ScanRequest):
             # 转换漏洞类型
             vuln_types = None
             if request.vuln_types:
-                type_map = {
-                    VulnTypeEnum.RCE: VulnType.RCE,
-                    VulnTypeEnum.COMMAND_INJECTION: VulnType.COMMAND_INJECTION,
-                    VulnTypeEnum.FILE_READ: VulnType.FILE_READ,
-                    VulnTypeEnum.FILE_WRITE: VulnType.FILE_WRITE,
-                    VulnTypeEnum.SQL_INJECTION: VulnType.SQL_INJECTION,
-                    VulnTypeEnum.SSRF: VulnType.SSRF,
-                    VulnTypeEnum.DESERIALIZATION: VulnType.DESERIALIZATION,
-                    VulnTypeEnum.AUTH_BYPASS: VulnType.AUTH_BYPASS,
-                    VulnTypeEnum.IDOR: VulnType.IDOR,
-                    VulnTypeEnum.LOGIC_FLAW: VulnType.LOGIC_FLAW,
-                }
-                vuln_types = [type_map.get(t) for t in request.vuln_types if t in type_map]
+                # BUG #16 Fix: 基于 value 自动匹配，避免手动映射遗漏
+                vuln_types = []
+                for vt_enum in request.vuln_types:
+                    try:
+                        vuln_types.append(VulnType(vt_enum.value))
+                    except ValueError:
+                        logger.warning(f"未知漏洞类型: {vt_enum.value}，跳过")
 
             # 使用线程池执行同步的漏洞检测操作
             vuln_findings = await asyncio.to_thread(
@@ -2427,14 +2446,18 @@ async def get_sink_sites(
         raise HTTPException(status_code=404, detail="扫描任务不存在")
 
     try:
-        # 获取扫描任务的目标路径
+        # 获取扫描任务的目标路径和语言列表
         target_path = None
+        scan_languages = None  # BUG #19 Fix: 保留原始扫描的语言过滤
         if scan_id in app_state.scan_tasks:
             target_path = app_state.scan_tasks[scan_id].target_path
         elif app_state.scan_repo:
             db_task = await asyncio.to_thread(app_state.scan_repo.get_by_id, scan_id)
             if db_task:
                 target_path = db_task.target_path
+                # BUG #19 Fix: 从数据库任务配置中恢复语言列表
+                if db_task.config and isinstance(db_task.config, dict):
+                    scan_languages = db_task.config.get("languages")
 
         if not target_path:
             raise HTTPException(status_code=400, detail="无法获取扫描目标路径")
@@ -2443,7 +2466,7 @@ async def get_sink_sites(
         code_units = await asyncio.to_thread(
             app_state.indexer.parse_directory_without_index,
             target_path,
-            None  # languages
+            scan_languages  # BUG #19 Fix: 使用原始扫描的语言过滤
         )
 
         if not code_units:
@@ -2713,7 +2736,19 @@ async def scan_sink_sites(request: ScanRequest):
 
             # 检查是否需要索引
             stats = await asyncio.to_thread(app_state.indexer.get_stats)
-            if stats["total_units"] == 0 or request.reindex:
+            need_reindex = stats["total_units"] == 0 or request.reindex
+
+            # BUG #8 Fix: 校验已有索引路径是否匹配当前请求
+            if not need_reindex and stats["total_units"] > 0:
+                current_indexed_path = await asyncio.to_thread(
+                    app_state.indexer.get_current_target_path
+                )
+                if current_indexed_path:
+                    if current_indexed_path.resolve() != target_path.resolve():
+                        logger.warning(f"[sink-sites] 索引路径不匹配，自动重新索引")
+                        need_reindex = True
+
+            if need_reindex:
                 logger.info(f"[sink-sites] 开始索引目录: {target_path}")
                 await asyncio.to_thread(
                     app_state.indexer.index_directory,
@@ -2745,8 +2780,9 @@ async def scan_sink_sites(request: ScanRequest):
         sink_sites = await asyncio.to_thread(
             scanner.scan,
             code_units,
-            request.languages[0] if request.languages else None,
-            None  # categories
+            None,  # language（向后兼容）
+            None,  # categories
+            request.languages if request.languages else None,  # BUG #1 Fix: languages
         )
 
         # 计算统计信息
@@ -2925,8 +2961,9 @@ async def run_selected_analysis_task(scan_id: str, request: SelectedAnalysisRequ
         all_sink_sites = await asyncio.to_thread(
             scanner.scan,
             code_units,
-            request.languages[0] if request.languages else None,
-            None
+            None,  # language（向后兼容）
+            None,  # categories
+            request.languages if request.languages else None,  # BUG #1 Fix: languages
         )
 
         # 过滤出用户选中的触发点
@@ -3026,7 +3063,10 @@ async def run_selected_analysis_task(scan_id: str, request: SelectedAnalysisRequ
                 try:
                     try:
                         progress, step = progress_queue.get_nowait()
-                        task.progress = 0.3 + progress * 0.6
+                        # BUG #15 Fix: 进度单调递增
+                        new_progress = 0.3 + progress * 0.6
+                        if new_progress > task.progress:
+                            task.progress = new_progress
                         task.current_step = step
                         await broadcast_scan_progress(scan_id, task)
                     except queue.Empty:
@@ -3036,7 +3076,9 @@ async def run_selected_analysis_task(scan_id: str, request: SelectedAnalysisRequ
                     while not progress_queue.empty():
                         try:
                             progress, step = progress_queue.get_nowait()
-                            task.progress = 0.3 + progress * 0.6
+                            new_progress = 0.3 + progress * 0.6
+                            if new_progress > task.progress:
+                                task.progress = new_progress
                             task.current_step = step
                             await broadcast_scan_progress(scan_id, task)
                         except queue.Empty:
@@ -3195,12 +3237,13 @@ async def get_call_graph(request: CallGraphRequest):
 
         # 扫描触发点以标记 sink 节点（使用相同的语言过滤）
         scanner = SinkCallScanner(app_state.rule_manager)
-        language_filter = request.languages[0] if request.languages else None
+        language_filter = request.languages if request.languages else None
         sink_sites = await asyncio.to_thread(
             scanner.scan,
             code_units,
-            language_filter,
-            None
+            None,  # language（向后兼容）
+            None,  # categories
+            language_filter,  # BUG #1 Fix: languages
         )
         sink_symbols = {s.symbol for s in sink_sites}
 
