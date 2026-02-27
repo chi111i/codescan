@@ -720,7 +720,8 @@ class CodeIndexer:
                         "chunk_end_offset": end_offset,
                     })
 
-                    # P0-2: 所有 chunk 保留 calls/imports（用于调用图构建）
+                    # P0-2: 所有 chunk 保留 imports（用于调用图构建）
+                    # BUG #11 Fix: 只有第一个 chunk 保留 calls，避免调用图重复边
                     chunked_unit = CodeUnit(
                         id=chunk_id,
                         language=unit.language,
@@ -731,11 +732,11 @@ class CodeIndexer:
                         span=chunk_span,  # P0-3: 使用计算后的 span
                         code=chunk_code,
                         docstring=unit.docstring if i == 0 else None,
-                        calls=unit.calls,  # P0-2: 所有 chunk 保留 calls
-                        called_by=unit.called_by,
+                        calls=unit.calls if i == 0 else [],  # BUG #11 Fix: 仅首 chunk 保留 calls
+                        called_by=unit.called_by if i == 0 else [],
                         parent_class=unit.parent_class,
                         decorators=unit.decorators if i == 0 else [],
-                        imports=unit.imports,  # P0-2: 所有 chunk 保留 imports
+                        imports=unit.imports,  # imports 所有 chunk 保留（用于上下文理解）
                         metadata=chunk_metadata,
                         chunk_index=i,
                         total_chunks=total_chunks,
@@ -943,6 +944,9 @@ class CodeIndexer:
         logger.info(f"Found {total_files} files to index")
 
         if not files:
+            # BUG #10 Fix: 空目录时清除旧向量数据，避免残留
+            logger.warning(f"目录 {path} 无可索引文件，清除旧向量数据")
+            self.vector_store.clear()
             return 0
 
         # 解析所有文件
@@ -1591,11 +1595,11 @@ class CodeIndexer:
         else:
             logger.warning(f"目标路径不存在: {path}")
 
-    def get_all_units(self, limit: int = 10000) -> List[CodeUnit]:
+    def get_all_units(self, limit: int = 0) -> List[CodeUnit]:
         """获取所有代码单元
 
         Args:
-            limit: 最大返回数量
+            limit: 最大返回数量 (0 = 不限制)
 
         Returns:
             CodeUnit 列表
@@ -1747,6 +1751,10 @@ class CodeIndexer:
         root_path = Path(directory).resolve()
         if not root_path.exists():
             raise ValueError(f"目录不存在: {directory}")
+
+        # 与 index_directory 行为保持一致：更新当前目标路径，
+        # 使 read_file/list_files 等工具在 skip_index 模式下也能定位到正确项目。
+        self._current_target_path = root_path
 
         logger.info(f"直接解析目录（跳过索引）: {root_path}")
         logger.info(f"包含模式: {self.scan_config.include_patterns}")

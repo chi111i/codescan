@@ -54,6 +54,14 @@ class TreeSitterParser(ABC):
         self._queries: Dict[str, Any] = {}
         self._queries_dir: Optional[Path] = None
 
+    def is_available(self) -> bool:
+        """检查解析器是否可用（语言是否成功加载）
+
+        Returns:
+            语言已加载且解析器就绪返回 True
+        """
+        return self.language is not None
+
     @abstractmethod
     def _load_language(self) -> Optional['Language']:
         """加载语言语法

@@ -104,6 +104,12 @@ class LanguageLoader:
             elif language_name == "tsx":
                 if hasattr(module, 'language_tsx'):
                     capsule = module.language_tsx()
+            elif language_name == "php":
+                # tree_sitter_php 提供 language_php() 而非 language()
+                if hasattr(module, 'language_php'):
+                    capsule = module.language_php()
+                elif hasattr(module, 'language'):
+                    capsule = module.language()
             elif hasattr(module, 'language'):
                 capsule = module.language()
 

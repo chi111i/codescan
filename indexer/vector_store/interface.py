@@ -192,11 +192,11 @@ class VectorStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def get_all(self, limit: int = 10000) -> List[Any]:
-        """Get all code units (with limit)
+    def get_all(self, limit: int = 0) -> List[Any]:
+        """Get all code units
 
         Args:
-            limit: Maximum number to return
+            limit: Maximum number to return (0 = no limit)
 
         Returns:
             List of CodeUnit objects

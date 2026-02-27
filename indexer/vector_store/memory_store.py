@@ -555,11 +555,11 @@ class EnhancedInMemoryStore(VectorStoreInterface):
         """Get total vector count"""
         return len(self._id_to_idx)
 
-    def get_all(self, limit: int = 10000) -> List[Any]:
+    def get_all(self, limit: int = 0) -> List[Any]:
         """Get all code units
 
         Args:
-            limit: Max results
+            limit: Max results (0 = no limit)
 
         Returns:
             List of CodeUnit
@@ -567,7 +567,10 @@ class EnhancedInMemoryStore(VectorStoreInterface):
         from ..models import CodeUnit
 
         results = []
-        for unit_id in list(self._id_to_idx.keys())[:limit]:
+        keys = list(self._id_to_idx.keys())
+        if limit > 0:
+            keys = keys[:limit]
+        for unit_id in keys:
             payload = self._payloads.get(unit_id)
             if payload:
                 try:

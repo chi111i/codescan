@@ -1027,7 +1027,7 @@ class CodeReader:
                 regex = re.compile(escaped, flags)
 
             # 方案 B：索引辅助搜索 - 先从已索引的文件列表中筛选
-            # 获取所有已索引的文件
+            # 获取所有已索引的文件（并解析为可访问的绝对路径）
             indexed_files = set()
 
             if self.indexer and hasattr(self.indexer, 'get_all_units'):
@@ -1036,8 +1036,22 @@ class CodeReader:
                     if hasattr(unit, 'file_path') and unit.file_path:
                         indexed_files.add(unit.file_path)
 
-            # 如果没有索引，回退到目录扫描
-            if not indexed_files:
+            # 将索引中的路径标准化为绝对路径；过滤无效/越界路径
+            resolved_indexed_files = set()
+            for f in indexed_files:
+                try:
+                    p = Path(f)
+                    if not p.is_absolute():
+                        p = (self.project_path / p).resolve()
+                    else:
+                        p = p.resolve()
+                    if p.exists() and p.is_file():
+                        resolved_indexed_files.add(str(p))
+                except Exception:
+                    continue
+
+            # 如果没有可用索引文件，回退到目录扫描
+            if not resolved_indexed_files:
                 # 从项目根目录扫描文件（优先使用 self.project_path，避免 cwd() 的不可靠性）
                 project_root = self.project_path
                 if not project_root or not project_root.exists():
@@ -1061,15 +1075,15 @@ class CodeReader:
                         parts = file_path.parts
                         if any(p in {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build'} for p in parts):
                             continue
-                        indexed_files.add(str(file_path))
+                        resolved_indexed_files.add(str(file_path.resolve()))
 
             # 应用文件过滤
-            target_files = list(indexed_files)
+            target_files = list(resolved_indexed_files)
             if file_glob:
                 target_files = [
                     f for f in target_files
                     if fnmatch.fnmatch(Path(f).name, file_glob) or
-                       fnmatch.fnmatch(str(f), file_glob)
+                       fnmatch.fnmatch(str(f).replace("\\", "/"), file_glob)
                 ]
 
             # 按文件名排序，便于结果稳定
