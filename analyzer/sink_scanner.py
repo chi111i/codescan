@@ -112,20 +112,38 @@ class SinkCallScanner:
         code_units: List[CodeUnit],
         language: Optional[str] = None,
         categories: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
     ) -> List[SinkCallSite]:
         """扫描所有代码单元，找出危险函数触发点
 
         Args:
             code_units: 代码单元列表
-            language: 限定语言
+            language: 限定单语言（向后兼容）
             categories: 限定类别
+            languages: 限定多语言列表（优先于 language）
 
         Returns:
             SinkCallSite 列表
         """
-        # 获取所有 sink 规则
-        sink_rules = self.rule_manager.get_sinks(language)
-        logger.info(f"[SinkScanner] 加载了 {len(sink_rules)} 条 sink 规则")
+        # BUG #1 Fix: 支持多语言列表，不再只取第一个语言
+        lang_set: Optional[set] = None
+        if languages:
+            lang_set = set(languages)
+        elif language:
+            lang_set = {language}
+
+        # 获取所有 sink 规则（多语言时获取所有语言的规则并去重）
+        if lang_set:
+            seen_ids = set()
+            sink_rules = []
+            for lang in lang_set:
+                for rule in self.rule_manager.get_sinks(lang):
+                    if rule.id not in seen_ids:
+                        sink_rules.append(rule)
+                        seen_ids.add(rule.id)
+        else:
+            sink_rules = self.rule_manager.get_sinks(None)
+        logger.info(f"[SinkScanner] 加载了 {len(sink_rules)} 条 sink 规则 (languages={lang_set})")
 
         if not sink_rules:
             logger.warning("[SinkScanner] 没有找到 sink 规则")
@@ -135,7 +153,7 @@ class SinkCallScanner:
 
         for unit in code_units:
             # 语言过滤
-            if language and unit.language != language:
+            if lang_set and unit.language not in lang_set:
                 continue
 
             # 对每个规则进行匹配
@@ -172,6 +190,11 @@ class SinkCallScanner:
 
         # 合并同一位置的多条规则
         sites = self._merge_sites(sites)
+
+        # BUG #17 Fix: 按 categories 过滤（之前接收了参数但未使用）
+        if categories:
+            cat_set = set(categories)
+            sites = [s for s in sites if s.sink_category.value in cat_set]
 
         logger.info(f"[SinkScanner] 扫描完成，发现 {len(sites)} 个危险函数触发点")
         return sites

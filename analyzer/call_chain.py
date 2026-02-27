@@ -868,6 +868,7 @@ class CallChainAnalyzer:
         max_depth: int = 15,
         max_chains: int = 50,
         max_paths: int = None,
+        file_path: str = None,
     ) -> List[List[str]]:
         """查找到达指定 sink 的所有调用链路径
 
@@ -879,6 +880,7 @@ class CallChainAnalyzer:
             max_depth: 最大搜索深度
             max_chains: 最大返回链数
             max_paths: 最大返回链数（兼容旧参数名，优先使用）
+            file_path: BUG #4 Fix: 限定 sink 所在文件路径，避免同名函数串链
 
         Returns:
             路径列表，每个路径是节点符号名称列表（从入口到 sink）
@@ -894,6 +896,13 @@ class CallChainAnalyzer:
                 if node.qualified_name == sink_symbol or node.name == sink_symbol:
                     sink_nodes = [node]
                     break
+
+        # BUG #4 Fix: 按 file_path 精确过滤，避免同名函数串链
+        if file_path and sink_nodes:
+            normalized_fp = file_path.replace("\\", "/")
+            filtered = [n for n in sink_nodes if n.file_path.replace("\\", "/") == normalized_fp]
+            if filtered:
+                sink_nodes = filtered
 
         if not sink_nodes:
             logger.warning(f"找不到 sink 节点: {sink_symbol}")

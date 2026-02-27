@@ -225,13 +225,18 @@ class ChainContextCollector:
         self.call_chain_analyzer = call_chain_analyzer
         self.code_units = code_units or []
         self._unit_map: Dict[str, CodeUnit] = {}
+        # BUG #7 Fix: 按 (file_path, symbol) 精确索引，避免同名函数覆盖
+        self._unit_by_location: Dict[str, CodeUnit] = {}
 
         # 构建 unit 索引
         for unit in self.code_units:
             self._unit_map[unit.id] = unit
-            # 同时按 symbol 索引
+            # 同时按 symbol 索引（保留第一个，向后兼容）
             if unit.symbol not in self._unit_map:
                 self._unit_map[unit.symbol] = unit
+            # BUG #7 Fix: 按 file_path:symbol 精确索引
+            loc_key = f"{unit.file_path}:{unit.symbol}"
+            self._unit_by_location[loc_key] = unit
 
     def collect_context(
         self,
@@ -275,6 +280,10 @@ class ChainContextCollector:
 
         # 1. 获取 sink 所在的 CodeUnit
         sink_unit = self._unit_map.get(sink_site.unit_id)
+        # BUG #7 Fix: unit_id 找不到时，按 file_path:symbol 精确查找
+        if not sink_unit:
+            loc_key = f"{sink_site.file_path}:{sink_site.symbol}"
+            sink_unit = self._unit_by_location.get(loc_key)
         language = sink_unit.language if sink_unit else "unknown"
 
         # 2. 获取调用图

@@ -260,6 +260,7 @@ class SecurityAnalyzer:
         self,
         code_units: List[CodeUnit],
         language: Optional[str] = None,
+        languages: Optional[List[str]] = None,
     ) -> List[SinkCallSite]:
         """使用 SinkCallScanner 确定性扫描危险函数触发点
 
@@ -268,17 +269,19 @@ class SecurityAnalyzer:
 
         Args:
             code_units: 代码单元列表
-            language: 限定语言
+            language: 限定单语言（向后兼容）
+            languages: 限定多语言列表（优先于 language）
 
         Returns:
             SinkCallSite 列表
         """
         logger.info(f"[SinkScanner] 开始确定性扫描 {len(code_units)} 个代码单元")
 
-        # 使用 SinkCallScanner 进行扫描
+        # BUG #1 Fix: 支持多语言列表
         sink_sites = self.sink_scanner.scan(
             code_units=code_units,
             language=language,
+            languages=languages,
         )
 
         # 输出统计信息
@@ -404,6 +407,7 @@ class SecurityAnalyzer:
         vuln_types: Optional[List[str]] = None,
         progress_callback: Optional[callable] = None,
         use_llm: bool = True,
+        languages: Optional[List[str]] = None,
     ) -> List[Finding]:
         """统一的链级分析入口（P0 目标推荐流程）
 
@@ -454,7 +458,7 @@ class SecurityAnalyzer:
         # P0-1: 使用 SinkCallScanner 确定性扫描危险函数触发点
         # ============================================================
         logger.info("[P0-1] SinkCallScanner 确定性扫描...")
-        sink_sites = self.discover_sink_sites(code_units, language)
+        sink_sites = self.discover_sink_sites(code_units, language=language, languages=languages)
 
         if not sink_sites:
             logger.info("[P0-1] 未发现任何危险函数触发点")
@@ -571,8 +575,13 @@ class SecurityAnalyzer:
         )
 
         if not chain_contexts:
-            logger.warning("[P0-4] 未能收集到任何调用链上下文，回退到简单分析")
-            # 回退：直接使用 sink_sites 进行简单分析
+            logger.warning("[P0-4] 未能收集到任何调用链上下文")
+            # BUG #2 Fix: use_llm=False 时不走 LLM 回退路径
+            if not use_llm:
+                logger.info("[P0-4] use_llm=False，直接生成确定性 Finding（无上下文）")
+                findings = self._generate_deterministic_findings(sink_sites, [])
+                return self._filter_and_sort_findings(findings)
+            logger.info("[P0-4] 回退到简单 LLM 分析")
             return self._analyze_sink_sites_fallback(sink_sites, code_units, max_workers)
 
         logger.info(f"[P0-4] 收集了 {len(chain_contexts)} 个调用链上下文")
@@ -978,8 +987,20 @@ class SecurityAnalyzer:
                 return None
 
             # 检查是否存在问题
-            has_issue = result.get("has_issue", False)
-            if has_issue is False or has_issue == "false":
+            # BUG #18 Fix: 规范化 has_issue 布尔值（LLM 可能返回各种格式）
+            raw_has_issue = result.get("has_issue", False)
+            if isinstance(raw_has_issue, str):
+                lower_val = raw_has_issue.strip().lower()
+                if lower_val in ("true", "yes", "1"):
+                    has_issue = True
+                elif lower_val == "uncertain":
+                    has_issue = "uncertain"
+                else:
+                    has_issue = False
+            else:
+                has_issue = bool(raw_has_issue)
+
+            if has_issue is False:
                 logger.debug(f"[ChainLLM] 调用链 {chain_id} 未发现问题")
                 return None
 
@@ -1512,6 +1533,7 @@ class SecurityAnalyzer:
         max_llm_calls: int = 30,
         progress_callback: Optional[callable] = None,
         use_llm: bool = True,
+        languages: Optional[List[str]] = None,
     ) -> List[Finding]:
         """执行完整分析流程
 
@@ -1560,8 +1582,19 @@ class SecurityAnalyzer:
                 vuln_types=vuln_types,
                 progress_callback=progress_callback,
                 use_llm=use_llm,
+                languages=languages,
             )
         else:
+            # BUG #3 Fix: 非链路模式下也要尊重 use_llm 开关
+            if not use_llm:
+                logger.info("[Analyze] use_llm=False + use_chain_analysis=False，执行确定性扫描")
+                # 直接用 SinkCallScanner 扫描，不走 LLM
+                sink_sites = self.discover_sink_sites(code_units, language=language, languages=languages)
+                if not sink_sites:
+                    return []
+                findings = self._generate_deterministic_findings(sink_sites, [])
+                return self._filter_and_sort_findings(findings)
+
             # 不使用链级分析时，根据 use_agent 决定使用哪种模式
             use_agent_mode = use_agent if use_agent is not None else self.use_agent_mode
 
@@ -2199,7 +2232,8 @@ class SecurityAnalyzer:
                     chains = chain_analyzer.find_paths_to_sink(
                         sink_site.symbol,
                         max_depth=max_chain_depth,
-                        max_paths=max_chains_per_sink
+                        max_paths=max_chains_per_sink,
+                        file_path=sink_site.file_path,  # BUG #4 Fix: 精确定位避免同名串链
                     )
                 except Exception as e:
                     logger.warning(f"查找调用链失败: {e}")
@@ -2210,45 +2244,55 @@ class SecurityAnalyzer:
                     logger.debug(f"触发点 {sink_site.symbol} 没有调用链，直接分析")
                     chains = [[sink_site.symbol]]
 
-                # 对每条调用链进行分析
+                # BUG #5 Fix: 先收集一次上下文，避免每条链重复收集相同上下文
+                # collect_context 内部自行搜索路径，不区分外部传入的链
+                # 所以对同一 sink_site 只需收集一次
+                try:
+                    chain_context = context_collector.collect_context(
+                        sink_site,
+                        max_depth=max_chain_depth
+                    )
+                except Exception as e:
+                    logger.warning(f"收集调用链上下文失败: {e}")
+                    # 回退：仅使用触发点所在函数的代码
+                    unit = symbol_to_unit.get(sink_site.symbol)
+                    if unit:
+                        qualified_name = unit.symbol
+                        if unit.parent_class:
+                            qualified_name = f"{unit.parent_class}.{unit.symbol}"
+                        fallback_node = ChainNode(
+                            symbol=unit.symbol,
+                            qualified_name=qualified_name,
+                            file_path=unit.file_path,
+                            line_start=unit.span.start_line,
+                            line_end=unit.span.end_line,
+                            node_type="sink",
+                            code=unit.code,
+                            is_sink=True
+                        )
+                        chain_context = ChainContext(
+                            sink_site=sink_site,
+                            chain_nodes=[fallback_node],
+                            chain_length=1,
+                            risk_level=sink_site.risk_level.value if sink_site.risk_level else "medium"
+                        )
+                    else:
+                        chain_context = None
+
+                # 对每条调用链进行分析（使用链路径区分 ID，但共享上下文）
+                analyzed_context_hash = set()
                 for chain_idx, chain in enumerate(chains[:max_chains_per_sink]):
                     chain_id = f"chain-{sink_site.id}-{chain_idx}"
 
-                    # 收集调用链上下文
-                    try:
-                        # 正确调用 collect_context 方法
-                        chain_context = context_collector.collect_context(
-                            sink_site,
-                            max_depth=len(chain)
-                        )
-                    except Exception as e:
-                        logger.warning(f"收集调用链上下文失败: {e}")
-                        # 回退：仅使用触发点所在函数的代码
-                        unit = symbol_to_unit.get(sink_site.symbol)
-                        if unit:
-                            # 创建 ChainNode 需要 qualified_name
-                            qualified_name = unit.symbol
-                            if unit.parent_class:
-                                qualified_name = f"{unit.parent_class}.{unit.symbol}"
+                    if chain_context is None:
+                        continue
 
-                            fallback_node = ChainNode(
-                                symbol=unit.symbol,
-                                qualified_name=qualified_name,
-                                file_path=unit.file_path,
-                                line_start=unit.span.start_line,
-                                line_end=unit.span.end_line,
-                                node_type="sink",
-                                code=unit.code,
-                                is_sink=True
-                            )
-                            chain_context = ChainContext(
-                                sink_site=sink_site,
-                                chain_nodes=[fallback_node],
-                                chain_length=1,
-                                risk_level=sink_site.risk_level.value if sink_site.risk_level else "medium"
-                            )
-                        else:
-                            continue
+                    # BUG #5 Fix: 对相同上下文内容做去重，避免重复 LLM 调用
+                    ctx_hash = hash(tuple(n.qualified_name for n in chain_context.chain_nodes))
+                    if ctx_hash in analyzed_context_hash:
+                        logger.debug(f"跳过重复上下文: {chain_id}")
+                        continue
+                    analyzed_context_hash.add(ctx_hash)
 
                     # 构建分析 Prompt
                     prompt = self._build_chain_prompt_for_site(
@@ -2296,6 +2340,7 @@ class SecurityAnalyzer:
                                 code_units,
                                 on_tool_call=adapted_on_tool_call,
                                 on_llm_thinking=on_llm_thinking,
+                                chain_id=chain_id,  # BUG #6 Fix
                             )
                         else:
                             finding = self._analyze_chain_with_llm(
@@ -2473,8 +2518,8 @@ class SecurityAnalyzer:
             if not result or not result.get("has_issue"):
                 return None
 
-            # 生成确定性 Finding ID（同一漏洞跨扫描可去重）
-            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}"
+            # BUG #6 Fix: Finding ID 加入 chain_id，避免同 sink 多链路 ID 覆盖
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}:{chain_id}"
             finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
             finding_id = f"f-{finding_hash}"
 
@@ -2628,6 +2673,7 @@ class SecurityAnalyzer:
         code_units: List[CodeUnit],
         on_tool_call: Optional[callable] = None,
         on_llm_thinking: Optional[callable] = None,
+        chain_id: Optional[str] = None,
     ) -> Optional[Finding]:
         """使用 Function Calling 模式分析触发点
 
@@ -2770,8 +2816,9 @@ class SecurityAnalyzer:
             # 从结果构建 Finding
             parsed = result.parsed_result
 
-            # 生成确定性 Finding ID（同一漏洞跨扫描可去重）
-            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}"
+            # BUG #6 Fix: Finding ID 加入 chain_id（如有），避免同 sink 多链路 ID 覆盖
+            id_suffix = f":{chain_id}" if chain_id else ""
+            content_for_hash = f"{self.scan_id}:{sink_site.file_path}:{sink_site.line_start}:{sink_site.symbol}{id_suffix}"
             finding_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()[:12]
             finding_id = f"fc-{finding_hash}"
 
