@@ -29,11 +29,11 @@
     </div>
 
     <!-- Content Preview (only when completed) -->
-    <div v-if="!isThinking && call.content_preview" class="mb-3">
+    <div v-if="!isThinking && (summaryContent || fullContent)" class="mb-3">
       <div class="text-xs text-gray-500 mb-1 flex items-center justify-between">
         <span>响应摘要</span>
         <button
-          v-if="call.content && call.content !== call.content_preview"
+          v-if="canExpandContent"
           @click="showFullContent = !showFullContent"
           class="text-blue-500 hover:text-blue-600 transition-colors"
         >
@@ -42,10 +42,10 @@
       </div>
       <div class="text-sm text-gray-700 bg-blue-50/30 rounded-lg px-3 py-2">
         <template v-if="showFullContent">
-          <div class="whitespace-pre-wrap">{{ call.content }}</div>
+          <div class="whitespace-pre-wrap max-h-72 overflow-y-auto dark-scroll">{{ fullContent }}</div>
         </template>
         <template v-else>
-          <div class="line-clamp-3">{{ call.content_preview }}</div>
+          <div class="line-clamp-3">{{ summaryContent }}</div>
         </template>
       </div>
     </div>
@@ -137,6 +137,26 @@ const displayedToolCalls = computed(() => {
   return showAllToolCalls.value
     ? props.call.tool_calls
     : props.call.tool_calls.slice(0, 3)
+})
+
+const fullContent = computed(() => {
+  return props.call.content || props.call.content_preview || ''
+})
+
+const summaryContent = computed(() => {
+  if (props.call.content_preview) {
+    return props.call.content_preview
+  }
+  const content = fullContent.value || ''
+  const PREVIEW_LIMIT = 320
+  return content.length > PREVIEW_LIMIT
+    ? `${content.slice(0, PREVIEW_LIMIT)}...`
+    : content
+})
+
+const canExpandContent = computed(() => {
+  if (!fullContent.value) return false
+  return summaryContent.value !== fullContent.value
 })
 
 const formatArguments = (args) => {

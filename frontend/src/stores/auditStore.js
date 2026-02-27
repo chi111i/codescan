@@ -138,6 +138,24 @@ export const useAuditStore = defineStore('audit', () => {
   }
 
   /**
+   * 规范化助手回复文本，避免“工具调用:”结尾造成前端观感像被截断
+   */
+  const normalizeAssistantMessageContent = (content, toolCalls = []) => {
+    const text = typeof content === 'string' ? content : String(content || '')
+    if (!text) return ''
+
+    const normalized = text.trimEnd()
+    if (
+      Array.isArray(toolCalls) &&
+      toolCalls.length > 0 &&
+      /(工具调用|tool\s*call(?:s)?)[:：]?\s*$/i.test(normalized)
+    ) {
+      return `${normalized}\n（工具调用详情见下方列表）`
+    }
+    return text
+  }
+
+  /**
    * 添加聊天消息（带限制）
    */
   const addChatMessage = (message) => {
@@ -432,6 +450,9 @@ export const useAuditStore = defineStore('audit', () => {
       if (messagesResult.success) {
         chatMessages.value = (messagesResult.data.messages || []).map(m => ({
           ...m,
+          content: m.role === 'assistant'
+            ? normalizeAssistantMessageContent(m.content, m.tool_calls || [])
+            : m.content,
           timestamp: new Date(m.timestamp || Date.now()),
         }))
       }
@@ -542,7 +563,7 @@ export const useAuditStore = defineStore('audit', () => {
         const msg = result.data.message
         addChatMessage({
           role: 'assistant',
-          content: msg.content,
+          content: normalizeAssistantMessageContent(msg.content, msg.tool_calls || []),
           tool_calls: msg.tool_calls || [],
           timestamp: new Date(msg.timestamp || Date.now()),
         })
@@ -550,8 +571,6 @@ export const useAuditStore = defineStore('audit', () => {
         if (msg.tool_calls && msg.tool_calls.length > 0) {
           addToolCallHistory(...msg.tool_calls)
         }
-
-        sessionStats.value.total_llm_calls = (sessionStats.value.total_llm_calls || 0) + 1
 
         return msg
       }
@@ -845,14 +864,20 @@ export const useAuditStore = defineStore('audit', () => {
         if (data.data) {
           const lastMsg = chatMessages.value[chatMessages.value.length - 1]
           if (lastMsg && lastMsg._streaming) {
-            lastMsg.content = data.data.content
+            lastMsg.content = normalizeAssistantMessageContent(
+              data.data.content,
+              data.data.tool_calls || []
+            )
             lastMsg.tool_calls = data.data.tool_calls || []
             delete lastMsg._streaming
             triggerRef(chatMessages)  // 手动触发更新
           } else {
             addChatMessage({
               role: 'assistant',
-              content: data.data.content,
+              content: normalizeAssistantMessageContent(
+                data.data.content,
+                data.data.tool_calls || []
+              ),
               tool_calls: data.data.tool_calls || [],
               timestamp: new Date(),
             })
@@ -900,6 +925,12 @@ export const useAuditStore = defineStore('audit', () => {
           }
           // 重置当前调用状态，为下一次调用做准备
           currentLlmCall.value = null
+        }
+        // 统计：基于 llm_call_end 实时累加，避免顶部 “Token: 0”
+        sessionStats.value.total_llm_calls = Number(sessionStats.value.total_llm_calls || 0) + 1
+        const deltaTokens = Number(data.data?.usage?.total_tokens || 0)
+        if (deltaTokens > 0) {
+          sessionStats.value.total_tokens_used = Number(sessionStats.value.total_tokens_used || 0) + deltaTokens
         }
         currentProcessingStep.value = data.data?.tool_calls_count > 0
           ? `执行 ${data.data.tool_calls_count} 个工具调用`

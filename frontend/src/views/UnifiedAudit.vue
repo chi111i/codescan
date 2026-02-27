@@ -1369,7 +1369,7 @@ const escapeHtml = (str) => {
 }
 
 // 安全的 JSON 字符串化，限制长度并处理循环引用
-const safeStringify = (obj, maxLength = 1000) => {
+const safeStringify = (obj, maxLength = 0) => {
   try {
     const seen = new WeakSet()
     const str = JSON.stringify(obj, (key, value) => {
@@ -1381,7 +1381,7 @@ const safeStringify = (obj, maxLength = 1000) => {
       }
       return value
     }, 2)
-    if (str && str.length > maxLength) {
+    if (maxLength > 0 && str && str.length > maxLength) {
       return str.substring(0, maxLength) + '\n... (已截断)'
     }
     return str || ''
